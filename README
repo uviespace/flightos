@@ -1,0 +1,8 @@
+
+* run make config or make menuconfig first
+
+* if unsure, run make distclean or remove .config first
+
+
+* make V=1 for verbose output
+

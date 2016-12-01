@@ -1,0 +1,8 @@
+menu "Core Components"
+
+config SYSCTL
+	bool "sysctl interface"
+	default y
+	help
+	  Enable the use of the sysctl interface.
+endmenu

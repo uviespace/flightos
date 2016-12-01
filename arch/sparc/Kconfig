@@ -1,0 +1,16 @@
+
+
+### Arch specific settings
+
+
+
+
+
+# other
+
+source "init/Kconfig"
+
+source "kernel/Kconfig"
+
+source "lib/Kconfig"
+

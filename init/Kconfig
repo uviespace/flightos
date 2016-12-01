@@ -1,0 +1,84 @@
+config ARCH
+	string
+	option env="ARCH"
+
+config KERNELVERSION
+	string
+	option env="KERNELVERSION"
+
+
+
+menu "General Setup"
+
+config CROSS_PLATFORM_TARGET
+	bool "Cross-compile for different platform"
+	default y
+	help
+	 Compile for different target platform.
+
+config CROSS_COMPILE
+	string "Cross-compiler tool prefix"
+	default "" if !CROSS_PLATFORM_TARGET
+	default "sparc-elf-" if CROSS_PLATFORM_TARGET
+	help
+	  Same as running 'make CROSS_COMPILE=prefix-' but stored for
+	  default make runs in this kernel build directory.  You don't
+	  need to set this unless you want the configured kernel build
+	  directory to select the cross-compiler automatically.
+
+config TARGET_COMPILER_BOOT_CODE
+	bool "Use target compiler's boot/startup code"
+	default y if CROSS_PLATFORM_TARGET
+	help
+	  Use the compiler-provided boot code (e.g. BCC target)
+
+endmenu # "General Setup"
+
+
+menu "Compile-time checks and compiler options"
+
+choice
+	prompt "Compiler optimization level"
+	default CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
+
+config CC_OPTIMIZE_FOR_PERFORMANCE
+	bool "Optimize for performance"
+	help
+	  This is the default optimization level for the kernel, building
+	  with the "-O2" compiler flag for best performance and most
+	  helpful compile-time warnings.
+
+config CC_OPTIMIZE_FOR_SIZE
+	bool "Optimize for size"
+	help
+	  Enabling this option will pass "-Os" instead of "-O2" to
+	  your compiler resulting in a smaller kernel.
+
+	  If unsure, say N.
+endchoice
+
+config DEBUG_INFO
+	bool "Compile the application with debug info"
+	help
+          If you say Y here the resulting application binary will include
+	  debugging info resulting in a larger application binary.
+	  This adds debug symbols to the application (gcc -g), and
+	  is needed if you want to debug your application with gdb.
+	  Say Y here only if you plan to debug the application.
+
+	  If unsure, say N.
+
+config DEBUG_INFO_REDUCED
+	bool "Reduce debugging information"
+	depends on DEBUG_INFO
+	help
+	  If you say Y here gcc is instructed to generate less debugging
+	  information for structure types. This means that tools that
+	  need full debugging information (like gdb or systemtap) won't
+	  be happy. But if you merely need debugging information to
+	  resolve line numbers there is no loss. Advantage is that
+	  build directory object sizes shrink dramatically over a full
+	  DEBUG_INFO build and compile times are reduced too.
+	  Only works with newer gcc versions.
+
+endmenu

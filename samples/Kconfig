@@ -1,0 +1,14 @@
+menuconfig SAMPLES
+	bool "Sample and demo code"
+	help
+	  You can build and test example code here.
+
+if SAMPLES
+
+config SAMPLE_SYSCTL
+	bool "Build sysctl sample code"
+	depends on SYSCTL
+	help
+	  Build a sample demonstrating the use of the sysctl tree.
+
+endif # SAMPLES
