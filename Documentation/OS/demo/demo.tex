@@ -1,0 +1,51 @@
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
+
+
+\begin{document}
+
+\uvietitlepage%
+{Polarregionen im Klimawandel --\\Bedeutung für Europa und die Welt}%
+{Präsentation des neuen\\Österreichischen Polarforschungsinstituts}%
+{../shared/images/pyramid.eps}
+
+
+
+\requirement{SRT-0142} {Dynamic Allocation is kewl}{%
+Functions requiring memory allocation (such as message sends, partition creation) shall %
+use shares of static buffers instead of dynamic memory allocation during multi-tasking.%
+As such, at the time of starting the multi tasking, the memory requirements of %
+shall be frozen and within the limits given by the size of the static buffers.
+}{}%
+
+\requirement{SRT-0143} {Dynamic Allocation is kewl}{%
+Functions requiring memory allocation (such as message sends, partition creation) shall %
+use shares of static buffers instead of dynamic memory allocation during multi-tasking.%
+As such, at the time of starting the multi tasking, the memory requirements of %
+shall be frozen and within the limits given by the size of the static buffers.
+}{%
+This should catch dumbass stack pointer corruptions.
+}%
+
+\requirement{SRT-0145} {I R Baboon}{%
+	I M Weasel
+}{%
+LOLcats are awesome.
+}%
+
+
+\begin{description}
+  \item\design{SRT-0001} First design. \meetsreq{SRT-0143}
+  \item\design{SRT-0002} Second design. \meetsreq{SRT-0142}
+  \begin{description}
+    \item\design{SRT-0002.1} Third design. \meetsreq{SRT-0145}
+    \item\design{SRT-0002.2} Fourth design\meetsreq{SRT-0142, SRT-0145}
+  \end{description}
+\end{description}
+
+
+\traceabilitymatrix
+
+
+\end{document}

@@ -1,0 +1,611 @@
+
+
+\title{Architectural Design Document}
+\def \documentid {LEANOS-UVIE-ADD-001}
+\date{Issue 0.2, May 2, 2016}
+
+\newcommand\affil[1]{\textsuperscript#1}
+
+\def\preparedby {Armin Luntzer\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
+\def\approvedby {Franz Kerschbaum\affil{1}}
+
+\def\affiliations{
+	\affil{1} Department of Astrophysics, University of Vienna
+}
+
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
+\input{../shared/glossary.tex}
+
+\usepackage{vhistory}
+
+\usepackage{biblatex}
+\addbibresource{../shared/bibliography.bib}
+
+
+\externaldocument[REQ-]{../requirements/software_requirements}
+\input{../requirements/requirements.list}
+
+
+\rereadauxdesignlabels
+
+
+\begin{document}
+
+
+\setmainfont{MyriadPro-SemiCondensed}
+\uvietitlepage%
+{Lean OS --\\ An operating system for the SSDP}%
+{\doctitle}%
+{../shared/images/logo2.pdf}
+\setmainfont{MyriadPro}
+
+\approvalpage
+
+\tableofcontents
+\newpage
+
+
+\chapter*{List of Designs}
+\the\designlist
+
+
+\begin{versionhistory}
+  \vhEntry{0.0}{30.09.2015}{AL}{draft architecture created based on \gls{NGAPP}}
+  \vhEntry{0.1}{16.03.2016}{AL}{initial version with updated specifications from \gls{MPPB}v2}
+  \vhEntry{0.2}{14.04.2016}{AL}{revised after internal design review}
+\end{versionhistory}
+
+
+\chapter{Introduction}
+
+\section{Purpose of the Document}
+
+This document specifies the software architecture for the operating system
+kernel LeanOS. This document targets developers, testers and advanced users of
+LeanOS. It is assumed that the reader is familiar with the user requirements
+and/or the software user manual. \\
+
+
+\noindent
+This document follows the document structure for software design documents 
+found in Annex F of ECSS-E-ST-40C \cite{ECSS40C}.
+
+
+\section{Scope of the Software}
+
+The architectural design aims to be at a high degree of encapsulation, with a
+comparatively restricted number of system call interfaces to user space.
+The user \gls{API} of LeanOS will orient itself to \gls{POSIX} standards where
+applicable. Extra functionality that is typically found in supporting
+C libraries is part of the user space and must be implemented accordingly.
+
+
+
+\chapter{Applicable and Reference Documents} % does not break automatically for some reason
+
+\printbibliography[heading=none]
+
+
+\chapter{Terms, Definitions and Abbreviated Items}
+
+\printglossary[type=acronym]
+\printglossary[type=main, style=altlist]
+
+
+\chapter{Software Design Overview}
+
+
+
+\section{Software Static Architecture}
+
+\begin{figure}[htb]
+\begin{center}
+	\includegraphics[width=0.4\columnwidth]{images/OS_fundamental_architecture}
+	\caption{The fundamental architecture of LeanOS}
+	\label{fig:fundamental_architecture}
+\end{center}
+\end{figure}
+
+The fundamental architecture of LeanOS is shown in
+\fig{fig:fundamental_architecture}. At the top is the user space, where user
+applications are set up and executed. The C library is part of the user space.
+It provides the system call interface that connects the user to kernel space
+functionality and memory address space. Below the user space is the kernel
+space. Here, the tasks of the operating system kernel are executed.
+
+Kernel space can be further divided into three gross layers. At the top is the
+system call interface, which implements any I/O functionality to the user space.
+Below the system call interface is the architecture-independent kernel code.
+While LeanOS is not designed with a high degree of portability in mind, it is
+nonetheless sensible not to mix hardware dependent code into layers that run
+on abstract functional concepts. On the lowest level sits the
+architecture-dependent code, which forms what is typically called a \gls{BSP}.
+This code serves as platform-specific glue to the underlying hardware.
+
+
+\section{Software Dynamic Architecture}
+
+LeanOS itself has no real time requirements. It does offer real time support for
+threads in both kernel and user space, these are however specific to the
+implementation of user space code or drivers/modules.
+
+\section{Software Behaviour}
+
+The behaviour of LeanOS is configuration-dependent. Usually, the kernel will
+configure itself and the hardware, followed by user space initialisation.
+
+Without user space, all actions by the drivers or other subcomponents will be
+their default action in base configuration. To give an example, interface
+drivers will usually ignore their inputs and drop all received.
+
+
+
+
+\section{Interfaces Context}
+
+The internal and external software interfaces of LeanOS are described as part
+of its source code in Doxygen markup, from which a document can be generated.
+
+\section{Long Lifetime Software}
+
+LeanOS is designed with the \gls{SSDP} as a target platform. To allow re-use
+and adaptation to new hardware, the software components of LeanOS are designed
+to be modular. Unless neeeded for particular drivers, all hardware access is
+abstracted into a separate layer as much as possible, so improved portability
+is ensured.
+
+
+\section{Memory and CPU Budget}
+
+LeanOS is designed to work within the constraints of the \gls{SSDP} hardware
+specification. Care is taken to minimise overheads, but run time needs of the
+user ultimately define memory and CPU usage of the operating system.
+
+
+\section{Design Standards, Conventions and Procedures}
+
+The high level design of software functionality is done with the help of
+\emph{yEd}, which is a general-purpose diagramming program supporting the
+creation of UML, flowcharts and entitiy relationship diagrams.
+LeanOS is written primarily in C, hence certain restrictions apply in the use of
+UML, which is mainly used of object oriented programming languages such as C++.
+\\
+
+The software architecture is described on a component level and the interaction
+or communication between components. The detailed internal functional design of
+a component is left to the implementation and is described as part of the
+version dependent issue of the source code. This is done to ensure that a
+certain amount of flexibility is present in the implementation and changes that
+do not affect the fundamental design architecture of LeanOS can be applied
+quickly and efficiently, since it is foremost a tool to the user with the
+purpose of creating a run-time, not a product implementing a well constrained
+task.\\
+
+The Linux kernel coding style is applied to all C code in LeanOS. Its used is
+enforced by the \emph{checkpatch.pl} utility found in the Linux kernel source
+tree.\\
+
+No external software packages are reused in the implementation of LeanOS.
+
+
+\chapter{Software Design}
+
+
+\section{General}
+
+
+The purpose of LeanOS is to create an operating system that is easy to use and on
+point with regard to the features of the target platform. Still, it is designed
+to be flexible enough that the operating system kernel may be used with other
+(\gls{LEON3}) platforms. One of its distinguishing features is its focus on
+processing with the \gls{Xentium} \glspl{DSP}.\\
+
+\noindent
+When dealing with the particular features of the \gls{SSDP} or the \gls{MPPB}
+\cite{MPPB}, the term \emph{kernel} may be used in different contexts.
+With regard to processing and the \gls{Xentium} \glspl{DSP}, a
+\emph{processing kernel} is a small functional program that runs on the
+\gls{Xentium}, usually performing a single task. With regard to the general
+purpose processor and operating system features, the term \emph{kernel} refers
+to the operating system core program. \\
+
+\noindent
+Functional requirements are always reference to their design components, others
+only as needed or for clarification. This is reflected in the traceability
+matrix.
+
+
+
+\section{Overall Architecture}
+
+
+\begin{figure}[htb]
+\begin{center}
+	\includegraphics[width=\columnwidth]{../requirements/images/OS_logical}
+	\caption{The architectural model of LeanOS. Here, the "hardware" layer
+	represents both the hardware and the hardware abstraction layer of
+	the software.}
+	\label{fig:logical_model}
+\end{center}
+\end{figure}
+
+
+In LeanOS, the \gls{SSDP} hardware is accessed in multiple layers of
+abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
+thread/task management and timer operation are used as part of the operating
+system kernel and are also accessible by user applications via a system call
+interface. Other functional hardware components of the \gls{SSDP} such as the
+\gls{NoC} \gls{DMA} have their own driver modules. These are in turn used by the
+\gls{Xentium} scheduler and other higher level modules in the operating system.
+Configuration of and access to the latter from user space is done via a system
+call interface. The system control interface serves as an intermediate between
+all layers of the operating system, where system or module states and hardware
+modes or usage statistics may be exported by individual components for external
+(user) access.
+
+
+
+
+\section{Software Components Design - General}
+
+
+\design{GEN-0001}%
+{Boot}{%
+This is the hardware entry point of LeanOS. The boot procedure sets up and
+configures the \gls{LEON3-FT} processor for operation, initialises a minimum set of 
+needed hardware devices and memories as well as the initial system stack.
+}%
+{\meetsreq{GEN-0006, FUN-0007, FUN-0804}}{}
+
+
+
+\design{GEN-0002}
+{User Space}{%
+After the kernel has finished initialising, it calls a function
+\mbox{\emph{kernel\_init()}}
+that executes an \emph{init()} function configured by the user. This is the
+run-time adaptation point from which user space is started. From there, the user
+can start processes and reconfigure or load kernel options and modules via the
+system call or sysctl interfaces.
+}%
+{\meetsreq{FUN-0804}}{}
+
+
+
+\design{GEN-0003}%
+{Interrupts, Traps}
+{In order to operate a \gls{SPARC} v8 \gls{CPU} properly, a trap table must be
+configured, in particular to handle register window under and overflow traps if
+used with regular \gls{GCC} code generation for the target platform.
+LeanOS configures a callback system for interrupt traps that can later be used
+to install custom handlers, for example as part of driver modules.\newline
+
+Interrupt statistics are exported via the system control interface.
+}%
+{\meetsreq{GEN-0006, GEN-0009, GEN-0018, GEN-0010, FUN-0023}}%
+{The trap table and its function are described in \cite{SPARCv8} in detail.}
+
+
+
+\design{GEN-0004}%
+{Timers}{%
+Timing functionality is a core element of an operating system by scheduling
+periodic and non-periodic kernel wakeup events that subsequently control the
+system's exectuion. The operating system kernel maintains these timers to
+measure time or schedule kernel wakeups.
+
+In addition to the \gls{CPU} bound timers, the real-time clock of the \gls{SSDP}
+is supported.
+}%
+{\meetsreq{FUN-0011, FUN-0016, FUN-0017}}{}
+
+
+\design{GEN-0005}%
+{Kernel Mode}{%
+The operating system protects access to privileged registers by disabling
+supervisor mode when switching to userspace. On the \gls{SPARC}v8, traps enable
+supervisor mode, so the privileged mode is automatically entered when the kernel
+is executing after a trap/interrupt or a system call from userspace, which is
+also implemented via the trap table.\newline
+
+Kernel and unmapped memory access from userspace is protected by the \gls{MMU}.
+}%
+{\meetsreq{FUN-0803, FUN-0008}}{}
+
+
+\design{GEN-0006}%
+{\gls{MMU}}{%
+The kernel uses the \gls{MMU} to map pages of the system memory into a virtual
+address space for most of its own processes and for userspace.
+
+If needed, physical memory is directly accessible by driver components or
+mapped accordingly.
+
+}%
+{\meetsreq{FUN-0803, FUN-0008}}{The proper handling of address space translation
+is particularly relevant for use with the \gls{NoC} \gls{DMA} driver and
+\gls{Xentium} scheduler.}
+
+
+
+\design{GEN-0007}%
+{Thread Support}{%
+This component supports the definition and creation of tasks. Task priorities
+and scheduling deadlines are supported depending on the selected mode.\newline
+
+Synchronisation and execution control between threads is provided via semaphores
+and mutexes.
+}%
+{\meetsreq{FUN-0012, FUN-0013, FUN-0019}}{}
+
+
+\design{GEN-0008}%
+{Thread Scheduling}{%
+Threads are scheduled by the kernel according to their run state, their
+priorities and optionally their deadline.\newline
+
+The state of mutexes and semaphores is used to temporarily re-order priorities if
+needed, so lower priority threads do not block higher priority threads and vice
+versa when locks are employed.\newline
+
+Unless strict \gls{FIFO} mode is configured, threads of all scheduling
+priorities are regularly assigned an execution time slice. The lenght of this
+time slice decreases with priority. If \gls{gls-RR} scheduling is to be used,
+time slices are set to be equal for all threads regardless of priority.
+The latter is then only used to control re-ordering of the thread schedule to
+more efficiently solve mutex lock situations. The user is in any case
+responsible to assign different priorities to threads where deadlock situations
+might occur that cannot be resolved by the scheduler (e.g. with identical
+priorities).\newline
+
+Access to mutexes and semaphores result in random scheduling events if the lock
+is actively held or waited for by any other threads.
+In tickless mode, regular scheduling occurs when a thread is preempted at the
+end of its timeslice.\newline
+
+If the kernel is configured to tick periodically, scheduling events will occur
+at a configurable integer fraction of that rate.\newline
+
+A special type of real-time thread is supported, which, with the exception of
+an \gls{ISR} may also preempt the operating system kernel if its release
+condition occurs and may run to its deadline without being preempted by other
+threads. This functionality is reserved for highly timing-critical tasks and 
+is reserved to functionality and modules executed in kernel space.\newline
+
+
+If a multi-core processor is present in the system, the kernel can schedule
+tasks to run on more than one \gls{CPU} if so configured.
+
+}%
+{\meetsreq{FUN-0014, FUN-0015, FUN-0016, FUN-0017, FUN-0019, FUN-0020, GEN-0028}}{}
+
+
+\design{GEN-0009}%
+{Message Queues}{%
+Message queues are a facility for tasks/processes to communicate arbitrary 
+data to each other. A named queue is created by one thread and opened by at
+least one other thread. The threads can then send and receive messages
+of arbitrary length. If a thread wants to actively wait for a message, it can
+request to be notified is subsequently woken by the scheduler once a message
+arrives.
+}%
+{\meetsreq{FUN-0021}}{The implementation follows the \gls{POSIX} message
+queue \gls{API} definition.}
+
+
+\design{GEN-0010}%
+{Loadable Modules}{%
+Kernel modules can be loaded via the system call interface. The module is
+supplied as an \gls{ELF} binary that holds special sections that are executed
+by the kernel as their \emph{init()} or \emph{exit()} functions whenever
+they are loaded or unloaded. \newline
+
+The \emph{init} function of a module is typically
+used to configure its functionality within the kernel, e.g. register a
+thread, gain access to a hardware device or register an interrupt callback.
+If the module is no longer needed or explicitly unloaded by the user, the
+\emph{exit} function is used to de-register and clean up functionality
+used by the module. \newline
+
+Start-up arguments can be supplied to the module during loading. At run time,
+the module may publish its internal settings via the kernel's system control
+interface.
+}%
+{\meetsreq{FUN-0022}}{}
+
+
+\design{GEN-0011}%
+{System Control Interface}{%
+The system control interface is a generic parseable interface that is accessible
+from user- and kernel-space. It is modeled on a logical tree that holds nodes
+representing entries of kernel components and can be viewed as a file/directory
+structure. The input/output of each entry and how it may be parsed is defined
+by its creator and may be used for run-time configuration or statistics keeping.
+\newline
+
+Data may be read and written to the nodes and are exchanged via
+character-based text.\newline
+
+Special nodes may be created that allow exchange of raw binary data, for example
+internal memory dumps or configuration data.\newline
+
+The entries in a node are functions that are part of a module or system
+component. The component registers these functions along with a name and a
+positional branch name within the logical tree. Components may also define new
+branches where their interface is positioned.\newline
+
+If the node is read, the system control interface executes the associated
+output function of the component and returns a character buffer to the reader.
+\newline
+
+If the node is written, the writer-supplied buffer is passed to the component's
+internal associated input function and parsed by the latter. \newline
+
+Success or failure of the operation depends on the correct use of the individual
+make-up of the character buffers.
+}%
+{\meetsreq{FUN-0023, FUN-0024}}{}
+
+
+\design{GEN-0012}%
+{\gls{SpaceWire} Driver}{%
+The \gls{SpaceWire} devices of the \gls{SSDP} are accessible from user space via
+a file descriptor that can be read or written atomically.
+If a \gls{SpaceWire} device is only used in the \gls{Xentium} processing
+network, it may be configured by the driver for direct \gls{DMA} to the input
+buffer stage. Similarly, it may be used with \gls{DMA} for the output buffer
+stage.
+
+If the \gls{RMAP} feature is to be used, the configured physical memory block
+is mapped into a virtual memory space.
+}%
+{\meetsreq{FUN-0025, FUN-0026, FUN-0027}}{}
+
+
+\design{GEN-0013}%
+{\gls{ADC}/\gls{DAC} Driver}{%
+The \gls{ADC}/\gls{DAC} devices of the \gls{SSDP} are accessible from user
+space via a file descriptor that can be read or written atomically.
+If a \gls{ADC} device is only used in the \gls{Xentium} processing
+network, it may be configured by the driver for direct \gls{DMA} to the input
+buffer stage. Similarly, the \gls{DAC} may be used with \gls{DMA} for the
+output of the processing chain.
+}%
+{\meetsreq{FUN-0025}}{}
+
+
+\design{GEN-0014}%
+{Xentium Driver}{%
+The \gls{Xentium} driver and scheduler loads binary images of functional
+\gls{DSP} program kernels via a system call interface. Each image is assigned a
+signature that identifies the type of function of the \gls{DSP} kernel and a
+mask that control the number of instances and \gls{Xentium} \glspl{DSP} it
+may run on at any time. \newline
+
+To each \gls{DSP} kernel image, an input buffer is assigned, which stores
+references to metadata packets. Buffer fill level thresholds are defined that
+control the dynamic processing priority during run-time. \newline
+
+The first threshold defines the \emph{minimum} fill level above which the
+processing kernel may be scheduled. This is relevant in situations where more
+than input packets are needed to perform a task.
+
+The second threshold is the \emph{low} threshold.
+As long as the buffer fill level is below this threshold, it is only scheduled
+with the lowest priority. If the level is above the \emph{low} threshold, the
+buffer contents are scheduled with \emph{medium} priority. \newline
+
+The third threshold is the \emph{high} threshold. If the buffer level exceeds
+this threshold, it is scheduled for processing with the highest priority.
+}%
+{\meetsreq{FUN-0026}}{%
+The minimum input threshold is useful in situations where the processing kernel
+must combine individual data segments, for example when stacking individual
+frames that passed through preprocessing stages earlier.
+}
+
+
+\design{GEN-0015}%
+{Xentium Queues}{%
+The scheduling queues are ordered by buffer fill level. The queue is updated
+as packets move between metadata buffers. The update mechanism is part of the
+metadata buffers and triggers a message to the driver whenever a level threshold
+is either over- or underrun and the most recent critical (\emph{high}) buffer is
+moved to the head of the queue. If all buffers are above the \emph{high}
+threshold, they are processed in an \gls{gls-RR} pattern. \newline
+
+The driver maintains a separate \emph{bonded} queue for each \gls{DSP} that
+holds program kernels that are allowed to run only on a particular \gls{DSP} and
+one shared queue that holds all other kernels. The scheduling priority of
+equal-level buffer states of bonded queues is higher than the shared queue,
+i.e. buffers above the \emph{high} threshold in a bonded queue are processed
+first, followed by the \emph{high} buffers in the shared queue, followed by the
+\emph{medium} level buffers in the bonded queue etc.
+}%
+{\meetsreq{FUN-0027}}{}
+
+
+\design{GEN-0016}%
+{Xentium Scheduler}{%
+If a program kernel's buffer is above the \emph{high} threshold, duplicates of
+the program kernel may be scheduled to run in parallel on other \glspl{DSP}
+according to the kernel's control mask. If more than two \glspl{Xentium} are
+available in the system, the distribution scheduling algorithm ensures that 
+all available \glspl{DSP} are assigned a program kernel above the \emph{high}
+threshold with respect to their queues before scheduling duplicate instances.
+If \glspl{DSP} are available, the head of the queue is duplicated according to
+its control mask, followed by the next item and so on, as long as free
+\glspl{Xentium} are available and pending \emph{high} threshold buffers exist
+in the queue. \newline
+
+The driver also maintains a special type of metadata buffer for input and output
+nodes that connect the \gls{Xentium} processing chain to external data links
+or mass storage. Of these, the input buffers are processed with the highest
+absolute priority relative to their fill status. This is done to ensure that
+if a data flow stall occurs, it does so as far back in the processing chain as
+possible and data input is maintained until all buffers are filled to their
+limit.
+}%
+{\meetsreq{FUN-0026, FUN-0027}}{%
+Typically, the input buffer is the input for a special \gls{DSP} kernel
+that processes and interprets the incoming data stream (of e.g. \gls{PUS} 
+packets) and prepares and/or distributes metadata packets to the inputs of the
+processing kernels accoring to the desired application.
+}
+
+
+
+\design{GEN-0017}%
+{Xentium Data Buffers}{%
+The metadata buffers track metadata packets as they move through the processing
+network. With the exception of the input buffers to the network, they are
+the input of one and the output of an arbitrary number \gls{Xentium} program
+kernels. Each item in a buffer corresponds to one metadata packet descriptor.
+\newline
+
+A metadata packet holds a pointer to data buffers of arbitrary size and a
+field describing a route through the processing network of available kernels
+by their signature identifier, i.e. it defines its own processing chain.
+Each entry holds an associated pointer to an optional argument field, which may
+hold parameters for the processing kernel. \newline
+
+Program kernels may collect one or more of these packets at their input
+depending on their processing functionality and either operate on the contents
+of the packet or generate new packets from one or more input packets.
+\newline
+
+As the packet moves through the kernels, items on the processing routing 
+stack are moved to a history field and they are output into a meta-buffer
+according to their pending routing node.
+}%
+{\meetsreq{FUN-0027}}{}
+
+
+
+
+
+\section{Software Components Design - Aspects of each Component}
+
+The detailed design of the individual components is documented as part of 
+their source code in Doxygen markup. This ensures continued flexibility in
+development and allow for effortless maintainance of a fully update state
+between the implementation and its detailed documentation.
+
+\section{Internal Interface Design}
+
+The internal interfaces of the operating system are described as part of the
+source code in Doxygen markup and may be generated from there.
+
+\section{Requirements to Design Components Traceability}
+
+\noindent
+Functional requirements are always reference to their design components, others
+only as needed or for clarification. This is reflected in the traceability
+matrix.
+
+\traceabilitymatrix
+
+\end{document}

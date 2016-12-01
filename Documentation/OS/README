@@ -1,0 +1,16 @@
+
+requirements first, then architecture
+
+compile with:
+
+xelatex --interaction=nonstopmode <file>
+
+makeglossaries <file>
+
+biber <file>
+
+then recompile
+
+
+TODO: Makefile
+
