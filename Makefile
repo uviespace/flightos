@@ -2,7 +2,7 @@ VERSION = 0
 PATCHLEVEL = 0
 SUBLEVEL = 1
 EXTRAVERSION =
-NAME = Zombeaver 
+NAME = Zombeaver
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -569,7 +569,7 @@ export KBUILD_IMAGE ?= leanos
 export	INSTALL_PATH ?= ./install
 
 
-core-y		:= arch/sparc/ 
+core-y		:= arch/sparc/
 init-y		:= init/
 libs-y		:= lib/
 
@@ -669,6 +669,16 @@ headerdep:
 	$(Q)find $(srctree)/include/ -name '*.h' | xargs --max-args 1 \
 	$(srctree)/scripts/headerdep.pl -I$(srctree)/include
 
+# ---------------------------------------------------------------------------
+# Unit tests
+
+PHONY += unittest
+unittest:
+	$(Q)$(MAKE) -C tools/testing/unittest run_tests
+
+unittest-clean:
+	$(Q)$(MAKE) -C tools/testing/unittest clean
+
 
 ###
 # Cleaning is done on three levels.
@@ -754,7 +764,7 @@ help:
 	@echo  '  dir/file.lst    - Build specified mixed source/assembly target only'
 	@echo  '                    (requires a recent binutils and recent build (System.map))'
 	@echo  '  kernelversion	  - Output the version stored in Makefile (use with make -s)'
-	 echo  ''
+	@echo  ''
 	@echo  'Static analysers'
 	@echo  '  includecheck    - Check for duplicate included header files'
 	@echo  '  headerdep       - Detect inclusion cycles in headers'
@@ -768,6 +778,11 @@ help:
 	@echo  '		1: warnings which may be relevant and do not occur too often'
 	@echo  '		3: more obscure warnings, can most likely be ignored'
 	@echo  '		Multiple levels can be combined with W=12 or W=123'
+	@echo  ''
+	@echo  'Unit Tests'
+	@echo  '  unittest       - Build and run tests'
+	@echo  '  unittest-clean - Remove all test files'
+	@echo  ''
 	@echo  ''
 	@echo  'Execute "make" or "make all" to build all targets marked with [*] '
 	@echo  'For further info see the ./README file'
