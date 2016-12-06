@@ -485,6 +485,26 @@ static void sysset_show_tree_test(void)
 }
 
 
+/*
+ * @test sysctl_init_test
+ */
+static void sysctl_init_test(void)
+{
+
+	/* TODO not fully covered, needs 3x failing malloc() */
+#if 0
+	malloc_test_wrapper(ENABLED);
+	KSFT_ASSERT(sysctl_init() == -1);
+	KSFT_ASSERT(sysctl_init() == -1);
+	KSFT_ASSERT(sysctl_init() == -1);
+#endif
+
+	KSFT_ASSERT(sysctl_init() ==  0);
+
+	/* internals */
+	free(driver_set);
+	free(sys_set);
+}
 
 
 int main(int argc, char **argv)
@@ -550,7 +570,10 @@ int main(int argc, char **argv)
 	 	   sysset_find_obj_test);
 
 	KSFT_RUN_TEST("sysset show tree",
-			   sysset_show_tree_test);
+		   sysset_show_tree_test);
+
+	KSFT_RUN_TEST("sysctl init",
+		   sysctl_init_test);
 
 
 	printf("syctl interface test complete:\n");
