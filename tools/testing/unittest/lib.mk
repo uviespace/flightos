@@ -16,13 +16,24 @@ endef
 run_tests: all
 	$(RUN_TESTS)
 
-define EMIT_TESTS
+define COVERAGE_TESTS
 	@for TEST in $(TEST_PROGS); do \
-		echo "(./$$TEST && echo \"selftests: $$TEST [PASS]\") || echo \"selftests: $$TEST [FAIL]\""; \
+		lcov --rc lcov_branch_coverage=1 --capture --directory ./ --output-file coverage.info; \
+		genhtml --branch-coverage coverage.info --output-directory out; \
 	done;
 endef
 
-emit_tests:
-	$(EMIT_TESTS)
+coverage_tests: run_tests
+	$(COVERAGE_TESTS)
 
-.PHONY: run_tests all clean emit_tests
+
+define CLEAN_COVERAGE
+	@for TEST in $(TEST_PROGS); do \
+		$(RM) -r $$TEST $$TEST.gcno $$TEST.gcda coverage.info out/; \
+	done;
+endef
+
+clean_coverage:
+	$(CLEAN_COVERAGE)
+
+.PHONY: run_tests all clean coverage_tests clean_coverage

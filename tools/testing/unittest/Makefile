@@ -6,14 +6,13 @@ TARGETS += sysctl
 # Makefile to avoid test build failures when test
 # Makefile doesn't have explicit build rules.
 
-CFLAGS += -fprofile-arcs -ftest-coverage
+
+export CFLAGS = -fprofile-arcs -ftest-coverage
+export LDFLAGS = -lgcov --coverage
 
 ifeq (1,$(MAKELEVEL))
-override LDFLAGS =
 override MAKEFLAGS =
 else
-export CFLAGS
-export LDFLAGS = -lgcov --coverage
 endif
 
 
@@ -26,9 +25,20 @@ run_tests: all
 	for TARGET in $(TARGETS); do \
 		make -C $$TARGET run_tests; \
 	done;
-clean:
+
+coverage_tests: all
+	for TARGET in $(TARGETS); do \
+		make -C $$TARGET coverage_tests; \
+	done;
+
+clean_coverage:
+	for TARGET in $(TARGETS); do \
+		make -C $$TARGET clean_coverage; \
+	done;
+
+clean: clean_coverage
 	for TARGET in $(TARGETS); do \
 		make -C $$TARGET clean; \
 	done;
 
-.PHONY: install
+.PHONY: 
