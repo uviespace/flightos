@@ -263,13 +263,14 @@ NOSTDINC_FLAGS  =
 CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 
-# Use MYAPPINCLUDE when you must reference the include/ directory.
+# Use KERNELINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
-MYAPPINCLUDE    := \
+KERNELINCLUDE    := \
+                -I$(srctree)/arch/$(SRCARCH)/include \
 		$(if $(KBUILD_SRC), -I$(srctree)/include) \
 		-Iinclude -include include/generated/autoconf.h
 
-KBUILD_CPPFLAGS := -D__MYAPP__
+KBUILD_CPPFLAGS := -D__KERNEL__
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
@@ -289,7 +290,7 @@ export CPP AR NM STRIP OBJCOPY OBJDUMP
 export MAKE AWK PERL PYTHON
 export HOSTCXX HOSTCXXFLAGS CHECK CHECKFLAGS
 
-export KBUILD_CPPFLAGS NOSTDINC_FLAGS MYAPPINCLUDE OBJCOPYFLAGS LDFLAGS
+export KBUILD_CPPFLAGS NOSTDINC_FLAGS KERNELINCLUDE OBJCOPYFLAGS LDFLAGS
 export KBUILD_CFLAGS CFLAGS_KERNEL
 export KBUILD_AFLAGS AFLAGS_KERNEL
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
@@ -569,7 +570,8 @@ export KBUILD_IMAGE ?= leanos
 export	INSTALL_PATH ?= ./install
 
 
-core-y		:= arch/sparc/
+core-y		:= arch/$(SRCARCH)/
+kernel-y	:= kernel/
 init-y		:= init/
 libs-y		:= lib/
 
@@ -578,13 +580,15 @@ libs-y		:= lib/
 leanos-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(init-y) \
 		     $(core-y) \
+		     $(kernel-y) \
 		     $(libs-y)))
 #
 leanos-core	:= $(patsubst %/, %/built-in.o, $(core-y))
+leanos-kernel	:= $(patsubst %/, %/built-in.o, $(kernel-y))
 leanos-init	:= $(patsubst %/, %/built-in.o, $(init-y))
 leanos-libs	:= $(patsubst %/, %/lib.a, $(libs-y))
 
-leanos-deps	:= $(leanos-init) $(leanos-core) $(leanos-libs)
+leanos-deps	:= $(leanos-init) $(leanos-core) $(leanos-kernel) $(leanos-libs)
 
 quiet_cmd_leanos = LD      $@
       cmd_leanos = $(CC) $(LDFLAGS) -o $@                          \

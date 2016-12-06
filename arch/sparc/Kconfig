@@ -1,7 +1,22 @@
-
+menu "SPARC Configuration"
 
 ### Arch specific settings
 
+config PAGE_OFFSET
+	bool "Use an offset in physical/virtual page address conversion"
+	default n
+	help
+	  Use a fixed offset when computing the virtual and physical page
+	  addresses.
+
+config EXTRA_SPARC_PHYS_BANKS
+	int "Number of extra physical memory banks"
+	default 0
+	range 0 31
+	help
+	 Set number of additional physical memory banks if the machine has more
+	 than one.
+endmenu
 
 
 

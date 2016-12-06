@@ -1,0 +1,13 @@
+config KERNEL_LEVEL
+	int "Kernel debug level"
+	default "7"
+	help
+	 Limit the kernel's debug message level:
+	 0: emergency
+	 1: alerts
+	 2: critical conditions
+	 3: error conditions
+	 4: warnings
+	 5: notices
+	 6: informational
+	 7: debug
