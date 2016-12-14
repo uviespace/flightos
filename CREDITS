@@ -1,0 +1,7 @@
+* for the stuff taken from linux, see linux-stable/CREDITS
+  at git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+
+* the kbuild skeleton from the linux kernel source tree was prepared by
+  Ole Reinhardt <ole.reinhardt@embedded-it.de> and may be found
+  at https://github.com/embedded-it/kbuild-template.git
+
