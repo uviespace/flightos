@@ -1,7 +1,12 @@
+/**
+ * @file include/kernel/kernel_levels.h
+ *
+ * from linux/kern_levels.h
+ */
+
 #ifndef _KERNEL_LEVELS_H_
 #define _KERNEL_LEVELS_H_
 
-/* stole that from linux/kern_levels.h */
 
 #define KERN_SOH        "\001"          /* ASCII Start Of Header */
 #define KERN_SOH_ASCII  '\001'

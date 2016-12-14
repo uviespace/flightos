@@ -1,6 +1,6 @@
 /**
- * @file include/errno.h>
- * 
+ * @file include/errno.h
+ *
  * from linux/include/asm-generic/errno.h
  */
 

@@ -2,8 +2,8 @@
  * @file include/kernel/sysctl.h
  */
 
-#ifndef SYSCTL_H
-#define SYSCTL_H
+#ifndef _KERNEL_SYSCTL_H_
+#define _KERNEL_SYSCTL_H_
 
 #include <sys/types.h>
 #include <list.h>
