@@ -18,6 +18,31 @@ config EXTRA_SPARC_PHYS_BANKS
 	 than one.
 endmenu
 
+menu "Memory Management Settings"
+	depends on MM
+
+config MM_BLOCK_ORDER_MAX
+	int "Memory block order upper limit"
+	depends on MM
+	default 26
+	range 6 32
+	help
+	  The upper limit order (i.e. 2^N bytes) of the largest trackable memory
+	  block. If unsure, set this to the size order of your largest single
+	  memory bank.
+	  Allowed order range is 6 to 31.
+
+config MM_BLOCK_ORDER_MIN
+	int "Memory block order lower limit"
+	depends on MM
+	default 12
+	range 5 30
+	help
+	  The lower limit order (i.e. 2^N bytes) of the smallest trackable
+	  memory block. If unsure, choose the page size of the platform.
+	  Allowed order range is 5 to 30.
+
+endmenu
 
 
 

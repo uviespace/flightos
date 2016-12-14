@@ -11,4 +11,10 @@ config SAMPLE_SYSCTL
 	help
 	  Build a sample demonstrating the use of the sysctl tree.
 
+config SAMPLE_MM
+	bool "Build memory management sample code"
+	depends on MM
+	help
+	  Build a sample demonstrating the use of the memory management system.
+
 endif # SAMPLES
