@@ -16,13 +16,12 @@ config EXTRA_SPARC_PHYS_BANKS
 	help
 	 Set number of additional physical memory banks if the machine has more
 	 than one.
-endmenu
 
 menu "Memory Management Settings"
 	depends on MM
 
-config MM_BLOCK_ORDER_MAX
-	int "Memory block order upper limit"
+config SPARC_MM_BLOCK_ORDER_MAX
+	int "Initial memory block order upper limit"
 	depends on MM
 	default 26
 	range 6 32
@@ -32,8 +31,8 @@ config MM_BLOCK_ORDER_MAX
 	  memory bank.
 	  Allowed order range is 6 to 31.
 
-config MM_BLOCK_ORDER_MIN
-	int "Memory block order lower limit"
+config SPARC_MM_BLOCK_ORDER_MIN
+	int "Initial memory block order lower limit"
 	depends on MM
 	default 12
 	range 5 30
@@ -42,8 +41,20 @@ config MM_BLOCK_ORDER_MIN
 	  memory block. If unsure, choose the page size of the platform.
 	  Allowed order range is 5 to 30.
 
+config SPARC_INIT_PAGE_MAP_MAX_ENTRIES
+	int "Maximum number of mappings in initial page map"
+	depends on MM
+	default 8
+	range EXTRA_SPARC_PHYS_BANKS 32
+	help
+	  Configures the storage space for the initial page map. It's wise to
+	  say at least EXTRA_SPARC_PHYS_BANKS here.
+
 endmenu
 
+
+
+endmenu
 
 
 # other

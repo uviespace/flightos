@@ -6,6 +6,7 @@
 #define _SPARC_MM_H_
 
 #include <kernel/mm.h>
+#include <kernel/page.h>
 
 /* The following structure is used to hold the physical
  * memory configuration of the machine.  This is filled in
@@ -26,13 +27,13 @@ struct sparc_physical_banks {
 #define SPARC_PHYS_BANKS 0
 #endif
 
-#define MEM_PAGE_NODE(x)	(&page_mem[(x)])
+extern struct sparc_physical_banks sp_banks[SPARC_PHYS_BANKS + 1];
 
-extern struct sparc_physical_banks sp_banks[SPARC_PHYS_BANKS+1];
 
+/* linker symbol marking the the start of the program (image) */
+extern char start[];
 /* linker symbol marking the the end of the program */
-extern char _end[];
-
+extern char end[];
 
 
 /* The default configuration allows for at most 32 MiB sized blocks
@@ -40,30 +41,34 @@ extern char _end[];
  * all blocks.
  */
 
-#if defined(CONFIG_MM_BLOCK_ORDER_MAX)
-#define MM_BLOCK_ORDER_MAX CONFIG_MM_BLOCK_ORDER_MAX
+#if defined(CONFIG_SPARC_MM_BLOCK_ORDER_MAX)
+#define MM_BLOCK_ORDER_MAX CONFIG_SPARC_MM_BLOCK_ORDER_MAX
 #else
 #define MM_BLOCK_ORDER_MAX 26
 #endif
 
-#if defined(CONFIG_MM_BLOCK_ORDER_MIN)
-#define MM_BLOCK_ORDER_MIN CONFIG_MM_BLOCK_ORDER_MIN
+#if defined(CONFIG_SPARC_MM_BLOCK_ORDER_MIN)
+#define MM_BLOCK_ORDER_MIN CONFIG_SPARC_MM_BLOCK_ORDER_MIN
 #else
-#define MM_BLOCK_ORDER_MIN 12
+#define MM_BLOCK_ORDER_MIN 12 /* SRMMU page size */
 #endif
 
 compile_time_assert(MM_BLOCK_ORDER_MIN < MM_BLOCK_ORDER_MAX,\
 		    MM_BLOCK_LIMITS_INVALID);
 
 
-extern
-unsigned long mm_init_bitmap[MM_BITMAP_LEN(MM_BLOCK_ORDER_MAX,
-					   MM_BLOCK_ORDER_MIN)];
-extern
-unsigned char mm_init_alloc_order[MM_NUM_BLOCKS_TRACKABLE(MM_BLOCK_ORDER_MAX,
-							  MM_BLOCK_ORDER_MIN)];
-extern
-struct list_head mm_init_block_order[(MM_BLOCK_ORDER_MAX + 1)];
+#define MM_INIT_NUM_BLOCKS MM_NUM_BLOCKS_TRACKABLE(MM_BLOCK_ORDER_MAX,\
+						   MM_BLOCK_ORDER_MIN)
+
+#define MM_INIT_LEN_BITMAP MM_BITMAP_LEN(MM_BLOCK_ORDER_MAX,\
+					 MM_BLOCK_ORDER_MIN)
+
+/* initial block tracking bitmap */
+extern unsigned long mm_init_bitmap[MM_INIT_LEN_BITMAP];
+/* initial block allocation size tracking */
+extern unsigned char mm_init_alloc_order[MM_INIT_NUM_BLOCKS];
+/* initial block order anchor */
+extern struct list_head mm_init_block_order[MM_BLOCK_ORDER_MAX + 1];
 
 
 

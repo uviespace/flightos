@@ -48,7 +48,38 @@ config MM_DEBUG_DUMP_BLOCK_STATS
 	default n
 	help
 	  Dump the allocation statistics for each block order.
+endmenu
 
+
+config PAGE_MAP
+	bool "Page Map"
+	depends on MM
+	default y
+	help
+	  Enable page map management. Can hold multiple nodes and returns
+	  references to pages as configured per each node.
+
+menu "Page Map Options"
+	depends on PAGE_MAP
+
+config PAGE_MAP_CHECK_PAGE_ALIGNMENT
+	depends on PAGE_MAP
+	bool "Extra check for alignment in page address"
+	default n
+	help
+	  Make sure the address of the allocated page is really aligned
+	  to the page size of the underlying memory manager. This does not
+	  prevent misconfiguration, just adds a functional verification step.
+
+config PAGE_MAP_MOVE_NODE_AVAIL_THRESH
+	depends on PAGE_MAP
+	int "Threshold for empty page node to be considered filled again"
+	default 1
+	range 1 1024
+	help
+	  When page map node run out of pages, they are moved to a list of
+	  empty nodes until a number of pages are freed, defined by the
+	  threshold above. If unsure, use a threshold of 1.
 
 endmenu
 

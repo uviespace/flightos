@@ -340,7 +340,7 @@ static unsigned long mm_fixup_validate(struct mm_pool *mp,
 
 	if (order < mp->min_order) {
 		pr_info("MM: requested order (%d) smaller than minimum pool"
-			"order (%d) in call from %p.\n",
+			"order (%d) in call from %p, readjusting\n",
 			order, mp->min_order, __caller(1));
 		order = mp->min_order;
 	}
@@ -368,7 +368,7 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	unsigned long i;
 	unsigned long order;
 
-	struct mm_blk_lnk  *blk  = NULL;
+	struct mm_blk_lnk *blk  = NULL;
 	struct list_head *list = NULL;
 
 
@@ -409,12 +409,13 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 			break;
 	}
 
-
-	BUG_ON(list_empty(list));
+	if(list_empty(list)) {
+		pr_debug("MM: pool %p out of blocks for order %lu\n",
+			 mp, order);
+		goto exit;
+	}
 
 	blk = list_entry(list->next, struct mm_blk_lnk, link);
-
-
 
 	list_del(&blk->link);
 
@@ -426,6 +427,9 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 		mm_split_blk(mp, blk, i);
 
 
+	mp->alloc_blks += (1UL << (order - mp->min_order));
+
+exit:
 	return blk;
 }
 
@@ -436,6 +440,7 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
  * @param mp    a struct mm_pool
  * @param addr  the address of the block
  * @param order the order of the block
+ *
  */
 
 void mm_free(struct mm_pool *mp, const void *addr)
@@ -462,14 +467,71 @@ void mm_free(struct mm_pool *mp, const void *addr)
 
 	if (!IS_ERR_VALUE(order)) {
 		mm_upmerge_blks(mp, (struct mm_blk_lnk *) addr);
+		mp->alloc_blks -= (1UL << (order - mp->min_order));
 		goto exit;
 	}
 
 error:
-	pr_err("MM: double free, invalid size or untracked block %p in call "
+	pr_info("MM: double free, invalid size or untracked block %p in call "
 	       "from %p\n", addr, __caller(0));
+
 exit:
 	return;
+}
+
+
+/**
+ * @brief returns number of free blocks at block granularity
+ *
+ * @param mp	a struct mm_pool
+ *
+ * @return number of free blocks at block granularity
+ */
+
+unsigned long mm_unallocated_blocks(struct mm_pool *mp)
+{
+	return mp->n_blks - mp->alloc_blks;
+}
+
+
+/**
+ * @brief returns number of allocated blocks at block granularity
+ *
+ * @param mp	a struct mm_pool
+ *
+ * @return number of allocated blocks at block granularity
+ */
+
+unsigned long mm_allocated_blocks(struct mm_pool *mp)
+{
+	return mp->alloc_blks;
+}
+
+
+/**
+ * @brief check if block address is within pool
+ *
+ * @param mp	a struct mm_pool
+ * @param addr	an address pointer
+ *
+ * @return true or false
+ */
+
+bool mm_addr_in_pool(struct mm_pool *mp, void *addr)
+{
+	if (mm_blk_idx(mp, (struct mm_blk_lnk *) addr) > mp->n_blks)
+		goto nope;
+
+	if (!mm_blk_addr_valid(mp, (struct mm_blk_lnk *) addr))
+		goto nope;
+
+	if (!mm_blk_get_alloc_order(mp, (struct mm_blk_lnk *) addr))
+		goto nope;
+
+	return true;
+
+nope:
+	return false;
 }
 
 
@@ -569,6 +631,8 @@ int mm_init(struct mm_pool *mp, void *base,
 
 	/* fake initial allocation */
 	mp->alloc_order[0] = (typeof(mp->alloc_order[0])) mp->max_order;
+
+	mp->alloc_blks = mp->n_blks;
 
 	/* we start by dividing the highest order block, mark it as available */
 	mm_free(mp, base);

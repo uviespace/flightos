@@ -6,6 +6,7 @@
 #define _KERNEL_MM_H_
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #include <list.h>
 #include <compiler.h>
@@ -23,6 +24,7 @@ struct mm_pool {
 	unsigned long    max_order;	/** maximum order (i.e. pool size)  */
 	unsigned long    min_order;	/** block granularity		    */
 	unsigned long    n_blks;	/** number of managed blocks	    */
+	unsigned long    alloc_blks;	/** number of allocated blocks	    */
 	unsigned char    *alloc_order;	/** the allocated order of a block  */
 	unsigned long    *blk_free;	/** per-block allocation bitmap	    */
 	struct list_head *block_order;  /** anchor for unused blocks	    */
@@ -32,6 +34,11 @@ struct mm_pool {
 void *mm_alloc(struct mm_pool *mp, size_t size);
 
 void mm_free(struct mm_pool *mp, const void *addr);
+
+unsigned long mm_unallocated_blocks(struct mm_pool *mp);
+unsigned long mm_allocated_blocks(struct mm_pool *mp);
+
+bool mm_addr_in_pool(struct mm_pool *mp, void *addr);
 
 int mm_init(struct mm_pool *mp, void *base,
 	    size_t pool_size, size_t granularity);
