@@ -34,6 +34,41 @@ config TARGET_COMPILER_BOOT_CODE
 
 endmenu # "General Setup"
 
+menuconfig MODULES
+	bool "Enable loadable module support"
+	option modules
+	help
+	  Kernel modules are small pieces of compiled code which can
+	  be inserted in the running kernel, rather than being
+	  permanently built into the kernel.  You use the "modprobe"
+	  tool to add (and sometimes remove) them.  If you say Y here,
+	  many parts of the kernel can be built as modules (by
+	  answering M instead of Y where indicated): this is most
+	  useful for infrequently used options which are not required
+	  for booting.  For more information, see the man pages for
+	  modprobe, lsmod, modinfo, insmod and rmmod.
+
+	  If you say Y here, you will need to run "make
+	  modules_install" to put the modules under /lib/modules/
+	  where modprobe can find them (you may need to be root to do
+	  this).
+
+	  If unsure, say Y.
+
+if MODULES
+
+config MODULE_UNLOAD
+	bool "Module unloading"
+	help
+	  Without this option you will not be able to unload any
+	  modules (note that some modules may not be unloadable
+	  anyway), which makes your kernel smaller, faster
+	  and simpler.  If unsure, say Y.
+
+endif # MODULES
+
+
+
 
 menu "Compile-time checks and compiler options"
 

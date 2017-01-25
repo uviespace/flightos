@@ -1,0 +1,4 @@
+Modified to compile & execute witing kbuild, not really functional
+
+TODO: implement custom modpost.c, we want proper modules as well
+

@@ -151,7 +151,7 @@ PHONY += $(MAKECMDGOALS) sub-make
 $(filter-out _all sub-make $(CURDIR)/Makefile, $(MAKECMDGOALS)) _all: sub-make
 	@:
 
-sub-make:
+sub-make: FORCE
 	$(Q)$(MAKE) -C $(KBUILD_OUTPUT) KBUILD_SRC=$(CURDIR) \
 	-f $(CURDIR)/Makefile $(filter-out _all sub-make,$(MAKECMDGOALS))
 
@@ -199,7 +199,6 @@ else
                 srctree := $(KBUILD_SRC)
         endif
 endif
-
 objtree		:= .
 src		:= $(srctree)
 obj		:= $(objtree)
@@ -232,8 +231,10 @@ endif
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
 
+KBUILD_MODULES := 1
 KBUILD_BUILTIN := 1
 
+export KBUILD_MODULES
 export KBUILD_BUILTIN
 export KBUILD_CHECKSRC KBUILD_SRC
 
@@ -295,6 +296,12 @@ export KBUILD_CFLAGS CFLAGS_KERNEL
 export KBUILD_AFLAGS AFLAGS_KERNEL
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
 export KBUILD_ARFLAGS
+
+# When compiling out-of-tree modules, put MODVERDIR in the module
+# tree rather than in the kernel tree. The kernel tree might
+# even be read-only.
+export MODVERDIR := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_versions
+
 
 # Files to ignore in find ... statements
 
@@ -408,6 +415,7 @@ else
 PHONY += scripts
 scripts: scripts_basic include/config/auto.conf include/config/tristate.conf
 	$(Q)$(MAKE) $(build)=$(@)
+	$(Q)$(MAKE) $(build)=scripts/mod
 
 ifeq ($(dot-config),1)
 # Read in config
@@ -643,6 +651,7 @@ endif
 prepare2: prepare3 outputmakefile
 
 prepare1: prepare2 $(version_h) include/config/auto.conf
+	  $(cmd_crmodverdir)
 
 archprepare:
 
@@ -684,6 +693,87 @@ unittest-clean:
 	$(Q)$(MAKE) -C tools/testing/unittest clean
 
 
+
+# ---------------------------------------------------------------------------
+# Modules
+ifdef CONFIG_MODULES
+
+# By default, build modules as well
+
+all: modules
+
+# Build modules
+#
+# A module can be listed more than once in obj-m resulting in
+# duplicate lines in modules.order files.  Those are removed
+# using awk while concatenating to the final file.
+
+PHONY += modules
+modules: $(leanos-dirs) $(if $(KBUILD_BUILTIN),leanos) modules.builtin
+	$(Q)$(AWK) '!x[$$0]++' $(leanos-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
+	@$(kecho) '  Building modules, stage 2.';
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
+
+modules.builtin: $(leanos-dirs:%=%/modules.builtin)
+	$(Q)$(AWK) '!x[$$0]++' $^ > $(objtree)/modules.builtin
+
+%/modules.builtin: include/config/auto.conf
+	$(Q)$(MAKE) $(modbuiltin)=$*
+
+
+# Target to prepare building external modules
+PHONY += modules_prepare
+modules_prepare: prepare scripts
+
+# Target to install modules
+PHONY += modules_install
+modules_install: _modinst_ _modinst_post
+
+PHONY += _modinst_
+_modinst_:
+	@rm -rf $(MODLIB)/kernel
+	@rm -f $(MODLIB)/source
+	@mkdir -p $(MODLIB)/kernel
+	@ln -s `cd $(srctree) && /bin/pwd` $(MODLIB)/source
+	@if [ ! $(objtree) -ef  $(MODLIB)/build ]; then \
+		rm -f $(MODLIB)/build ; \
+		ln -s $(CURDIR) $(MODLIB)/build ; \
+	fi
+	@cp -f $(objtree)/modules.order $(MODLIB)/
+	@cp -f $(objtree)/modules.builtin $(MODLIB)/
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modinst
+
+# This depmod is only for convenience to give the initial
+# boot a modules.dep even before / is mounted read-write.  However the
+# boot script depmod is the master version.
+PHONY += _modinst_post
+_modinst_post: _modinst_
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_modinst
+	$(call cmd,depmod)
+
+ifeq ($(CONFIG_MODULE_SIG), y)
+PHONY += modules_sign
+modules_sign:
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modsign
+endif
+
+else # CONFIG_MODULES
+
+# Modules not configured
+# ---------------------------------------------------------------------------
+
+PHONY += modules modules_install
+modules modules_install:
+	@echo >&2
+	@echo >&2 "The present kernel configuration has modules disabled."
+	@echo >&2 "Type 'make config' and enable loadable module support."
+	@echo >&2 "Then build a kernel with module support enabled."
+	@echo >&2
+	@exit 1
+
+endif # CONFIG_MODULES
+
+
 ###
 # Cleaning is done on three levels.
 # make clean     Delete most generated files
@@ -691,13 +781,15 @@ unittest-clean:
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  +=
-CLEAN_FILES +=	leanos
+CLEAN_DIRS  += $(MODVERDIR)
+CLEAN_FILES += leanos
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated .tmp_objdiff
 MRPROPER_FILES += .config .config.old .version .old_version \
-		  cscope* GPATH GSYMS
+		  cscope* GPATH GSYMS Module.symvers
+
+
 
 # clean - Delete most
 #
@@ -713,9 +805,11 @@ clean: $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@find . $(RCS_FIND_IGNORE) \
-		\( -name '*.[oas]' -o -name '.*.cmd' \
+		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
+		-o -name '*.ko.*' \
 		-o -name '.*.d' -o -name '.*.tmp' \
-		-o -name '.tmp_*.o.*' \
+		-o -name '*.symtypes' -o -name 'modules.order' \
+		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f
 
 # mrproper - Delete all generated files, including .config
@@ -849,6 +943,16 @@ quiet_cmd_rmdirs = $(if $(wildcard $(rm-dirs)),CLEAN   $(wildcard $(rm-dirs)))
 
 quiet_cmd_rmfiles = $(if $(wildcard $(rm-files)),CLEAN   $(wildcard $(rm-files)))
       cmd_rmfiles = rm -f $(rm-files)
+
+# Run depmod only if we have System.map and depmod is executable
+quiet_cmd_depmod = DEPMOD  $(KERNELRELEASE)
+      cmd_depmod = $(CONFIG_SHELL) $(srctree)/scripts/depmod.sh $(DEPMOD) \
+                   $(KERNELRELEASE) "$(patsubst y,_,$(CONFIG_HAVE_UNDERSCORE_SYMBOL_PREFIX))"
+
+# Create temporary dir for module support files
+# clean it up only when building all modules
+cmd_crmodverdir = $(Q)mkdir -p $(MODVERDIR) \
+                  $(if $(KBUILD_MODULES),; rm -f $(MODVERDIR)/*)
 
 # read all saved command lines
 
