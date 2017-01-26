@@ -258,6 +258,7 @@ PERL		= perl
 PYTHON		= python
 CHECK		= sparse
 
+
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 NOSTDINC_FLAGS  =
@@ -596,14 +597,43 @@ leanos-kernel	:= $(patsubst %/, %/built-in.o, $(kernel-y))
 leanos-init	:= $(patsubst %/, %/built-in.o, $(init-y))
 leanos-libs	:= $(patsubst %/, %/lib.a, $(libs-y))
 
-leanos-deps	:= $(leanos-init) $(leanos-core) $(leanos-kernel) $(leanos-libs)
+
+# Externally visible symbols (used by link-leanos.sh)
+export KBUILD_LEANOS_INIT := $(leanos-init)
+export KBUILD_LEANOS_MAIN := $(leanos-core) $(leanos-kernel) $(leanos-libs)
+export KBUILD_LDS          := arch/$(SRCARCH)/kernel/leanos.lds
+export LDFLAGS_leanos
+
+
+leanos-deps := $(KBUILD_LDS) $(KBUILD_LEANOS_INIT) $(KBUILD_LEANOS_MAIN)
 
 quiet_cmd_leanos = LD      $@
       cmd_leanos = $(CC) $(LDFLAGS) -o $@                          \
       -Wl,--start-group $(leanos-deps) -Wl,--end-group
 
-leanos: $(leanos-deps) FORCE
-	+$(call if_changed,leanos)
+
+
+PHONY += leanos_prereq
+leanos_prereq: $(leanos-deps) FORCE
+
+ifdef CONFIG_TRIM_UNUSED_KSYMS
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/adjust_autoksyms.sh \
+	  "$(MAKE) -f $(srctree)/Makefile leanos"
+endif
+
+# standalone target for easier testing
+include/generated/autoksyms.h: FORCE
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/adjust_autoksyms.sh true
+
+# Final link of vmlinux with optional arch pass after final link
+    cmd_link-leanos =                                                 \
+	$(CONFIG_SHELL) $< $(LD) $(LDFLAGS) $(LDFLAGS_leanos);
+
+
+leanos: leanos_prereq
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-leanos.sh
+
+
 
 # Build samples along the rest of the kernel
 ifdef CONFIG_SAMPLES
@@ -797,17 +827,20 @@ clean: rm-dirs  := $(CLEAN_DIRS)
 clean: rm-files := $(CLEAN_FILES)
 clean-dirs      := $(addprefix _clean_, . $(leanos-dirs))
 
+leanosclean:
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-leanos.sh clean
+
 PHONY += $(clean-dirs) clean archclean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
-clean: $(clean-dirs)
+clean: $(clean-dirs) leanosclean
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@find . $(RCS_FIND_IGNORE) \
 		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
 		-o -name '*.ko.*' \
-		-o -name '.*.d' -o -name '.*.tmp' \
+		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f

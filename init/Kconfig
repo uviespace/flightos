@@ -10,6 +10,16 @@ config KERNELVERSION
 
 menu "General Setup"
 
+config KALLSYMS
+	bool "Generate a kernel symbol table"
+	default y
+	help
+	  Create a kernel image symbol lookup table for use in loadable modules.
+	  Note: If disabled, modules can still export symbols for other modules
+	  to use, but no kernel functions will be resolvable.	
+	  If unsure, say Y.
+
+
 config CROSS_PLATFORM_TARGET
 	bool "Cross-compile for different platform"
 	default y
@@ -33,6 +43,7 @@ config TARGET_COMPILER_BOOT_CODE
 	  Use the compiler-provided boot code (e.g. BCC target)
 
 endmenu # "General Setup"
+
 
 menuconfig MODULES
 	bool "Enable loadable module support"

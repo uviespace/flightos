@@ -1,0 +1,50 @@
+#ifndef _KERNEL_MODULE_H_
+#define _KERNEL_MODULE_H_
+
+
+#include <kernel/elf.h>
+
+
+struct module_section {
+	char *name;
+	unsigned long addr;
+	size_t size;
+};
+
+
+struct elf_module {
+
+	unsigned long pa;
+	unsigned long va;
+
+
+	unsigned int align;
+
+	Elf_Ehdr *ehdr;		/* coincides with start of module image */
+	Elf_Shdr *shdr;
+	Elf_Dyn  *dyn;
+
+	size_t size;
+	size_t dyn_size;
+	size_t sh_size;
+	size_t str_size;
+
+	char  *dyn_str;		/* dynamic symbols string tab */
+	char  *sh_str;		/* section header string tab */
+	char  *str;		/* stringtab */
+
+	struct module_section *sec;
+	size_t num_sec;
+};
+
+
+
+/* implemented in architecture code */
+int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym);
+
+
+
+struct module_section *find_mod_sec(const struct elf_module *m,
+				    const char *name);
+
+#endif /* _KERNEL_MODULE_H_ */
