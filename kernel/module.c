@@ -8,9 +8,9 @@
 #include <kernel/ksym.h>
 
 
-/* XXX quick and dirty malloc() standin */
+/* XXX quick and dirty kmalloc() standin */
 #include <page.h>
-void *malloc(size_t size) {
+static void *kmalloc(size_t size) {
 	return page_alloc();
 }
 
@@ -675,7 +675,7 @@ static int module_load_mem(struct elf_module *m)
 	void *mem;
 
 
-	mem = malloc(m->size);
+	mem = kmalloc(m->size);
 
 	if (!mem)
 		return -ENOMEM;
@@ -692,7 +692,7 @@ static int module_load_mem(struct elf_module *m)
 
 	m->num_sec = get_num_alloc_sections(m);
 	m->sec = (struct module_section *)
-		 malloc(sizeof(struct module_section) * m->num_sec);
+		 kmalloc(sizeof(struct module_section) * m->num_sec);
 
 	if (!m->sec)
 		return -1;
@@ -715,7 +715,7 @@ static int module_load_mem(struct elf_module *m)
 		s->size = sec->sh_size;
 
 		src = get_shstrtab_str(m, idx);
-		s->name = malloc(strlen(src));
+		s->name = kmalloc(strlen(src));
 
 		if (!s->name)
 			return -1;

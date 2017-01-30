@@ -47,6 +47,7 @@ endmenu # "General Setup"
 
 menuconfig MODULES
 	bool "Enable loadable module support"
+	depends on AR
 	option modules
 	help
 	  Kernel modules are small pieces of compiled code which can

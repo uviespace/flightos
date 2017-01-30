@@ -80,7 +80,12 @@ config PAGE_MAP_MOVE_NODE_AVAIL_THRESH
 	  When page map node run out of pages, they are moved to a list of
 	  empty nodes until a number of pages are freed, defined by the
 	  threshold above. If unsure, use a threshold of 1.
-
 endmenu
+
+config AR
+	bool "AR archive loading support"
+	default y
+	help
+	  Enable loading of SVR4/GNU style AR archives.
 
 endmenu
