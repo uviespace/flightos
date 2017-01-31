@@ -730,7 +730,11 @@ ifdef CONFIG_MODULES
 
 # By default, build modules as well
 
+ifeq ($(CONFIG_EMBED_MODULES_IMAGE), y)
+all: modules_embed_image
+else
 all: modules
+endif
 
 # Build modules
 #
@@ -749,6 +753,12 @@ modules.builtin: $(leanos-dirs:%=%/modules.builtin)
 
 %/modules.builtin: include/config/auto.conf
 	$(Q)$(MAKE) $(modbuiltin)=$*
+
+
+PHONY += modules_embed_image
+modules_embed_image: modules
+	@$(kecho) '  Embedding module image, stage 3.';
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-leanos.sh embed
 
 
 # Target to prepare building external modules

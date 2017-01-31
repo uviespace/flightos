@@ -69,13 +69,12 @@ menuconfig MODULES
 
 if MODULES
 
-config MODULE_UNLOAD
-	bool "Module unloading"
+config EMBED_MODULES_IMAGE
+	bool "Embed an image with all generated loadable modules"
 	help
-	  Without this option you will not be able to unload any
-	  modules (note that some modules may not be unloadable
-	  anyway), which makes your kernel smaller, faster
-	  and simpler.  If unsure, say Y.
+	  Enable this option in order to embed an image containing all
+	  generated modules into the final kernel binary.
+	  This is a convenience option, if unsure, say Y.
 
 endif # MODULES
 

@@ -76,6 +76,7 @@ modpost_link()
 # Link of leanos
 # ${1} - optional extra .o files
 # ${2} - output file
+# ${3} - extra flags
 leanos_link()
 {
 	local lds="${objtree}/${KBUILD_LDS}"
@@ -84,7 +85,7 @@ leanos_link()
 
 	# since we link against the BCC libc at this time, we'll just
 	# call $CC instead of LD
-	${CC} ${LDFLAGS} ${LDFLAGS_leanos} -o ${2}		\
+	${CC} ${LDFLAGS} ${LDFLAGS_leanos} ${3} -o ${2}		\
 		${KBUILD_LEANOS_INIT} ${KBUILD_LEANOS_MAIN} ${1}
 
 #	if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
@@ -287,6 +288,26 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 		echo >&2 Try "make KALLSYMS_EXTRA_PASS=1" as a workaround
 		exit 1
 	fi
+fi
+
+
+# this is a 3rd pass option, we need modules.order beforehand
+if [ "$1" = "embed" ]; then
+
+	if [ ! -s ${srctree}/modules.order ]; then
+		echo >&2
+		echo >&2 modules.order empty or nonexistant, cannot embed image.
+		echo >&2 Maybe you have no loadable modules configured?
+		echo >&2 Kernel image unchanged.
+		echo >&2
+		exit
+	fi
+
+	embedflags="-Wl,--format=binary -Wl,modules.image -Wl,--format=default"
+	rm -f modules.image
+	${AR} rcs ${srctree}/modules.image $(tr '\n' ' ' < ${srctree}/modules.order)
+	leanos_link "${kallsymso}" leanos "${embedflags}"
+	exit
 fi
 
 # We made a new kernel - delete old version file
