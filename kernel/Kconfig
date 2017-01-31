@@ -1,13 +1,20 @@
+config KERNEL_PRINTK
+	bool "Enable printing in kernel"
+	default y
+
 config KERNEL_LEVEL
 	int "Kernel debug level"
 	default "7"
+	range 0 8
+	depends on KERNEL_PRINTK
 	help
 	 Limit the kernel's debug message level:
-	 0: emergency
-	 1: alerts
-	 2: critical conditions
-	 3: error conditions
-	 4: warnings
-	 5: notices
-	 6: informational
-	 7: debug
+	 1: emergency
+	 2: alerts
+	 3: critical conditions
+	 4: error conditions
+	 5: warnings
+	 6: notices
+	 7: informational
+	 8: debug
+
