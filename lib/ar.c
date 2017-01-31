@@ -157,7 +157,7 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 
 
 	if (a->n_sym) {
-		pr_err("[AR]: Error, more than one symbol table in file.\n");
+		pr_err("AR: Error, more than one symbol table in file.\n");
 		return NULL;
 	}
 
@@ -165,11 +165,11 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 	recsize = ar_get_entry_size(hdr);
 
 	if ((p + recsize)  > (a->ar_base + a->ar_size)) {
-		pr_err("[AR]: Error, symbol table header size is foul.\n");
+		pr_err("AR: Error, symbol table header size is foul.\n");
 		return NULL;
 	}
 
-	pr_debug("[AR]: Symbol table entry size is %d\n", recsize);
+	pr_debug("AR: Symbol table entry size is %d\n", recsize);
 
 	/* the symbol count is 4 bytes wide, MSB first */
 	memcpy(&a->n_sym, p, sizeof(uint32_t));
@@ -184,7 +184,7 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 	a->p_sym = (typeof(a->p_sym)) kmalloc(a->n_sym * sizeof(a->p_sym));
 
 	if (!a->p_sym) {
-		pr_err("[AR]: Error allocating symbol start array\n");
+		pr_err("AR: Error allocating symbol start array\n");
 		goto error;
 	}
 
@@ -195,7 +195,7 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 	/* if the array is not word-aligned, we are boned... */
 	/* XXX: not needed as long as we can handle unaligned access traps */
 	if (((long) symoff) & (sizeof(uint32_t) - 1)) {
-		pr_err("[AR]: Error, symbol offset array not aligned\n");
+		pr_err("AR: Error, symbol offset array not aligned\n");
 		goto error;
 	}
 
@@ -221,12 +221,12 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 	 */
 	strsize = recsize - sizeof(uint32_t) - (a->n_sym * sizeof(uint32_t));
 
-	pr_debug("[AR]: Symbol string table size is %d\n", strsize);
+	pr_debug("AR: Symbol string table size is %d\n", strsize);
 
 	a->sym = (typeof(a->sym)) kmalloc(a->n_sym * sizeof(a->sym));
 
 	if (!a->sym) {
-		pr_err("[AR]: Error allocating symbol reference array\n");
+		pr_err("AR: Error allocating symbol reference array\n");
 		goto error;
 	}
 
@@ -260,7 +260,7 @@ static char *ar_process_strtbl(char *p, struct archive *a, struct ar_hdr *hdr)
 {
 
 	if (a->ar_str) {
-		pr_err("[AR]: Error, more than one string table in file.\n");
+		pr_err("AR: Error, more than one string table in file.\n");
 		return NULL;
 	}
 
@@ -419,18 +419,18 @@ void ar_list_files(struct archive *a)
 	if (!a->fnamesz)
 		return;
 
-	printk("[AR]:\n"
-	       "[AR]: File contents of archive at %p\n"
-	       "[AR]:\n",
+	printk("AR:\n"
+	       "AR: File contents of archive at %p\n"
+	       "AR:\n",
 	       a->ar_base);
-	printk("[AR]:\t[NAME]\t\t\t[SIZE]\t[ADDR]\n");
+	printk("AR:\t[NAME]\t\t\t[SIZE]\t[ADDR]\n");
 
 	for (i = 0; i < a->n_file; i++) {
-		printk("[AR]:\t%.*s\t\t%d\t%p\n",
+		printk("AR:\t%.*s\t\t%d\t%p\n",
 		       a->fnamesz[i], a->fname[i], a->filesz[i], a->p_file[i]);
 	}
 
-	printk("[AR]:\n");
+	printk("AR:\n");
 }
 
 
@@ -560,29 +560,29 @@ int ar_load(char *p, unsigned long size, struct archive *a)
 	/* don't set a->n_file, we increment that as we read the records */
 	n = ar_get_filecount(p, a);
 
-	pr_debug("[AR]: %d files in archive\n", n);
+	pr_debug("AR: %d files in archive\n", n);
 
 	a->fname = (typeof(a->fname)) kmalloc(n * sizeof(typeof(a->fname)));
 	if (!a->fname) {
-		pr_err("[AR]: Error allocating fname name string references.\n");
+		pr_err("AR: Error allocating fname name string references.\n");
 		goto error;
 	}
 
 	a->p_file = (typeof(a->p_file)) kmalloc(n * sizeof(typeof(a->p_file)));
 	if (!a->p_file) {
-		pr_err("[AR]: Error allocating file pointer references.\n");
+		pr_err("AR: Error allocating file pointer references.\n");
 		goto error;
 	}
 
 	a->filesz = (typeof(a->filesz)) kmalloc(n * sizeof(typeof(a->filesz)));
 	if (!a->filesz) {
-		pr_err("[AR]: Error allocating file size references.\n");
+		pr_err("AR: Error allocating file size references.\n");
 		goto error;
 	}
 
 	a->fnamesz = (typeof(a->fnamesz)) kmalloc(n * sizeof(typeof(a->fnamesz)));
 	if (!a->fnamesz) {
-		pr_err("[AR]: Error allocating file name size references.\n");
+		pr_err("AR: Error allocating file name size references.\n");
 		goto error;
 	}
 
@@ -600,7 +600,7 @@ int ar_load(char *p, unsigned long size, struct archive *a)
 	return 0;
 
 error:
-	pr_err("[AR]: Error occured in ar_load()\n");
+	pr_err("AR: Error occured in ar_load()\n");
 	ar_free(a);
 
 	return -1;
