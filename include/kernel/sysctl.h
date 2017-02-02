@@ -7,25 +7,11 @@
 
 #include <sys/types.h>
 #include <list.h>
+#include <kernel/kernel.h>
 
 #ifdef offsetof
 #undef offsetof
 #endif
-/* linux/stddef.h */
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-
-/* linux/kernel.h */
-#define container_of(ptr, type, member) ({                      \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
-
-/* Indirect stringification.  Doing two levels allows the parameter to be a
- * macro itself.  For example, compile with -DFOO=bar, __stringify(FOO)
- * converts to "bar".
- */
-__extension__
-#define __stringify_1(x...)     #x
-#define __stringify(x...)       __stringify_1(x)
 
 /* sysfs.h, modified */
 #define __ATTR(_name, _show, _store) {                          \

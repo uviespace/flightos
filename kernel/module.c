@@ -186,7 +186,7 @@ static char *get_strtab_str(const struct elf_module *m, unsigned int idx)
 	return NULL;
 }
 
-	
+
 /**
  * @brief get the name of a symbol in .symtab with a given index
  *
@@ -203,10 +203,10 @@ static char *get_symbol_str(const struct elf_module *m, unsigned int idx)
 
 	//symbols = (Elf_Sym *) (m->pa + symtab->sh_offset);
 	symbols = (Elf_Sym *) ((unsigned long) m->ehdr + symtab->sh_offset);
-	
+
 	if (idx < symtab->sh_size / symtab->sh_entsize)
 		return m->str + symbols[idx].st_name;
-	
+
 	return NULL;
 }
 
@@ -215,11 +215,11 @@ static char *get_symbol_str(const struct elf_module *m, unsigned int idx)
 /**
  * @brief find module section by name
  *
- * @return module section structure pointer or NULL if not found 
+ * @return module section structure pointer or NULL if not found
  */
 
 struct module_section *find_mod_sec(const struct elf_module *m,
-				    const char *name) 
+				    const char *name)
 
 {
 	size_t i;
@@ -306,19 +306,19 @@ void dump_sections(const struct elf_module *m)
 
 
 /**
- * @brief get the type of a symbol 
+ * @brief get the type of a symbol
  *
  * @return 1 if symbol has been found, 0 otherwise
  */
 
 static unsigned long get_symbol_type(const struct elf_module *m,
-				     const char *name) 
+				     const char *name)
 
 {
 	unsigned int i;
 	unsigned int idx;
 	size_t sym_cnt;
-	
+
 	Elf_Shdr *symtab;
 	Elf_Sym *symbols;
 
@@ -326,7 +326,7 @@ static unsigned long get_symbol_type(const struct elf_module *m,
 	idx = find_sec(m, ".symtab");
 
 	if (!idx) {
-		printf("WARN: no .symtab section found\n");
+		printk("WARN: no .symtab section found\n");
 		return -1;
 	}
 
@@ -336,11 +336,11 @@ static unsigned long get_symbol_type(const struct elf_module *m,
 		printk("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
 		return -1;
 	}
-	
+
 	symbols = (Elf_Sym *) ((unsigned long) m->ehdr + symtab->sh_offset);
-	
+
 	sym_cnt = symtab->sh_size / symtab->sh_entsize;
-	
+
 	for (i = 0; i < sym_cnt; i++) {
 		if(!strcmp(get_symbol_str(m, i), name)) {
 			return ELF_ST_TYPE(symbols[i].st_info);
@@ -353,19 +353,19 @@ static unsigned long get_symbol_type(const struct elf_module *m,
 
 
 /**
- * @brief get the value of a symbol 
+ * @brief get the value of a symbol
  *
  * @return 1 if symbol has been found, 0 otherwise
  */
 
 static unsigned long get_symbol_value(const struct elf_module *m,
-				      const char *name, unsigned long *value) 
+				      const char *name, unsigned long *value)
 
 {
 	unsigned int i;
 	unsigned int idx;
 	size_t sym_cnt;
-	
+
 	Elf_Shdr *symtab;
 	Elf_Sym *symbols;
 
@@ -373,21 +373,21 @@ static unsigned long get_symbol_value(const struct elf_module *m,
 	idx = find_sec(m, ".symtab");
 
 	if (!idx) {
-		printf("WARN: no .symtab section found\n");
+		printk("WARN: no .symtab section found\n");
 		return -1;
 	}
 
 	symtab = &m->shdr[idx];
 
 	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
-		printf("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		printk("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
 		return -1;
 	}
-	
+
 	symbols = (Elf_Sym *) ((unsigned long) m->ehdr + symtab->sh_offset);
-	
+
 	sym_cnt = symtab->sh_size / symtab->sh_entsize;
-	
+
 	for (i = 0; i < sym_cnt; i++) {
 		if(!strcmp(get_symbol_str(m, i), name)) {
 			(*value) =  symbols[i].st_value;
@@ -416,58 +416,58 @@ static int dump_symtab(struct elf_module *m)
 	idx = find_sec(m, ".symtab");
 
 	if (!idx) {
-		printf("WARN: no .symtab section found\n");
+		printk("WARN: no .symtab section found\n");
 		return -1;
 	}
 
 	symtab = &m->shdr[idx];
 
 	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
-		printf("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		printk("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
 		return -1;
 	}
-	
+
 	symbols = (Elf_Sym *) ((unsigned long) m->ehdr + symtab->sh_offset);
 
 	sym_cnt = symtab->sh_size / symtab->sh_entsize;
 
 
-	printf("\n.symtab contains %d entries\n"
+	printk("\n.symtab contains %d entries\n"
 	       "============================\n"
 	       "\t[NUM]\t[VALUE]\t\t\t[SIZE]\t[TYPE]\t[NAME]\n", sym_cnt);
 
-	
+
 	for (i = 0; i < sym_cnt; i++) {
 
-		printf("\t%d\t%016lx\t%4ld",
+		printk("\t%d\t%016lx\t%4ld",
 		       i,
 		       symbols[i].st_value,
 		       symbols[i].st_size);
 
 		switch (ELF_ST_TYPE(symbols[i].st_info)) {
 		case STT_NOTYPE  :
-			printf("\tNOTYPE "); break;  
+			printk("\tNOTYPE "); break;
 		case STT_OBJECT  :
-			printf("\tOBJECT "); break;
+			printk("\tOBJECT "); break;
 		case STT_FUNC    :
-			printf("\tFUNC   "); break;
+			printk("\tFUNC   "); break;
 		case STT_SECTION :
-			printf("\tSECTION"); break;
+			printk("\tSECTION"); break;
 		case STT_FILE    :
-			printf("\tFILE   "); break;
+			printk("\tFILE   "); break;
 		case STT_COMMON  :
-			printf("\tCOMMON "); break;
+			printk("\tCOMMON "); break;
 		case STT_TLS     :
-			printf("\tTLS    "); break;
+			printk("\tTLS    "); break;
 		default:
-			printf("\tUNKNOWN"); break;
+			printk("\tUNKNOWN"); break;
 		}
 
-		printf("\t%-10s\n", get_symbol_str(m, i));
+		printk("\t%-10s\n", get_symbol_str(m, i));
 
 	}
-	
-	return 0;	
+
+	return 0;
 }
 
 
@@ -487,16 +487,16 @@ static void dump_strtab(const struct elf_module *m)
 		return;
 
 
-	printf("\n.strtab:\n"
+	printk("\n.strtab:\n"
 	       "============================\n"
 	       "\t[OFF]\t[STR]\n");
 
 	while(i < m->sh_size) {
-		printf("\t[%d]\t%s\n", i, m->str + i);
+		printk("\t[%d]\t%s\n", i, m->str + i);
 		i += strlen(m->str + i) + 1;
 	}
 
-	printf("\n\n");
+	printk("\n\n");
 }
 
 
@@ -554,7 +554,7 @@ static int set_dynstr(struct elf_module *m)
 		m->dyn_size = m->shdr[idx].sh_size;
 		return 1;
 	}
-	
+
 	m->dyn_str = NULL;
 	m->dyn_size = 0;
 
@@ -578,7 +578,7 @@ static int set_strtab(struct elf_module *m)
 
 	if (idx) {
 		m->str      = (((char *) m->ehdr) + m->shdr[idx].sh_offset);
-		m->str_size = m->shdr[idx].sh_size; 
+		m->str_size = m->shdr[idx].sh_size;
 		return 1;
 	}
 
@@ -613,17 +613,17 @@ static int setup_module(struct elf_module *m)
 		m->shdr = (Elf_Shdr *) (((char *) m->ehdr) + m->ehdr->e_shoff);
 	} else {
 		m->shdr = NULL;
-		printf("ERR: no section header found\n");
+		printk("ERR: no section header found\n");
 		return -1;
 	}
 
 	/* locate and set section header string table */
 	if (!set_shstrtab(m))
 		return -1;
-	
+
 	/* locate and set dynamic string table */
 	if (!set_dynstr(m)) {
-		printf("WARN: no dynamic string table found\n");
+		printk("WARN: no dynamic string table found\n");
 	}
 
 	/* locate and set string table */
@@ -632,7 +632,7 @@ static int setup_module(struct elf_module *m)
 
 	/* set up for relocatable object */
 	if (m->ehdr->e_type == ET_REL) {
-		printf("TODO\n");
+		printk("TODO\n");
 
 		m->align = 0x200000;	/* PC */
 #if 0
@@ -640,14 +640,14 @@ static int setup_module(struct elf_module *m)
 		m->size = 0;
 		for (i = 0; i < m->ehdr->e_shnum; i++) {
 			if ((m->shdr[i].sh_flags & SHF_ALLOC)) {
-				printf("Alloc section: %s, size %ld\n",
+				printk("Alloc section: %s, size %ld\n",
 				       m->sh_str + m->shdr[i].sh_name,
 				       m->shdr[i].sh_size);
-				
+
 				m->size += m->shdr[i].sh_size;
 
 				if (m->shdr[idx].sh_addralign > m->align)
-		
+
 					m->align = m->shdr[idx].sh_addralign;
 
 			}
@@ -685,7 +685,7 @@ static int module_load_mem(struct elf_module *m)
 	m->pa = (unsigned long) mem;
 
 
-	printf("\n\nLoading module run-time sections\n");
+	printk("\n\nLoading module run-time sections\n");
 
 	va_load = m->va;
 	pa_load = m->pa;
@@ -724,13 +724,13 @@ static int module_load_mem(struct elf_module *m)
 
 
 		if (sec->sh_type & SHT_NOBITS) {
-			printf("\tZero segment %10s at %p size %ld\n",
+			printk("\tZero segment %10s at %p size %ld\n",
 			       s->name, (char *) va_load,
 			       sec->sh_size);
 
 			bzero((void *) va_load, s->size);
 		} else {
-			printf("\tCopy segment %10s from %p to %p size %ld\n",
+			printk("\tCopy segment %10s from %p to %p size %ld\n",
 			       s->name,
 			       (char *) m->ehdr + sec->sh_offset,
 			       (char *) va_load,
@@ -743,11 +743,11 @@ static int module_load_mem(struct elf_module *m)
 
 		s->addr = va_load;
 		va_load = s->addr + s->size;
-		
+
 		s++;
 
 		if (s > &m->sec[m->num_sec]) {
-			printf("Error out of section memory\n");
+			printk("Error out of section memory\n");
 			return -1;
 		}
 	}
@@ -764,7 +764,7 @@ static int module_relocate(struct elf_module *m)
 	size_t rel_cnt;
 
 	Elf_Shdr *sec;
-	
+
 
 
 	/* no dynamic linkage, so it's either self-contained or bugged, we'll
@@ -787,7 +787,7 @@ static int module_relocate(struct elf_module *m)
 		sec = get_sec(m, idx);
 
 		printk("\nSection Header info: %ld\n", sec->sh_info);
-		
+
 		if (sec) {
 
 			Elf_Rela *relatab;
@@ -805,15 +805,15 @@ static int module_relocate(struct elf_module *m)
 				char *symstr = get_symbol_str(m, symsec);
 				struct module_section *s;
 				struct module_section *text  = find_mod_sec(m, ".text");
-				
-				printf("OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n\n",
+
+				printk("OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n\n",
 				       relatab[i].r_offset,
 				       relatab[i].r_info,
 				       relatab[i].r_addend,
 				       sec->sh_link,
 				       symsec,
 				       symstr);
-			
+
 
 
 				if (strlen(symstr)) {
@@ -822,15 +822,15 @@ static int module_relocate(struct elf_module *m)
 					if (!sym) {
 
 						unsigned long symval;
-						printf("\tNot found in library, resolving in module\n");
+						printk("\tNot found in library, resolving in module\n");
 
 
 						if (!(get_symbol_type(m, symstr) & STT_FUNC)) {
-							printf("\tERROR, unresolved symbol %s\n", symstr);
+							printk("\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
 						if (!get_symbol_value(m, symstr, &symval)) {
-							printf("\tERROR, unresolved symbol %s\n", symstr);
+							printk("\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
 
@@ -838,32 +838,32 @@ static int module_relocate(struct elf_module *m)
 
 					}
 
-					printf("\tSymbol %s at %lx\n", symstr, sym);
+					printk("\tSymbol %s at %lx\n", symstr, sym);
 
 					apply_relocate_add(m, &relatab[i], sym);
 
 				} else  { /* no string, symtab entry is probably a section, try to identify it */
-				
+
 					char *secstr = get_shstrtab_str(m, symsec);
 
 					s = find_mod_sec(m, secstr);
 
 					if (!s) {
-						printf("Error cannot locate section %s for symbol\n", secstr);
+						printk("Error cannot locate section %s for symbol\n", secstr);
 							continue;
 					}
 					/* target address to insert at location */
 					reladdr = (long) s->addr;
-					printf("\tRelative symbol address: %x, entry at %08lx\n", reladdr, s->addr);
-					
+					printk("\tRelative symbol address: %x, entry at %08lx\n", reladdr, s->addr);
+
 					apply_relocate_add(m, &relatab[i], reladdr);
 				}
 
-				printf("\n");
+				printk("\n");
 
 
 			}
-			printf("\n");
+			printk("\n");
 		}
 	}
 
@@ -886,7 +886,7 @@ void go(entrypoint_t ep)
 int module_load(struct elf_module *m, void *p)
 {
 	unsigned long symval;
-	entrypoint_t ep; 
+	entrypoint_t ep;
 
 
 	/* the ELF binary starts with the ELF header */
@@ -898,32 +898,30 @@ int module_load(struct elf_module *m, void *p)
 		return -1;
 
 	printk("Setting up module configuration\n");
-	
+
 	if (setup_module(m))
 		return -1;
 
 
 	dump_sections(m);
-	
+
 	if (module_load_mem(m))
 		return -1;
-	
+
 	dump_symtab(m);
 
 	if (module_relocate(m))
 		return -1;
 
 #if 1
-	//uintptr_t epaddr = (uintptr_t) (m->va);
 	if (!get_symbol_value(m, "_module_init", &symval)) {
-		printf("module init not found\n");
+		printk("module init not found\n");
 		return -1;
-
 	}
 
 	ep = (entrypoint_t) (m->va + symval);
-	
-	printf("Binary entrypoint is %lx; invoking %p\n", m->ehdr->e_entry, ep);
+
+	printk("Binary entrypoint is %lx; invoking %p\n", m->ehdr->e_entry, ep);
 
 	go(ep);
 #endif

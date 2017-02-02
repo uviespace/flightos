@@ -22,4 +22,7 @@ struct page_map_node {
 #define PAGE_MAP_MOVE_NODE_AVAIL_THRESH 1 
 #endif
 
+unsigned long page_map_get_chunk_size(void *addr);
+
+
 #endif /* _KERNEL_PAGE_H_ */

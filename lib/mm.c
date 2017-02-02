@@ -77,7 +77,7 @@ static bool mm_blk_addr_valid(struct mm_pool *mp, struct mm_blk_lnk *blk)
  * @param mp a struct mm_pool
  * @param blk a struct mm_blk_lnk
  *
- * @return block index or -EFAULT on error
+ * @return block index
  */
 
 static unsigned long mm_blk_idx(struct mm_pool *mp, struct mm_blk_lnk *blk)
@@ -206,6 +206,7 @@ static void *mm_find_neighbour(struct mm_pool *mp,
 	addr ^= (1UL << order);
 	addr += mp->base;
 
+
 	return (void *) addr;
 }
 
@@ -235,6 +236,15 @@ static struct mm_blk_lnk *mm_merge_blk(struct mm_pool *mp,
 	/* unlink and merge; the lower block address
 	 * is the start of the newly created higher order block
 	 */
+
+	/* There is a potential bug, we should never get this far if the block
+	 * was not allocated, even if the block address in free() was incorrect
+	 */
+	if (!n->link.prev || !n->link.next) {
+		pr_crit("MM: corruption warning, someone tried to release an "
+			"invalid block.\n");
+		return NULL;
+	}
 
 	list_del(&n->link);
 
@@ -368,10 +378,15 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	unsigned long i;
 	unsigned long order;
 
-	struct mm_blk_lnk *blk  = NULL;
+	struct mm_blk_lnk *blk = NULL;
 	struct list_head *list = NULL;
 
 
+	if (!mp)
+		return NULL;
+
+	if (!size)
+		return NULL;
 
 	order = ilog2(roundup_pow_of_two(size));
 
@@ -477,6 +492,34 @@ error:
 
 exit:
 	return;
+}
+
+
+
+/**
+ * @brief returns the size of the block for a given address
+ *
+ * @param mp	a struct mm_pool
+ *
+ * @param addr  the address of the block
+ *
+ * @return the size of the block the address is in, 0 if invalid or not found
+ *
+ */
+
+unsigned long mm_block_size(struct mm_pool *mp, const void *addr)
+{
+	unsigned long order;
+
+	unsigned long size = 0;
+
+
+	if (mm_addr_in_pool(mp, (struct mm_blk_link *) addr)) {
+		order = mm_blk_get_alloc_order(mp, (struct mm_blk_lnk *) addr);
+		size = 1 << order;
+	}
+
+	return size;
 }
 
 
@@ -662,7 +705,7 @@ void mm_exit(struct mm_pool *mp) {
 
 void mm_dump_stats(struct mm_pool *mp)
 {
-	unsigned long i;
+	unsigned long i __attribute__((unused));
 
 
 	if (!mp)

@@ -40,6 +40,8 @@ unsigned long mm_allocated_blocks(struct mm_pool *mp);
 
 bool mm_addr_in_pool(struct mm_pool *mp, void *addr);
 
+unsigned long mm_block_size(struct mm_pool *mp, const void *addr);
+
 int mm_init(struct mm_pool *mp, void *base,
 	    size_t pool_size, size_t granularity);
 

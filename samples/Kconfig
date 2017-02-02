@@ -17,4 +17,10 @@ config SAMPLE_MM
 	help
 	  Build a sample demonstrating the use of the memory management system.
 
+config SAMPLE_CHUNK
+	bool "Build chunk memory allocator sample code"
+	depends on CHUNK
+	help
+	  Build a sample demonstrating the use of the chunk memory allocator.
+
 endif # SAMPLES

@@ -20,14 +20,41 @@
 
 /* align address to the (next) page boundary */
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
+#define PAGE_ALIGN_PTR(addr)	PTR_ALIGN(addr, PAGE_SIZE)
 
 #define PFN_PHYS(x)	((unsigned long)((x) << PAGE_SHIFT))
-#define PHYS_PFN(x)	((unsigned long)((x) >> PAGE_SHIFT))
+#define PHYS_PFN(x)((unsigned long)((x) >> PAGE_SHIFT))
 
 
-#if defined(CONFIG_PAGE_OFFSET)
-#define PAGE_OFFSET	0xf0000000
-#endif
+
+/**
+ * Reserved memory ranges used in mappings:
+ *
+ *  - everything above HIGHMEM_START is 1:1 mapped through the MMU and marks
+ *    the per-thread allocatable memory.
+ *  - LOWMEM_RESERVED is the reserved lower address range
+ *  - VMALLOC_{START, END} define the boundaries of mapped virtual pages
+ *
+ * TODO: make this configurable via make config
+ * The values are selected such that:
+ *
+ *	 1. the lowest 16M are reserved
+ *	 2. highmem starts at 0x40000000, this is typically the lowest (RAM)
+ *	    address in use on a LEON platform (usually internal static RAM).
+ *	 3. the above boundaries are selected under the condition that the
+ *	    kernel is not bootstrapped, i.e. an initial MMU context is not set
+ *	    up by a stage 1 loader, which then copies and starts the kernel
+ *	    from some location.
+ */
+
+#define HIGHMEM_START	0x40000000
+#define LOWMEM_RESERVED 0x01000000
+
+#define VMALLOC_START	(LOWMEM_RESERVED)
+#define VMALLOC_END	(HIGHMEM_START - 1)
+
+
+#define PAGE_OFFSET	HIGHMEM_START
 
 extern unsigned long phys_base;
 extern unsigned long pfn_base;
@@ -44,7 +71,7 @@ extern unsigned long pfn_base;
 #if defined (CONFIG_SPARC_INIT_PAGE_MAP_MAX_ENTRIES)
 #define INIT_PAGE_MAP_MAX_ENTRIES CONFIG_SPARC_INIT_PAGE_MAP_MAX_ENTRIES
 #else
-#define INIT_PAGE_MAP_MAX_ENTRIES 1
+#define INIT_PAGE_MAP_MAX_ENTRIES 0
 #endif
 
 extern struct mm_pool  mm_init_page_pool;
