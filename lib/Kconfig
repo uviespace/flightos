@@ -82,6 +82,16 @@ config PAGE_MAP_MOVE_NODE_AVAIL_THRESH
 	  threshold above. If unsure, use a threshold of 1.
 endmenu
 
+
+config CHUNK
+	bool "Memory Chunk Manager"
+	default y
+	help
+	 Manages smaller than page-sized allocations with memory supplied by
+	 a higher-tier memory-manager. This is a stepping stone to malloc(),
+	 if unsure, say Y
+
+
 config AR
 	bool "AR archive loading support"
 	default y

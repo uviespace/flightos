@@ -395,14 +395,51 @@ static unsigned int ar_get_filecount(char *p, struct archive *a)
 
 
 /**
+ * @brief print symbols in the archive
+ *
+ * @param a a struct archive
+ * @param name the file name to search for
+ *
+ * @return a pointer or NULL if not found
+ */
+
+void ar_list_symbols(struct archive *a)
+{
+	unsigned long i;
+
+
+	if (!a)
+		return;
+
+	if (!a->fname)
+		return;
+
+	if (!a->fnamesz)
+		return;
+
+	printk("AR:\n"
+	       "AR: Symbol contents of archive at %p\n"
+	       "AR:\n",
+	       a->ar_base);
+
+	printk("AR:\t[NAME]\t\t\t[ADDR]\n");
+
+	for (i = 0; i < a->n_sym; i++) {
+		printk("AR:\t%s\t\t%p\n",
+		       a->sym[i], a->p_sym[i]);
+	}
+
+	printk("AR:\n");
+}
+
+
+/**
  * @brief print files in the archive
  *
  * @param a a struct archive
  * @param name the file name to search for
  *
  * @return a pointer or NULL if not found
- *
- * @note this silently returns the first occurence only
  */
 
 void ar_list_files(struct archive *a)
@@ -423,6 +460,7 @@ void ar_list_files(struct archive *a)
 	       "AR: File contents of archive at %p\n"
 	       "AR:\n",
 	       a->ar_base);
+
 	printk("AR:\t[NAME]\t\t\t[SIZE]\t[ADDR]\n");
 
 	for (i = 0; i < a->n_file; i++) {

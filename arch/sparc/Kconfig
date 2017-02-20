@@ -6,8 +6,9 @@ config PAGE_OFFSET
 	bool "Use an offset in physical/virtual page address conversion"
 	default n
 	help
-	  Use a fixed offset when computing the virtual and physical page
-	  addresses.
+	  Use an offset when computing the virtual and physical page
+	  addresses. This can not work unless the kernel is bootstrapped.
+	  If unsure, say N.
 
 config EXTRA_SPARC_PHYS_BANKS
 	int "Number of extra physical memory banks"
@@ -19,6 +20,7 @@ config EXTRA_SPARC_PHYS_BANKS
 
 menu "Memory Management Settings"
 	depends on MM
+	depends on CHUNK
 
 config SPARC_MM_BLOCK_ORDER_MAX
 	int "Initial memory block order upper limit"
@@ -50,6 +52,31 @@ config SPARC_INIT_PAGE_MAP_MAX_ENTRIES
 	  Configures the storage space for the initial page map. It's wise to
 	  say at least EXTRA_SPARC_PHYS_BANKS here.
 
+config SPARC_BOOTMEM_RESERVE_CHUNK_ORDER
+	int "Memory block order to reserve for boot memory allocator"
+	depends on MM
+	depends on CHUNK
+	default 20
+	range  12 SPARC_MM_BLOCK_ORDER_MAX
+	help
+	  The order (i.e. 2^N bytes) of memory to reserve for the boot memory
+	  allocator in a single request to the higher-tier memory manager.
+	  The boot memory allocator is used by low level functionality, such as
+	  the mangement of MMU translation tables, so choose a large enough
+	  number. The default (20, i.e. 1 MiB) is a good starting point.
+	  Allowed order range is 12 (SPARC page size) to
+	  SPARC_MM_BLOCK_ORDER_MAX.
+
+config SPARC_BOOTMEM_REQUEST_NEW_ON_DEMAND
+	bool "Allow the boot memory allocator to request new memory blocks"
+	depends on MM
+	depends on CHUNK
+	default y
+	help
+	 Allow the boot memory allocator to request new blocks of size
+	 SPARC_BOOTMEM_RESERVE_CHUNK_ORDER from the higher-tier memory manager.
+	 Beware that this will potentially lead to greater memory fragmentation.
+	 If unsure, say Y.
 endmenu
 
 

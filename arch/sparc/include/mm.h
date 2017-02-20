@@ -72,6 +72,18 @@ extern struct list_head mm_init_block_order[MM_BLOCK_ORDER_MAX + 1];
 
 
 
+#define BOOTMEM_CHUNKSIZE (1 << CONFIG_SPARC_BOOTMEM_RESERVE_CHUNK_ORDER)
+
+
 void bootmem_init(void);
+void *bootmem_alloc(size_t size);
+void bootmem_free(void *ptr);
+
+void mm_mmu_paging_init(void);
+
+void mm_mmu_trap(void);
+
+int mm_set_mmu_ctx(unsigned long ctx);
+unsigned long mm_get_mmu_ctx(void);
 
 #endif /*_SPARC_MM_H_ */

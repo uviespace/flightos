@@ -6,6 +6,11 @@
 
 #include <kernel/printk.h>
 
+void somefunction(void)
+{
+	printf("this is some function\n");
+}
+
 
 void _module_init(void);
 

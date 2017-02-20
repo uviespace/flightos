@@ -47,4 +47,6 @@ int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym);
 struct module_section *find_mod_sec(const struct elf_module *m,
 				    const char *name);
 
+int module_load(struct elf_module *m, void *p);
+
 #endif /* _KERNEL_MODULE_H_ */

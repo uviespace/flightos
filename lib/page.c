@@ -27,8 +27,8 @@
 static struct page_map_node **page_mem;
 
 /* empty/busy pool lists */
-struct list_head page_map_list_full;
-struct list_head page_map_list_empty;
+static struct list_head page_map_list_full;
+static struct list_head page_map_list_empty;
 
 
 /**
@@ -78,6 +78,12 @@ int page_map_add(unsigned long start, unsigned long end,
 	}
 
 	if (end < start)
+		goto error;
+
+	if ((end - start) < page_size)
+		goto error;
+
+	if (!page_size)
 		goto error;
 
 
@@ -176,6 +182,8 @@ error:
  *	 to consider re-adding the free segment before your boot memory back
  *	 to the page map. In that case, make sure the allocation is never
  *	 released. Make sure you configure extra ram banks if needed.
+ *
+ * @note the reserved block is at least size bytes
  */
 
 void *page_map_reserve_chunk(size_t size)
@@ -205,6 +213,56 @@ exit:
 
 
 /**
+ * @brief get the size of the chunk for an address
+ *
+ * @param addr the (page) address pointer
+ *
+ * @return the size of the chunk, or 0 on error or if not found in pool
+ */
+
+unsigned long page_map_get_chunk_size(void *addr)
+{
+	unsigned long size = 0;
+
+	struct page_map_node *p_elem;
+	struct page_map_node *p_tmp;
+
+
+	if (!page_mem) {
+		pr_err("PAGE MEM: %s no page map configured\n", __func__);
+		goto exit;
+	}
+
+	if (!addr) {
+		pr_info("PAGE MEM: NULL pointer in call to %s from %p\n",
+			__func__, __caller(0));
+		goto exit;
+	}
+
+	list_for_each_entry_safe(p_elem, p_tmp, &page_map_list_empty, node) {
+		if (mm_addr_in_pool(p_elem->pool, addr)) {
+			size = mm_block_size(p_elem->pool, addr);
+			goto exit;
+		}
+	}
+
+	list_for_each_entry_safe(p_elem, p_tmp, &page_map_list_full, node) {
+		if (mm_addr_in_pool(p_elem->pool, addr)) {
+			size = mm_block_size(p_elem->pool, addr);
+			goto exit;
+		}
+	}
+
+exit:
+	return size;
+}
+
+
+
+
+
+
+/**
  * @brief allocates a page by trying all configured banks until one is found
  *
  * @return NULL on error, address to page on success
@@ -224,6 +282,7 @@ void *page_alloc(void)
 	}
 
 	list_for_each_entry_safe(p_elem, p_tmp, &page_map_list_full, node) {
+
 		page = mm_alloc(p_elem->pool, PG_SIZE(p_elem));
 
 		if (!page) {
