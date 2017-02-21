@@ -13,6 +13,7 @@
 #include <traps.h>
 #include <cpu_type.h>
 #include <errno.h>
+#include <stack.h>
 
 /* things we need statically allocated in the image (i.e. in .bss)
  * at boot
@@ -197,6 +198,10 @@ void *kernel_sbrk(intptr_t increment)
 		 return (void *) mm_proc_mem[ctx].sbrk;
 
 	oldbrk = mm_proc_mem[ctx].sbrk;
+
+	/* make sure we are always double-word aligned, otherwise we can't
+	 * use ldd/std instructions without trapping */
+	increment = ALIGN(increment, STACK_ALIGN);
 
 	brk = oldbrk + increment;
 
