@@ -310,9 +310,10 @@ void mm_mmu_trap(void)
 				pr_debug("MM: Allocating page %lx -> %lx\n",addr, (unsigned
 									int) alloc);
 
-				srmmu_do_small_mapping(ctx, addr,
-					alloc,
-					(SRMMU_CACHEABLE | SRMMU_ACC_S_RW_2));
+				/* XXX for now, set RWX with super use
+				 * permissions until we have mprotect()  */
+				srmmu_do_small_mapping(ctx, addr, alloc,
+					(SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
 			} else {
 				pr_crit("Access violation: system break "
 					"in call from %p\n",
