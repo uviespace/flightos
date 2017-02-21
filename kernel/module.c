@@ -1,3 +1,14 @@
+/**
+ * @file kernel/module.c
+ *
+ *
+ * TODO 1. module chainloading, reference counting and dependency
+ *	   tracking for automatic unloading of unused modules
+ *	2. code cleanup
+ *	3. ???
+ *	4. profit
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,13 +17,23 @@
 #include <kernel/err.h>
 #include <kernel/module.h>
 #include <kernel/ksym.h>
+#include <kernel/kmem.h>
+#include <kernel/kernel.h>
 
 
-/* XXX quick and dirty kmalloc() standin */
-#include <page.h>
-static void *kmalloc(size_t size) {
-	return page_alloc();
-}
+
+#define MOD "MODULE: "
+
+
+/* if we need more space, this is how many entries we will add */
+#define MODULE_REALLOC 10
+/* this is where we keep track of loaded modules */
+static struct {
+	struct elf_module **m;
+	int    sz;
+	int    cnt;
+} _kmod;
+
 
 
 /**
@@ -71,6 +92,7 @@ static unsigned int get_num_dyn_entries(const struct elf_module *m)
 {
 	return m->dyn_size / sizeof(Elf_Dyn);
 }
+
 
 /**
  * @brief find a dynamic entry by tag
@@ -137,7 +159,6 @@ static unsigned int find_sec_type(const struct elf_module *m,
 }
 
 
-
 /**
  * @brief find an elf section by name
  *
@@ -157,6 +178,7 @@ static unsigned int find_sec(const struct elf_module *m, const char *name)
 	return 0;
 }
 
+
 /**
  * @brief get an entry in the .shstrtab
  *
@@ -170,6 +192,7 @@ static char *get_shstrtab_str(const struct elf_module *m, unsigned int idx)
 
 	return NULL;
 }
+
 
 /**
  * @brief get an entry in the .strtab
@@ -211,7 +234,6 @@ static char *get_symbol_str(const struct elf_module *m, unsigned int idx)
 }
 
 
-
 /**
  * @brief find module section by name
  *
@@ -244,14 +266,15 @@ void dump_sections(const struct elf_module *m)
 	size_t i;
 
 
-	printk("\nSECTIONS:\n"
-	       "============================\n"
-	       "\t[NUM]\t[NAME]\t\t\t[TYPE]\t\t[SIZE]\t[ENTSZ]\t[FLAGS]\n");
+	printk(MOD "SECTIONS:\n"
+	        MOD "============================\n"
+	        MOD "\t[NUM]\t[NAME]\t\t\t[TYPE]\t\t[SIZE]\t[ENTSZ]\t[FLAGS]\n"
+		);
 
 
 	for (i = 0; i < m->ehdr->e_shnum; i++) {
 
-		printk("\t%d\t%-20s", i, m->sh_str + m->shdr[i].sh_name);
+		printk(MOD "\t%d\t%-20s", i, m->sh_str + m->shdr[i].sh_name);
 
 		switch (m->shdr[i].sh_type) {
 		case SHT_NULL:
@@ -298,7 +321,7 @@ void dump_sections(const struct elf_module *m)
 		if (m->shdr[i].sh_flags & SHF_MASKPROC)
 			printk("MASKPROC ");
 
-		printk("\n");
+		printk(MOD "\n");
 
 	}
 
@@ -326,14 +349,14 @@ static unsigned long get_symbol_type(const struct elf_module *m,
 	idx = find_sec(m, ".symtab");
 
 	if (!idx) {
-		printk("WARN: no .symtab section found\n");
+		pr_debug(MOD "WARN: no .symtab section found\n");
 		return -1;
 	}
 
 	symtab = &m->shdr[idx];
 
 	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
-		printk("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		pr_debug("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
 		return -1;
 	}
 
@@ -373,14 +396,14 @@ static unsigned long get_symbol_value(const struct elf_module *m,
 	idx = find_sec(m, ".symtab");
 
 	if (!idx) {
-		printk("WARN: no .symtab section found\n");
+		pr_debug(MOD "WARN: no .symtab section found\n");
 		return -1;
 	}
 
 	symtab = &m->shdr[idx];
 
 	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
-		printk("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		pr_debug(MOD "Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
 		return -1;
 	}
 
@@ -416,14 +439,14 @@ static int dump_symtab(struct elf_module *m)
 	idx = find_sec(m, ".symtab");
 
 	if (!idx) {
-		printk("WARN: no .symtab section found\n");
+		printk(MOD "WARN: no .symtab section found\n");
 		return -1;
 	}
 
 	symtab = &m->shdr[idx];
 
 	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
-		printk("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		printk(MOD "Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
 		return -1;
 	}
 
@@ -432,14 +455,15 @@ static int dump_symtab(struct elf_module *m)
 	sym_cnt = symtab->sh_size / symtab->sh_entsize;
 
 
-	printk("\n.symtab contains %d entries\n"
-	       "============================\n"
-	       "\t[NUM]\t[VALUE]\t\t\t[SIZE]\t[TYPE]\t[NAME]\n", sym_cnt);
+	printk(MOD "\n"
+		MOD ".symtab contains %d entries\n"
+	        MOD "============================\n"
+	        MOD "\t[NUM]\t[VALUE]\t\t\t[SIZE]\t[TYPE]\t[NAME]\n", sym_cnt);
 
 
 	for (i = 0; i < sym_cnt; i++) {
 
-		printk("\t%d\t%016lx\t%4ld",
+		printk(MOD "\t%d\t%016lx\t%4ld",
 		       i,
 		       symbols[i].st_value,
 		       symbols[i].st_size);
@@ -472,7 +496,6 @@ static int dump_symtab(struct elf_module *m)
 
 
 
-
 /**
  * @brief dump the contents of strtab
  */
@@ -487,16 +510,16 @@ static void dump_strtab(const struct elf_module *m)
 		return;
 
 
-	printk("\n.strtab:\n"
+	printk(MOD "\n.strtab:\n"
 	       "============================\n"
 	       "\t[OFF]\t[STR]\n");
 
 	while(i < m->sh_size) {
-		printk("\t[%d]\t%s\n", i, m->str + i);
+		printk(MOD "\t[%d]\t%s\n", i, m->str + i);
 		i += strlen(m->str + i) + 1;
 	}
 
-	printk("\n\n");
+	printk(MOD "\n\n");
 }
 
 
@@ -597,23 +620,28 @@ static int set_strtab(struct elf_module *m)
 
 static int setup_module(struct elf_module *m)
 {
+	int i;
+
+
 	/* initialise module configuration */
 	m->pa       = 0;
 	m->va       = 0;
-	// XXX
-	//m->size     = 0;
+	m->size     = 0;
+	m->refcnt   = 0;
 	m->align    = sizeof(void *);
 	m->dyn      = NULL;
 	m->dyn_size = 0;
-
 	m->sec      = NULL;
+	m->base     = NULL;
+	m->init     = NULL;
+	m->exit     = NULL;
 
 	/* set section headers */
 	if (m->ehdr->e_shoff) {
 		m->shdr = (Elf_Shdr *) (((char *) m->ehdr) + m->ehdr->e_shoff);
 	} else {
 		m->shdr = NULL;
-		printk("ERR: no section header found\n");
+		pr_debug(MOD "ERR: no section header found\n");
 		return -1;
 	}
 
@@ -623,7 +651,7 @@ static int setup_module(struct elf_module *m)
 
 	/* locate and set dynamic string table */
 	if (!set_dynstr(m)) {
-		printk("WARN: no dynamic string table found\n");
+		pr_debug(MOD "WARN: no dynamic string table found\n");
 	}
 
 	/* locate and set string table */
@@ -632,28 +660,23 @@ static int setup_module(struct elf_module *m)
 
 	/* set up for relocatable object */
 	if (m->ehdr->e_type == ET_REL) {
-		printk("TODO\n");
-
-		m->align = 0x200000;	/* PC */
-#if 0
-		int i;
-		m->size = 0;
 		for (i = 0; i < m->ehdr->e_shnum; i++) {
 			if ((m->shdr[i].sh_flags & SHF_ALLOC)) {
-				printk("Alloc section: %s, size %ld\n",
-				       m->sh_str + m->shdr[i].sh_name,
-				       m->shdr[i].sh_size);
+				pr_debug(MOD "Alloc section: %s, size %ld\n",
+					m->sh_str + m->shdr[i].sh_name,
+					m->shdr[i].sh_size);
 
 				m->size += m->shdr[i].sh_size;
 
-				if (m->shdr[idx].sh_addralign > m->align)
-
-					m->align = m->shdr[idx].sh_addralign;
+				if (m->shdr[i].sh_addralign > m->align) {
+					m->align = m->shdr[i].sh_addralign;
+					pr_debug(MOD "align: %d\n", m->align);
+				}
 
 			}
 		}
-#endif
 	}
+
 
 	return 0;
 }
@@ -672,30 +695,28 @@ static int module_load_mem(struct elf_module *m)
 
 	struct module_section *s;
 
-	void *mem;
 
+	m->base = kmalloc(m->size + m->align);
 
-	mem = kmalloc(m->size);
-
-	if (!mem)
-		return -ENOMEM;
+	if (!m->base)
+		goto error;
 
 	/* exec info */
-	m->va = (unsigned long) mem;
-	m->pa = (unsigned long) mem;
+	m->va = (unsigned long) ALIGN_PTR(m->base, m->align);
+	m->pa = (unsigned long) ALIGN_PTR(m->base, m->align);
 
-
-	printk("\n\nLoading module run-time sections\n");
+	pr_debug(MOD "\n" MOD "\n"
+		MOD "Loading module run-time sections\n");
 
 	va_load = m->va;
 	pa_load = m->pa;
 
 	m->num_sec = get_num_alloc_sections(m);
 	m->sec = (struct module_section *)
-		 kmalloc(sizeof(struct module_section) * m->num_sec);
+		 kcalloc(sizeof(struct module_section), m->num_sec);
 
 	if (!m->sec)
-		return -1;
+		goto error;
 
 
 	s = m->sec;
@@ -718,19 +739,19 @@ static int module_load_mem(struct elf_module *m)
 		s->name = kmalloc(strlen(src));
 
 		if (!s->name)
-			return -1;
+			goto error;
 
 		strcpy(s->name, src);
 
 
 		if (sec->sh_type & SHT_NOBITS) {
-			printk("\tZero segment %10s at %p size %ld\n",
+			pr_debug(MOD "\tZero segment %10s at %p size %ld\n",
 			       s->name, (char *) va_load,
 			       sec->sh_size);
 
 			bzero((void *) va_load, s->size);
 		} else {
-			printk("\tCopy segment %10s from %p to %p size %ld\n",
+			pr_debug(MOD "\tCopy segment %10s from %p to %p size %ld\n",
 			       s->name,
 			       (char *) m->ehdr + sec->sh_offset,
 			       (char *) va_load,
@@ -747,12 +768,22 @@ static int module_load_mem(struct elf_module *m)
 		s++;
 
 		if (s > &m->sec[m->num_sec]) {
-			printk("Error out of section memory\n");
-			return -1;
+			pr_debug(MOD "Error out of section memory\n");
+			goto error;
 		}
 	}
 
 	return 0;
+
+error:
+	if (m->sec)
+		for (idx = 0; idx < m->num_sec; idx++)
+			kfree(m->sec[idx].name);
+
+	kfree(m->sec);
+	kfree(m->base);
+
+	return -ENOMEM;
 }
 
 
@@ -786,7 +817,8 @@ static int module_relocate(struct elf_module *m)
 
 		sec = get_sec(m, idx);
 
-		printk("\nSection Header info: %ld\n", sec->sh_info);
+		pr_debug(MOD "\n"
+			MOD "Section Header info: %ld\n", sec->sh_info);
 
 		if (sec) {
 
@@ -794,7 +826,7 @@ static int module_relocate(struct elf_module *m)
 
 			rel_cnt = sec->sh_size / sec->sh_entsize;
 
-			printk("Found %d RELA entries\n", rel_cnt);
+			pr_debug(MOD "Found %d RELA entries\n", rel_cnt);
 			/* relocation table in memory */
 			relatab = (Elf_Rela *) ((long)m->ehdr + sec->sh_offset);
 
@@ -806,7 +838,7 @@ static int module_relocate(struct elf_module *m)
 				struct module_section *s;
 				struct module_section *text  = find_mod_sec(m, ".text");
 
-				printk("OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n\n",
+				pr_debug(MOD "OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n",
 				       relatab[i].r_offset,
 				       relatab[i].r_info,
 				       relatab[i].r_addend,
@@ -822,15 +854,16 @@ static int module_relocate(struct elf_module *m)
 					if (!sym) {
 
 						unsigned long symval;
-						printk("\tNot found in library, resolving in module\n");
+						pr_info(MOD "\tSymbol %s not found in library, trying to resolving in module\n",
+							 symstr);
 
 
 						if (!(get_symbol_type(m, symstr) & STT_FUNC)) {
-							printk("\tERROR, unresolved symbol %s\n", symstr);
+							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
 						if (!get_symbol_value(m, symstr, &symval)) {
-							printk("\tERROR, unresolved symbol %s\n", symstr);
+							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
 
@@ -838,7 +871,7 @@ static int module_relocate(struct elf_module *m)
 
 					}
 
-					printk("\tSymbol %s at %lx\n", symstr, sym);
+					pr_info(MOD "\tSymbol %s at %lx\n", symstr, sym);
 
 					apply_relocate_add(m, &relatab[i], sym);
 
@@ -849,21 +882,21 @@ static int module_relocate(struct elf_module *m)
 					s = find_mod_sec(m, secstr);
 
 					if (!s) {
-						printk("Error cannot locate section %s for symbol\n", secstr);
+						pr_debug(MOD "Error cannot locate section %s for symbol\n", secstr);
 							continue;
 					}
 					/* target address to insert at location */
 					reladdr = (long) s->addr;
-					printk("\tRelative symbol address: %x, entry at %08lx\n", reladdr, s->addr);
+					pr_debug(MOD "\tRelative symbol address: %x, entry at %08lx\n", reladdr, s->addr);
 
 					apply_relocate_add(m, &relatab[i], reladdr);
 				}
 
-				printk("\n");
+				pr_debug(MOD "\n");
 
 
 			}
-			printk("\n");
+			pr_debug(MOD "\n");
 		}
 	}
 
@@ -872,63 +905,110 @@ static int module_relocate(struct elf_module *m)
 }
 
 
-
-
-
-typedef void (*entrypoint_t)(void);
-void go(entrypoint_t ep)
+void module_unload(struct elf_module *m)
 {
-	ep();
-	printk("done\n");
+	int i;
+
+
+	if (m->exit) {
+		if (m->exit())
+			pr_err(MOD "Module exit call failed.\n");
+	}
+
+	if (m->sec) {
+		for (i = 0; i < m->num_sec; i++)
+			kfree(m->sec[i].name);
+	}
+
+	kfree(m->sec);
+	kfree(m->base);
 }
+
 
 
 int module_load(struct elf_module *m, void *p)
 {
 	unsigned long symval;
-	entrypoint_t ep;
 
 
 	/* the ELF binary starts with the ELF header */
 	m->ehdr = (Elf_Ehdr *) p;
 
-	printk("Checking ELF header\n");
+	pr_debug(MOD "Checking ELF header\n");
 
 	if (elf_header_check(m->ehdr))
-		return -1;
+		goto error;
 
-	printk("Setting up module configuration\n");
+	pr_debug(MOD "Setting up module configuration\n");
 
 	if (setup_module(m))
-		return -1;
-
-
-	dump_sections(m);
+		goto error;
 
 	if (module_load_mem(m))
-		return -1;
-
-	dump_symtab(m);
+		goto cleanup;
 
 	if (module_relocate(m))
-		return -1;
+		goto cleanup;
 
-#if 1
-	if (!get_symbol_value(m, "_module_init", &symval)) {
-		printk("module init not found\n");
-		return -1;
+	if (_kmod.cnt == _kmod.sz) {
+		_kmod.m = krealloc(_kmod.m, (_kmod.sz + MODULE_REALLOC) *
+				   sizeof(struct elf_module **));
+
+		bzero(&_kmod.m[_kmod.sz], sizeof(struct elf_module **) *
+		      MODULE_REALLOC);
+		_kmod.sz += MODULE_REALLOC;
 	}
 
-	ep = (entrypoint_t) (m->va + symval);
+	_kmod.m[_kmod.cnt++] = m;
 
-	printk("Binary entrypoint is %lx; invoking %p\n", m->ehdr->e_entry, ep);
+	if (get_symbol_value(m, "_module_init", &symval))
+		m->init = (void *) (m->va + symval);
+	else
+		pr_warn(MOD "_module_init() not found\n");
 
-	go(ep);
-#endif
+
+	if (get_symbol_value(m, "_module_exit", &symval))
+		m->exit = (void *) (m->va + symval);
+	else
+		pr_warn(MOD "_module_exit() not found\n");
+
+
+	pr_debug(MOD "Binary entrypoint is %lx; invoking _module_init() at %p\n",
+		m->ehdr->e_entry, m->init);
+
+	if (m->init) {
+		if (m->init()) {
+			pr_err(MOD "Module initialisation failed.\n");
+			goto cleanup;
+		}
+	}
+
 
 	return 0;
+
+cleanup:
+	module_unload(m);
+error:
+	return -1;
 }
 
 
 
+void modules_list_loaded(void)
+{
+	struct elf_module **m;
 
+
+	m = _kmod.m;
+
+	while((*m)) {
+		printk(MOD "Contents of module %p loaded at base %p\n"
+		       MOD "\n",
+		       (*m), (*m)->base);
+
+		dump_sections((*m));
+		dump_symtab((*m));
+
+		m++;
+	}
+}

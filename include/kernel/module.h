@@ -17,6 +17,12 @@ struct elf_module {
 	unsigned long pa;
 	unsigned long va;
 
+	void *base;
+
+	int (*init)(void);
+	int (*exit)(void);
+
+	int refcnt;
 
 	unsigned int align;
 
@@ -48,5 +54,6 @@ struct module_section *find_mod_sec(const struct elf_module *m,
 				    const char *name);
 
 int module_load(struct elf_module *m, void *p);
+void modules_list_loaded(void);
 
 #endif /* _KERNEL_MODULE_H_ */
