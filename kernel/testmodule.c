@@ -8,13 +8,15 @@
 
 void somefunction(void)
 {
-	printf("this is some function\n");
+	printk("this is some function\n");
 }
 
+void _module_exit(void)
+{
+	printk("cleaning up\n");
+}
 
-void _module_init(void);
-
-void _module_init(void)
+int _module_init(void)
 {
 	int i;
 
@@ -25,4 +27,5 @@ void _module_init(void)
 
 	printk("allocating: %p\n", page_alloc());
 
+	return 0;
 }
