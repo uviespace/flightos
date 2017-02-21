@@ -21,7 +21,6 @@ void *module_lookup_embedded(char *mod_name);
 void *module_lookup_symbol_embedded(char *sym_name);
 
 
-
 static void kernel_init(void)
 {
 	setup_arch();
@@ -32,29 +31,37 @@ static void kernel_init(void)
 
 int main(void)
 {
+	void *addr;
+	struct elf_module m;
+
 	kernel_init();
 
-#if 0
-	{
-		struct elf_module m;
-		void *addr;
-
-		printk("%s at %p\n", "printk", lookup_symbol("printk"));
-
-		module_image_load_embedded();
-
-		/*  load -binary kernel/test.ko 0xA0000000 */
-		/* module_load(&m, (char *) 0xA0000000); */
+	/* load the embedded AR image */
+	module_image_load_embedded();
 
 
-		addr = kmalloc(4096);
-		//addr = module_lookup_embedded("testmodule.ko");
-		addr = module_lookup_symbol_embedded("somefunction");
 
-		if (addr)
-			module_load(&m, addr);
-	}
-#endif
+	/* look up a kernel symbol */
+	printk("%s at %p\n", "printk", lookup_symbol("printk"));
+
+	/* look up a file in the embedded image */
+	printk("%s at %p\n", "testmodule.ko",
+	       module_lookup_embedded("testmodule.ko"));
+
+
+	/* to load an arbitrary image, you may upload it via grmon, e.g.
+	 *	load -binary kernel/test.ko 0xA0000000
+	 * then load it:
+	 *	module_load(&m, (char *) 0xA0000000);
+	 */
+
+	/* lookup the module containing <symbol> */
+	addr = module_lookup_symbol_embedded("somefunction");
+	if (addr)
+		module_load(&m, addr);
+
+	modules_list_loaded();
+
 	return 0;
 }
 
