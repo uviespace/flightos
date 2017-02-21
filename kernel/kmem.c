@@ -164,7 +164,7 @@ void *kmalloc(size_t size)
 	len = WORD_ALIGN(size + sizeof(struct kmem));
 
 	/* try to locate a free chunk first */
-	k_new = kmem_find_free_chunk(size, &k_prev);
+	k_new = kmem_find_free_chunk(len, &k_prev);
 
 	if (k_new) {
 		/* take only what we need */
