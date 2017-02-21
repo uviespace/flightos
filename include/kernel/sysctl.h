@@ -5,7 +5,7 @@
 #ifndef _KERNEL_SYSCTL_H_
 #define _KERNEL_SYSCTL_H_
 
-#include <sys/types.h>
+#include <kernel/types.h>
 #include <list.h>
 #include <kernel/kernel.h>
 

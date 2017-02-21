@@ -2,8 +2,7 @@
 #define _KERNEL_ELF_H_
 
 
-#include <stdint.h>
-#include <stddef.h>
+#include <kernel/types.h>
 
 /* some ELF constants&stuff ripped from include/uapi/linux/elf.h */
 

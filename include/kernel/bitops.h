@@ -7,6 +7,7 @@
 #ifndef _KERNEL_BITOPS_H_
 #define _KERNEL_BITOPS_H_
 
+#include <kernel/types.h>
 
 #ifndef __WORDSIZE
 #define __WORDSIZE (__SIZEOF_LONG__ * 8)

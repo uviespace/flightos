@@ -20,7 +20,7 @@
 #ifndef _ARCH_SPARC_TRAPS_H_
 #define _ARCH_SPARC_TRAPS_H_
 
-#include <stdint.h>
+#include <kernel/types.h>
 
 void trap_handler_install(uint32_t trap, void (*handler)(void));
 

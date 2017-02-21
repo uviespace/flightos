@@ -5,7 +5,7 @@
 #ifndef _SPARC_STACKTRACE_H_
 #define _SPARC_STACKTRACE_H_
 
-#include <stdint.h>
+#include <kernel/types.h>
 #include <stack.h>
 
 struct stack_trace {

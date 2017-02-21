@@ -16,8 +16,7 @@
 #ifndef _KERNEL_LOG2_H_
 #define _KERNEL_LOG2_H_
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <kernel/types.h>
 
 /**
  * fls - find last (most-significant) bit set

@@ -1,7 +1,7 @@
 #ifndef _KERNEL_AR_H_
 #define _KERNEL_AR_H_
 
-#include <stdint.h>
+#include <kernel/types.h>
 
 #define AR_MAG   "!<arch>\n"		/* AR MAGIC ID */
 #define AR_FMAG  "`\n"			/* AR HDR END MAGIC */

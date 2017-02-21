@@ -19,7 +19,7 @@
 #ifndef _ARCH_SPARC_ASM_IO_H_
 #define _ARCH_SPARC_ASM_IO_H_
 
-#include <stdint.h>
+#include <kernel/types.h>
 #include <uapi/asi.h>
 
 /*

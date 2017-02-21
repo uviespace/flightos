@@ -5,7 +5,7 @@
 #ifndef _KERNEL_SBRK_H_
 #define _KERNEL_SBRK_H_
 
-#include <stdint.h>
+#include <kernel/types.h>
 
 void *kernel_sbrk(intptr_t increment);
 

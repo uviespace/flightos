@@ -1,7 +1,7 @@
 #ifndef _SPARC_STACK_H_
 #define _SPARC_STACK_H_
 
-#include <stdint.h>
+#include <kernel/types.h>
 
 /* reg window offset */
 #define RW_L0     0x00
