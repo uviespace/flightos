@@ -21,29 +21,16 @@
 
 
 #include <stdlib.h>	/* strtol() */
-#include <string.h>	/* strncmp() */	
+#include <string.h>	/* strncmp() */
 
 #include <kernel/ar.h>
+#include <kernel/kmem.h>
 #include <kernel/printk.h>
 
 
 
-
-/* XXX quick and dirty kmalloc() standin */
-#include <page.h>
-static void *kmalloc(size_t size) {
-	return page_alloc();
-}
-
-static void kfree(void *ptr) {
-	page_free(ptr);
-}
-
-
 /* XXX cleanup*/
 #define PLATFORM_IS_LITTLE_ENDIAN 0
-
-
 #if PLATFORM_IS_LITTLE_ENDIAN
 /**
  * @brief byte swap unsigned int
@@ -238,7 +225,7 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 			a->sym[j++] = &p[i + 1];
 	}
 
-	
+
 	return p + strsize;
 
 error:
@@ -634,7 +621,7 @@ int ar_load(char *p, unsigned long size, struct archive *a)
 			goto error;
 	}
 
-	
+
 	return 0;
 
 error:
