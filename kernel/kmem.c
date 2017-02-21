@@ -15,7 +15,7 @@
 #include <kernel/printk.h>
 
 
-#define WORD_ALIGN(x)	ALIGN((x), (sizeof(unsigned long) - 1))
+#define WORD_ALIGN(x)	ALIGN((x), sizeof(unsigned long))
 
 
 struct kmem {
