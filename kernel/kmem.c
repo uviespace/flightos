@@ -10,14 +10,19 @@
 
 #include <list.h>
 #include <kernel/kmem.h>
-#include <kernel/sbrk.h>
 #include <kernel/kernel.h>
 #include <kernel/printk.h>
+
+#ifdef CONFIG_MMU
+#include <kernel/sbrk.h>
+#else
+#include <kernel/bootmem.h>
+#endif /* CONFIG_MMU */
 
 
 #define WORD_ALIGN(x)	ALIGN((x), sizeof(unsigned long))
 
-
+#ifdef CONFIG_MMU
 struct kmem {
 	void *data;
 	size_t size;
@@ -91,15 +96,31 @@ static void kmem_split(struct kmem *k, size_t size)
 }
 
 
+/**
+ * @brief merge a chunk with its neighbour
+ */
+
+static void kmem_merge(struct kmem *k)
+{
+	k->size = k->size + k->next->size + sizeof(struct kmem);
+
+	k->next = k->next->next;
+
+	if (k->next)
+		k->next->prev = k;
+}
+#endif /* CONFIG_MMU */
+
 
 /**
  * @brief returns the initial kmem chunk
  *
- * @note call this once kernel_sbrk() works
+ * @returns pointer or NULL on error
  */
 
 void *kmem_init(void)
 {
+#ifdef CONFIG_MMU
 	if (likely(_kmem_init))
 		return _kmem_init;
 
@@ -122,22 +143,9 @@ void *kmem_init(void)
 	_kmem_last = _kmem_init;
 
 	return _kmem_init;
-}
-
-
-
-/**
- * @brief merge a chunk with its neighbour
- */
-
-static void kmem_merge(struct kmem *k)
-{
-	k->size = k->size + k->next->size + sizeof(struct kmem);
-
-	k->next = k->next->next;
-
-	if (k->next)
-		k->next->prev = k;
+#else
+	return (void *) -1; /* return something not NULL */
+#endif
 }
 
 
@@ -152,6 +160,7 @@ static void kmem_merge(struct kmem *k)
 
 void *kmalloc(size_t size)
 {
+#ifdef CONFIG_MMU
 	size_t len;
 
 	struct kmem *k_new;
@@ -199,6 +208,10 @@ void *kmalloc(size_t size)
 	_kmem_last = k_new;
 
 	return k_new->data;
+#else
+	return bootmem_alloc(size);
+#endif /* CONFIG_MMU */
+
 }
 
 
@@ -258,13 +271,15 @@ void *krealloc(void *ptr, size_t size)
 	char *src;
 
 	void *ptr_new;
+
+#ifdef CONFIG_MMU
 	struct kmem *k;
-
-
+#endif /* CONFIG_MMU */
 
 	if (!ptr)
 		return kmalloc(size);
 
+#ifdef CONFIG_MMU
 	if (ptr < kmem_init()) {
 		pr_warning("KMEM: invalid krealloc() of addr %p below lower "
 			   "bound of trackable memory in call from %p\n",
@@ -289,17 +304,22 @@ void *krealloc(void *ptr, size_t size)
 		return NULL;
 	}
 
+#endif /* CONFIG_MMU */
 
 	ptr_new = kmalloc(size);
 
 	if (!ptr_new)
 		return NULL;
 
-
+#ifdef CONFIG_MMU
 	if (k->size > size)
 		len = size;
 	else
 		len = k->size;
+#else
+	/* this WILL copy out of bounds if size < original */
+	len = size;
+#endif /* CONFIG_MMU */
 
 	src = ptr;
 	dst = ptr_new;
@@ -323,6 +343,7 @@ void *krealloc(void *ptr, size_t size)
 
 void kfree(void *ptr)
 {
+#ifdef CONFIG_MMU
 	struct kmem *k;
 
 
@@ -354,10 +375,9 @@ void kfree(void *ptr)
 
 	k->free = 1;
 
-	if (k->next && k->next->free)
+	if (k->next && k->next->free) {
 		kmem_merge(k);
-
-	if (k->prev->free) {
+	} else if (k->prev->free) {
 		k = k->prev;
 		kmem_merge(k);
 	}
@@ -371,4 +391,7 @@ void kfree(void *ptr)
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);
 	}
+#else
+	bootmem_free(ptr);
+#endif /* CONFIG_MMU */
 }

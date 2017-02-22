@@ -23,10 +23,10 @@
  * Note that the address verification in chunk_free() is weak, as it only
  * checks if it's start address and size are within the chunk of the parent.
  *
- * @todo add a function chunk_alloc_aligned() that allows aligned allocations 
+ * @todo add a function chunk_alloc_aligned() that allows aligned allocations
  *	 without wasting space. the function just grabs some memory and creates
  *	 a single chunk up to the alignement boundary and adds it to the "full"
- *	 pool, then returns the following (aligned) chunk. 
+ *	 pool, then returns the following (aligned) chunk.
  *
  */
 
@@ -74,7 +74,7 @@ struct chunk {
 
 static inline void *chunk_align(struct chunk_pool *pool, void *p)
 {
-	return (void *) (((unsigned long) p + pool->align) & ~pool->align);
+	return ALIGN_PTR(p, pool->align);
 }
 
 
@@ -108,8 +108,6 @@ static void chunk_setup(struct chunk_pool *pool, struct chunk *c)
 	c->mem = chunk_align(pool, (void *) (c + 1));
 	/* set the allocatable size of the cunk */
 	c->free = ((size_t) c + c->size) - (size_t) c->mem;
-
-	chunk_classify(pool, c);
 }
 
 
@@ -158,10 +156,11 @@ static struct chunk *chunk_grab_new(struct chunk_pool *pool, size_t size)
 	/* we have no references yet */
 	c->refcnt = 0;
 
+	chunk_setup(pool, c);
+
 	/* add new parent to full list by default */
 	list_add_tail(&c->node, &pool->full);
 
-	chunk_setup(pool, c);
 
 
 	return c;
@@ -181,12 +180,12 @@ static struct chunk *chunk_grab_new(struct chunk_pool *pool, size_t size)
  */
 
 static struct chunk *chunk_split(struct chunk_pool *pool,
-				 struct chunk *c, size_t size)
+				 struct chunk *c, size_t alloc_sz)
 {
 	struct chunk *new;
 
 
-	if (c->free < size)
+	if (c->free < alloc_sz)
 		return NULL;
 
 	/* this chunk is now a child of a higher-order chunk */
@@ -195,23 +194,26 @@ static struct chunk *chunk_split(struct chunk_pool *pool,
 	new->child   = NULL;
 	new->sibling = c->child;
 	new->refcnt  = 1;
-	new->free    = 0;
-	new->size    = size;
-
-	/* the new node will be in use, add to empty list */
-	list_add_tail(&new->node, &pool->empty);
+	new->size    = alloc_sz;
 
 	chunk_setup(pool, new);
+
+	/* the new node will be in use, add to empty list */
+	new->free = 0;
+	list_add_tail(&new->node, &pool->empty);
+
 
 	/* track the youngest child in the parent */
 	c->child = new;
 	c->refcnt++;
 
 	/* align parent chunk to start of new memory subsegment */
-	c->mem = chunk_align(pool, (void *) ((size_t) c->mem + size));
+	c->mem = chunk_align(pool, (void *) ((size_t) c->mem + alloc_sz));
 
 	/* update free bytes with regard to actual alignment */
-	c->free = ((size_t) c + c->size) - ((size_t) new  + new->size);
+	c->free = ((size_t) c + c->size - (size_t) c->mem);
+
+	chunk_classify(pool, c);
 
 	return new;
 }
@@ -233,7 +235,6 @@ void *chunk_alloc(struct chunk_pool *pool, size_t size)
 	struct chunk *c = NULL;
 
 	struct chunk *p_elem;
-	struct chunk *p_tmp;
 
 
 
@@ -251,7 +252,8 @@ void *chunk_alloc(struct chunk_pool *pool, size_t size)
 	alloc_sz = (size_t) chunk_align(pool,
 					(void *) (size + sizeof(struct chunk)));
 
-	list_for_each_entry_safe(p_elem, p_tmp, &pool->full, node) {
+	list_for_each_entry(p_elem, &pool->full, node) {
+
 
 		if (p_elem->free >= alloc_sz) {
 			c = p_elem;
@@ -396,7 +398,7 @@ void chunk_pool_init(struct chunk_pool *pool,
 	INIT_LIST_HEAD(&pool->full);
 	INIT_LIST_HEAD(&pool->empty);
 
-	pool->align = align - 1;
+	pool->align = align;
 
 	pool->alloc = alloc;
 	pool->free  = free;

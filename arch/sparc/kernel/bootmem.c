@@ -41,7 +41,7 @@ static struct chunk_pool phys_mem_pool;
 
 static void *bootmem_alloc_internal(size_t size)
 {
-#if (CONFIG_SPARC_BOOTMEM_REQUEST_NEW_ON_DEMAND)
+#ifndef CONFIG_SPARC_BOOTMEM_REQUEST_NEW_ON_DEMAND
 	static int blocked;
 
 	if (blocked) {
@@ -93,6 +93,9 @@ static size_t bootmem_get_alloc_size(void *ptr)
 void *bootmem_alloc(size_t size)
 {
 	void *ptr;
+
+	if (!size)
+		return NULL;
 
 	ptr = chunk_alloc(&phys_mem_pool, size);
 
@@ -247,7 +250,6 @@ void bootmem_init(void)
 		if (base_pfn == sp_banks[i].base_addr)
 			continue;
 
-	
 		pg_node = MEM_PAGE_NODE(node);
 		node++;
 
@@ -259,25 +261,18 @@ void bootmem_init(void)
 
 		/* let's assume we always have enough memory, because if we
 		 * don't, there is a serious configuration problem anyways
+		 *
+		 * XXX this should be a function...
 		 */
 
-		(*pg_node) = (struct page_map_node *)
-				bootmem_alloc(sizeof(struct page_map_node));
-
-		(*pg_node)->pool = (struct mm_pool *)
-					bootmem_alloc(sizeof(struct mm_pool));
+		(*pg_node)		      = (struct page_map_node *) bootmem_alloc(sizeof(struct page_map_node));
+		(*pg_node)->pool	      = (struct mm_pool *)       bootmem_alloc(sizeof(struct mm_pool));
 
 		bzero((*pg_node)->pool, sizeof(struct mm_pool));
 
-		(*pg_node)->pool->block_order = (struct list_head *)
-					bootmem_alloc(sizeof(struct list_head)
-						* MM_BLOCK_ORDER_MAX);
-		(*pg_node)->pool->alloc_order = (unsigned char *)
-					bootmem_alloc(MM_INIT_NUM_BLOCKS);
-
-		(*pg_node)->pool->blk_free = (unsigned long *)
-					bootmem_alloc(MM_INIT_LEN_BITMAP
-						* sizeof(unsigned long));
+		(*pg_node)->pool->block_order = (struct list_head *)     bootmem_alloc(sizeof(struct list_head) * (MM_BLOCK_ORDER_MAX + 1));
+		(*pg_node)->pool->alloc_order = (unsigned char *)        bootmem_alloc(MM_INIT_NUM_BLOCKS);
+		(*pg_node)->pool->blk_free    = (unsigned long *)        bootmem_alloc(MM_INIT_LEN_BITMAP * sizeof(unsigned long));
 
 		ret = page_map_add(sp_banks[i].base_addr,
 				sp_banks[i].base_addr + sp_banks[i].num_bytes,
