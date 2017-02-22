@@ -94,14 +94,13 @@ int page_map_add(unsigned long start, unsigned long end,
 		if (!(*pg)->pool->max_order)
 			break;
 
-	} while ((*(pg++)));
+	} while ((*(++pg)));
 
 
 	if (!pg) {
 		pr_err("PAGE MEM: map space exceeded, cannot add map\n");
 		goto error;
 	}
-
 	if (mm_init((*pg)->pool, (void *) start, mem_size, page_size))
 		goto error;
 
@@ -192,7 +191,7 @@ void *page_map_reserve_chunk(size_t size)
 
 	struct page_map_node **pg = page_mem;
 
-	if (!page_mem) {
+	if (!pg) {
 		pr_err("PAGE MEM: %s no page map configured\n", __func__);
 		goto exit;
 	}
@@ -205,7 +204,7 @@ void *page_map_reserve_chunk(size_t size)
 
 		if (mem)
 			break;
-	} while ((*(pg++)));
+	} while ((*(++pg)));
 
 exit:
 	return mem;
