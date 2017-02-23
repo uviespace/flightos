@@ -19,7 +19,7 @@
 void module_image_load_embedded(void);
 void *module_lookup_embedded(char *mod_name);
 void *module_lookup_symbol_embedded(char *sym_name);
-
+void *module_read_embedded(char *mod_name);
 
 static void kernel_init(void)
 {
@@ -40,14 +40,12 @@ int main(void)
 	module_image_load_embedded();
 
 
-
 	/* look up a kernel symbol */
 	printk("%s at %p\n", "printk", lookup_symbol("printk"));
 
 	/* look up a file in the embedded image */
 	printk("%s at %p\n", "testmodule.ko",
 	       module_lookup_embedded("testmodule.ko"));
-
 
 	/* to load an arbitrary image, you may upload it via grmon, e.g.
 	 *	load -binary kernel/test.ko 0xA0000000
@@ -56,7 +54,13 @@ int main(void)
 	 */
 
 	/* lookup the module containing <symbol> */
-	addr = module_lookup_symbol_embedded("somefunction");
+	/* addr = module_lookup_symbol_embedded("somefunction"); */
+	/* XXX the image is not necessary aligned properly, so we can't access
+	 * it directly, until we have a MNA trap */
+
+
+	addr = module_read_embedded("testmodule.ko");
+
 	if (addr)
 		module_load(&m, addr);
 
