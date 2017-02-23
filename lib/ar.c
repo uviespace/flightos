@@ -497,6 +497,49 @@ error:
 
 
 /**
+ * @brief read an archive file to a buffer
+ *
+ * @param a a struct archive
+ * @param name the name of the file to copyy
+ * @param ptr a pointer to a buffer
+ *
+ * @return if ptr is NULL or on success, the size of the file, otherwise 0
+ *
+ * @note this silently returns the first occurence only
+ */
+
+unsigned int ar_read_file(struct archive *a, const char *name, void *ptr)
+{
+	unsigned long i;
+
+
+	if (!a)
+		goto error;
+
+	if (!a->fname)
+		goto error;
+
+	if (!a->fnamesz)
+		goto error;
+
+
+	for (i = 0; i < a->n_file; i++) {
+		if(!strncmp(a->fname[i], name, a->fnamesz[i])) {
+			if (ptr)
+				memcpy(ptr, (void *) a->p_file[i],
+				       a->filesz[i]);
+
+			return a->filesz[i];
+		}
+	}
+
+error:
+	return 0;
+}
+
+
+
+/**
  * @brief return a pointer to the archive file a symbol is located in
  *
  * @param a a struct archive

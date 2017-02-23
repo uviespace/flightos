@@ -50,7 +50,7 @@ void *ar_find_file(struct archive *a, const char *name);
 void *ar_find_symbol(struct archive *a, const char *name);
 void ar_free(struct archive *a);
 int ar_load(char *p, unsigned long size, struct archive *a);
-
+unsigned int ar_read_file(struct archive *a, const char *name, void *ptr);
 
 
 
