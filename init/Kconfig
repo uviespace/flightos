@@ -101,6 +101,16 @@ config CC_OPTIMIZE_FOR_SIZE
 	  your compiler resulting in a smaller kernel.
 
 	  If unsure, say N.
+
+config CC_OPTIMIZE_NONE
+	bool "No optimization"
+	help
+	  Enabling this option will pass "-O0" to the compiler.
+	  This should be avoided, some things may not work as expected or at
+	  all if the rely on -O2 or -Os. You have been warned.
+
+	  If unsure, say N.
+
 endchoice
 
 config DEBUG_INFO

@@ -19,6 +19,8 @@
  *
  * @note the new stack area is assumed to at least hold the old stack
  * @note remember that SPARC stacks grow from top to bottom
+ *
+ * @warn XXX this does to work with -O0 at the moment
  */
 
 int stack_migrate(void *sp, void *stack_top_new)
