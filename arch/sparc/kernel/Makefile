@@ -7,6 +7,7 @@ obj-y += init.o
 obj-y += page.o
 obj-y += bootmem.o
 obj-y += mm.o
+obj-$(CONFIG_MMU) += mmu.o
 obj-y += elf.o
 obj-y += module.o
 obj-y += traps.o

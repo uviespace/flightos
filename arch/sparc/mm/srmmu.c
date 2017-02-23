@@ -177,15 +177,7 @@ static struct mmu_ctx *_mmu_ctx;      /* the currently configured context    */
  */
 
 struct mmu_ctx_tbl {
-
 	struct srmmu_ptde *lvl1;
-
-	struct srmmu_ptde *lvl2[SRMMU_SIZE_TBL_LVL_1][SRMMU_SIZE_TBL_LVL_2];
-	struct srmmu_ptde *lvl3[SRMMU_SIZE_TBL_LVL_1][SRMMU_SIZE_TBL_LVL_2];
-
-
-	unsigned long n_lvl2;
-	unsigned long n_lvl3;
 };
 
 struct mmu_ctx {
@@ -738,6 +730,9 @@ static int srmmu_release_lvl3_pages(struct mmu_ctx *ctx,
 
 	lvl3 = mmu_find_tbl_lvl3(ctx, va);
 
+	if (!lvl3)
+		return 0;
+
 	if ((va + SRMMU_SIZE_TBL_LVL_3 * SRMMU_SMALL_PAGE_SIZE ) < va_end)
 		va_end = va + SRMMU_SIZE_TBL_LVL_3 * SRMMU_SMALL_PAGE_SIZE;
 
@@ -793,6 +788,9 @@ static int srmmu_release_lvl2_pages(struct mmu_ctx *ctx,
 
 
 	lvl2 = mmu_find_tbl_lvl2(ctx, va);
+
+	if (!lvl2)
+		return 0;
 
 	if ((va + SRMMU_SIZE_TBL_LVL_2 * SRMMU_MEDIUM_PAGE_SIZE ) < va_end)
 		va_end = va + SRMMU_SIZE_TBL_LVL_2 * SRMMU_MEDIUM_PAGE_SIZE;

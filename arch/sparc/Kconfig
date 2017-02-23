@@ -2,8 +2,22 @@ menu "SPARC Configuration"
 
 ### Arch specific settings
 
+
+config MMU
+	bool "Enable SPARC Reference MMU support"
+	depends on MM
+	depends on CHUNK
+	default n
+	help
+	 Use virtual memory mapping via the SPARC SRMMU. This enables
+	 read-write-execute and super/normal user memory protection and more
+	 efficient memory usage.
+	 If you have an SRMMU on your target platform, say Y if you want to use
+	 it.
+
 config PAGE_OFFSET
 	bool "Use an offset in physical/virtual page address conversion"
+	depends on MMU
 	default n
 	help
 	  Use an offset when computing the virtual and physical page

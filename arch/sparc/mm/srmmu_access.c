@@ -168,11 +168,9 @@ void srmmu_set_mmureg(unsigned long regval)
 
 void leon_flush_cache_all(void)
 {
-#if 0	/* bug on MPPB leon 2? */
 	__asm__ __volatile__(" flush ");	/*iflush */
 	__asm__ __volatile__("sta %%g0, [%%g0] %0\n\t" : :
 			     "i"(ASI_LEON_DFLUSH) : "memory");
-#endif
 }
 
 
