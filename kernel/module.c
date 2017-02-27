@@ -503,7 +503,7 @@ static int dump_symtab(struct elf_module *m)
 __attribute__((unused))
 static void dump_strtab(const struct elf_module *m)
 {
-	size_t i;
+	size_t i = 0;
 
 
 	if (!m->str)
