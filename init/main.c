@@ -42,7 +42,7 @@ int main(void)
 
 	/* look up a kernel symbol */
 	printk("%s at %p\n", "printk", lookup_symbol("printk"));
-
+#if 0
 	/* look up a file in the embedded image */
 	printk("%s at %p\n", "testmodule.ko",
 	       module_lookup_embedded("testmodule.ko"));
@@ -63,7 +63,7 @@ int main(void)
 
 	if (addr)
 		module_load(&m, addr);
-
+#endif
 	modules_list_loaded();
 
 	return 0;
