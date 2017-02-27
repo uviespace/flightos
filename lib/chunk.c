@@ -250,7 +250,7 @@ void *chunk_alloc(struct chunk_pool *pool, size_t size)
 
 	/* grab a large enough chunk to satisfy alignment and overhead needs */
 	alloc_sz = (size_t) chunk_align(pool,
-					(void *) (size + sizeof(struct chunk)));
+			(void *) (size + pool->align + sizeof(struct chunk)));
 
 	list_for_each_entry(p_elem, &pool->full, node) {
 
