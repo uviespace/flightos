@@ -1,8 +1,17 @@
 #ifndef _KERNEL_MODULE_H_
 #define _KERNEL_MODULE_H_
 
-
+#include <kernel/init.h>
 #include <kernel/elf.h>
+
+
+
+#define module_init(initfunc)   \
+        int _module_init(void) __attribute__((alias(#initfunc)));
+
+#define module_exit(exitfunc)   \
+        int _module_exit(void) __attribute__((alias(#exitfunc)));
+
 
 
 struct module_section {

@@ -46,21 +46,20 @@
  * @note explicit references to linux source files are not always given
  */
 
+#include <kernel/printk.h>
+#include <kernel/kmem.h>
+#include <kernel/sysctl.h>
+#include <kernel/export.h>
+#include <kernel/string.h>
 
-#include <stdio.h>
-
-#include <stdlib.h>
-#include <string.h>
 #include <errno.h>
 
 #include <list.h>
 
-#include <kernel/sysctl.h>
 
-
+/* our standard sets */
 struct sysset *sys_set;
 struct sysset *driver_set;
-
 
 
 
@@ -158,7 +157,7 @@ struct sysobj *sysobj_create(void)
 	struct sysobj *sobj;
 
 
-	sobj = malloc(sizeof(*sobj));
+	sobj = (struct sysobj *) kmalloc(sizeof(*sobj));
 
 	if (!sobj)
 		return NULL;
@@ -167,7 +166,7 @@ struct sysobj *sysobj_create(void)
 
 	return sobj;
 }
-
+EXPORT_SYMBOL(sysobj_create);
 
 /**
  * @brief add a sysobject and optionally set its sysset as parent
@@ -265,12 +264,12 @@ void sysobj_list_attr(struct sysobj *sobj)
 
 	sattr = sobj->sattr;
 
-	printf("{");
+	printk("{");
 	while ((*sattr)) {
-		printf(" %s", (*sattr)->name);
+		printk(" %s", (*sattr)->name);
 		sattr++;
 	}
-	printf(" }");
+	printk(" }");
 }
 
 
@@ -415,12 +414,10 @@ struct sysset *sysset_create(const char *name,
 {
         struct sysset *sysset;
 
-        sysset = malloc(sizeof(*sysset));
+        sysset = kcalloc(1, sizeof(*sysset));
 
         if (!sysset)
                 return NULL;
-
-	bzero(sysset, sizeof(*sysset));
 
 
         sysobj_set_name(&sysset->sobj, name);
@@ -470,7 +467,7 @@ struct sysset *sysset_create_and_add(const char *name,
 __extension__
 struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 {
-	char str[256];
+	char str[256]; /* XXX */
 	char *token;
 
         struct sysobj *s;
@@ -480,7 +477,9 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 
 	memcpy(str, path, strlen(path) + 1);
 
-	token = strtok(str, "/");
+	token = str;
+
+	strsep(&token, "/");
 
 	/* root node */
 	if(strcmp(sysobj_name(&sysset->sobj), token))
@@ -488,7 +487,7 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 
 	while (1) {
 
-		token = strtok(NULL, "/");
+		strsep(&token, "/");
 
 		if (!token)
 			return ret;
@@ -532,21 +531,21 @@ void sysset_show_tree(struct sysset *sysset)
 	rec++;
 
 	for(i = 0; i < rec; i++)
-		printf("    ");
+		printk("    ");
 
-	printf("|__ %s\n", sysobj_name(&sysset->sobj));
+	printk("|__ %s\n", sysobj_name(&sysset->sobj));
 
         list_for_each_entry(k, &sysset->list, entry) {
 
 		if (!k->child) {
 
 			for(i = 0; i < rec+1; i++)
-				printf("    ");
-			printf("|__ %s ", sysobj_name(k));
+				printk("    ");
+			printk("|__ %s ", sysobj_name(k));
 
 			sysobj_list_attr(k);
 
-			printf("\n");
+			printk("\n");
 
 		} else {
 			sysset_show_tree(container_of(k->child, struct sysset, sobj));

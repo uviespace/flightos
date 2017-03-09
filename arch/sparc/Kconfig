@@ -2,6 +2,22 @@ menu "SPARC Configuration"
 
 ### Arch specific settings
 
+choice 
+	prompt "Select CPU type"
+	default LEON3
+
+config LEON2
+	bool "LEON2"
+	help
+	 Configure for LEON2. 
+
+config LEON3
+	bool "LEON3"
+	help
+	 Configure for LEON2. 
+
+endchoice
+
 
 config MMU
 	bool "Enable SPARC Reference MMU support"

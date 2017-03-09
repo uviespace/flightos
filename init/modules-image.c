@@ -18,8 +18,10 @@ void module_image_load_embedded(void)
 	ar_load(&_binary_modules_image_start,
 		(unsigned int)&_binary_modules_image_size, &mod_ar);
 
+#if 0
 	ar_list_files(&mod_ar);
 	ar_list_symbols(&mod_ar);
+#endif
 }
 
 

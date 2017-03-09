@@ -858,7 +858,11 @@ static int module_relocate(struct elf_module *m)
 							 symstr);
 
 
-						if (!(get_symbol_type(m, symstr) & STT_FUNC)) {
+						if (!(get_symbol_type(m, symstr) & STT_OBJECT)) {
+							pr_debug(MOD "\tERROR, object data resolution not yet implemented, symbol %s may not function as intended. If it is a variable, declare it static as a workaround\n", symstr);
+						}
+
+						if (!(get_symbol_type(m, symstr) & (STT_FUNC | STT_OBJECT))) {
 							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
@@ -871,7 +875,7 @@ static int module_relocate(struct elf_module *m)
 
 					}
 
-					pr_info(MOD "\tSymbol %s at %lx\n", symstr, sym);
+					pr_debug(MOD "\tSymbol %s at %lx\n", symstr, sym);
 
 					apply_relocate_add(m, &relatab[i], sym);
 

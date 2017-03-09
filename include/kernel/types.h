@@ -5,6 +5,8 @@
 #ifndef _KERNEL_TYPES_H_
 #define _KERNEL_TYPES_H_
 
+#include <compiler.h>
+
 #include <stddef.h>
 
 #include <stdbool.h>
@@ -13,6 +15,12 @@
 #define GCC_VERSION (__GNUC__ * 10000 \
 		     + __GNUC_MINOR__ * 100 \
 		     + __GNUC_PATCHLEVEL__)
+#endif
+
+
+/* d'oh! -.- */
+#if defined(CONFIG_LEON2) || defined(CONFIG_LEON3)
+#define __BIG_ENDIAN_BITFIELD __BIG_ENDIAN_BITFIELD
 #endif
 
 
@@ -36,11 +44,23 @@ typedef   signed short  int16_t;
 typedef unsigned char uint8_t;
 typedef   signed char  int8_t;
 
+compile_time_assert(sizeof(uint64_t) == 8, TYPES_UINT64_SIZE_INVALID);
+compile_time_assert(sizeof( int64_t) == 8, TYPES__INT64_SIZE_INVALID);
+compile_time_assert(sizeof(uint32_t) == 4, TYPES_UINT32_SIZE_INVALID);
+compile_time_assert(sizeof( int32_t) == 4, TYPES__INT32_SIZE_INVALID);
+compile_time_assert(sizeof(uint16_t) == 2, TYPES_UINT16_SIZE_INVALID);
+compile_time_assert(sizeof( int16_t) == 2, TYPES__INT16_SIZE_INVALID);
+compile_time_assert(sizeof(uint8_t)  == 1, TYPES_UINT_8_SIZE_INVALID);
+compile_time_assert(sizeof( int8_t)  == 1, TYPES__INT_8_SIZE_INVALID);
+
 #endif
 
 #ifndef __SIZEOF_LONG__
 #define __SIZEOF_LONG__ (sizeof(long))
 #endif
+
+
+
 
 
 

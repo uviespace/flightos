@@ -249,6 +249,24 @@ void *kcalloc(size_t nmemb, size_t size)
 
 
 /**
+ * @brief allocates size bytes and returns a pointer to the allocated memory,
+ *	  suitably aligned for any built-in type. The memory is set to zero.
+ *
+ * @param size the number of bytes to allocate
+ *
+ * @returns a pointer or NULL on error or size == 0
+ *
+ * @note this should be preferred over kcalloc(n, 1), as it saves the extra
+ *	 argument and hence produces less code
+ */
+
+void *kzalloc(size_t size)
+{
+	return kcalloc(size, 1);
+}
+
+
+/**
  * @brief changes the size of the memory block pointed to by ptr to size bytes.
  *	  The contents will be unchanged in the range from the start of the
  *	  region up to the minimum of the old and new sizes. If the new size is

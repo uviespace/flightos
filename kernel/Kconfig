@@ -18,3 +18,77 @@ config KERNEL_LEVEL
 	 7: informational
 	 8: debug
 
+config IRQ_STATS_COLLECT
+	bool "Enable IRQ statistics via sysctl"
+	depends on SYSCTL
+	default n
+	help
+	 Collect interrupt statistics and expose them in the
+	 systl tree.
+
+config SOC
+	bool "Enable System-On-Chip configurations"
+	default n
+
+choice
+	prompt "Select board type"
+	default MPPB
+	depends on SOC
+
+config MPPB
+	bool "MPPBv2"
+	depends on SOC && LEON2
+	help
+	 Configure parameters for the MPPBv2
+
+config SSDP
+	bool "SSDP"
+	depends on SOC && LEON3
+	help
+	 Configure parameters for the SSDP
+
+endchoice
+
+menu "System-on-Chip drivers"
+
+depends on SOC
+
+config NOC_DMA
+	tristate "NoC 2D DMA driver"
+	default m
+	depends on SOC && (MPPB || SSDP)
+	help
+	 Build the MPPBv2/SSDP NoC DMA driver.
+
+config NOC_DMA_TRANSFER_QUEUE_SIZE
+	int "NoC DMA transfer queue size"
+	default "32"
+	depends on NOC_DMA
+	help
+	 Configures the size of the DMA transfer queue.
+
+config NOC_DMA_STATS_COLLECT
+	bool "Enable NoC DMA statistics via sysctl"
+	depends on SYSCTL
+	default n
+	help
+	 Collect DMA transfer statistics and expose them in the
+	 systl tree.
+
+config NOC_DMA_SAME_MASTER_TRANSFER_WORKAROUND
+	bool "Enable workaround for NoC DMA transfers within same master"
+	default n
+	help
+	 Enable a workaround for NoC DMA transfers with the address space
+	 of the same master. On the MPPB this will result in a stuck channel,
+	 as the transfer never completes. If you say Y here, the requested
+	 transfer will be initialised as two transfers, one of high priority
+	 that copies the source data into a scratch buffer (the NoC SRAM tile)
+	 and a low priority transfer that copies the contents of the scratch
+	 buffer to the destination. Results may be unpredictable,
+	 you have been warned.
+
+endmenu
+
+
+

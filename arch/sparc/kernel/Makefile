@@ -15,5 +15,6 @@ obj-y += stacktrace.o
 obj-y += stack.o
 obj-y += traps/data_access_exception_trap.o
 obj-y += traps/data_access_exception.o
+obj-y += irq.o
 
 #libs-y                 += lib/

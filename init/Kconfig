@@ -16,7 +16,7 @@ config KALLSYMS
 	help
 	  Create a kernel image symbol lookup table for use in loadable modules.
 	  Note: If disabled, modules can still export symbols for other modules
-	  to use, but no kernel functions will be resolvable.	
+	  to use, but no kernel functions will be resolvable.
 	  If unsure, say Y.
 
 

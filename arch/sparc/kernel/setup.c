@@ -6,6 +6,7 @@
 
 #include <init.h>
 #include <mm.h>
+#include <asm/irq.h>
 #include <compiler.h>
 
 #include <page.h>
@@ -61,7 +62,7 @@ static void reserve_kernel_stack(void)
 static void mem_init(void)
 {
 	sp_banks[0].base_addr = 0x40000000;
-	sp_banks[0].num_bytes = 0x00800000;
+	sp_banks[0].num_bytes = 0x02800000;
 
 #if (SPARC_PHYS_BANKS > 0)
 	sp_banks[1].base_addr = 0x60000000;
@@ -88,4 +89,6 @@ void setup_arch(void)
 	reserve_kernel_stack();
 
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
+
+	leon_irq_init();
 }

@@ -9,11 +9,7 @@
 #define _SPARC_SRMMU_H_
 
 
-#include <stddef.h>
-
-
-/* XXX: not here */
-#define __BIG_ENDIAN_BITFIELD __BIG_ENDIAN_BITFIELD
+#include <kernel/types.h>
 
 
 #define SRMMU_CTRL_IMPL_MASK	0xf0000000

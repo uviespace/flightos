@@ -1,0 +1,27 @@
+General
+=======
+
+Patches and improvements are always welcome.
+Please consider that I barely had 3 months to prepare all of this from start to
+finish, so some things may not be particularly smart or pretty, or even
+complete.
+
+
+MPPB (v2)
+=======
+
+* NoC DMA channels silently fail and can not be reset when source and
+  destination of a transfer falls programmed within the same memory
+  (this may not be true, I have not tried programming zero-sized transfers yet)
+
+* There is no atomic mechanism that protects against concurrent programming
+  of NoC DMA channels. This means that a Xentium needs to either reserve one
+  or more channels for a time, or all channels must be assigned beforehand 
+
+* there is no MMU
+
+Xentium
+=======
+
+* Xentium-Clang cannot produce position independent executables, which makes
+  memory management less comfortable
