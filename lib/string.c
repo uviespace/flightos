@@ -153,6 +153,57 @@ void *memcpy(void *dest, const void *src, size_t n)
 EXPORT_SYMBOL(memcpy);
 
 
+/**
+ * @brief copy a '\0' terminated string
+ *
+ * @param dest the destination of the string
+ * @param src the source of string
+ *
+ * @return a pointer to dest
+ *
+ * @note strings may not overlap
+ *
+ */
+
+char *strcpy(char *dest, const char *src)
+{
+	char *tmp;
+	
+	
+	tmp = dest;
+
+	while ((*dest++ = *src++) != '\0');
+	
+	return tmp;
+}
+EXPORT_SYMBOL(strcpy);
+
+
+
+/**
+ * @brief set the first n bytes of the area starting at s to zero (bytes
+ *        containing '\0')
+ *
+ * @param s the start of the area
+ *
+ * @param n the number of bytes to set to zero
+ *
+ */
+
+void bzero(void *s, size_t n)
+{
+	char *c;
+
+
+	c = (char *) s;
+
+	while (n--) {
+		(*c) = '\0';
+		c++;
+	}
+}
+EXPORT_SYMBOL(bzero);
+
 
 
 #include <stdarg.h>

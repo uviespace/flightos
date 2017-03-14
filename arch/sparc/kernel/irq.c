@@ -44,6 +44,7 @@
 #include <kernel/irq.h>
 #include <kernel/kmem.h>
 #include <kernel/printk.h>
+#include <kernel/kernel.h>
 
 #include <errno.h>
 #include <list.h>

@@ -4,3 +4,4 @@ lib-$(CONFIG_PAGE_MAP)	+= page.o
 lib-$(CONFIG_AR)	+= ar.o
 lib-$(CONFIG_CHUNK)	+= chunk.o
 lib-y			+= string.o
+lib-y			+= elf.o

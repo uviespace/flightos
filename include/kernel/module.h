@@ -36,17 +36,8 @@ struct elf_module {
 	unsigned int align;
 
 	Elf_Ehdr *ehdr;		/* coincides with start of module image */
-	Elf_Shdr *shdr;
-	Elf_Dyn  *dyn;
-
+	
 	size_t size;
-	size_t dyn_size;
-	size_t sh_size;
-	size_t str_size;
-
-	char  *dyn_str;		/* dynamic symbols string tab */
-	char  *sh_str;		/* section header string tab */
-	char  *str;		/* stringtab */
 
 	struct module_section *sec;
 	size_t num_sec;
@@ -58,11 +49,11 @@ struct elf_module {
 int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym);
 
 
-
 struct module_section *find_mod_sec(const struct elf_module *m,
 				    const char *name);
 
 int module_load(struct elf_module *m, void *p);
+
 void modules_list_loaded(void);
 
 #endif /* _KERNEL_MODULE_H_ */

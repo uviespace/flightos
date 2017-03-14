@@ -564,46 +564,4 @@ typedef Elf32_Sym  Elf_Sym;
 int elf_header_check(Elf_Ehdr *ehdr);
 
 
-
-Elf_Shdr *elf_get_shdr(const Elf_Ehdr *ehdr);
-size_t elf_find_shdr_alloc_idx(const Elf_Ehdr *ehdr, const size_t offset);
-
-Elf_Shdr *elf_get_sec_by_idx(const Elf_Ehdr *ehdr, const size_t idx);
-Elf_Shdr *elf_get_sec_shstrtab(const Elf_Ehdr *ehdr);
-char *elf_get_shstrtab_str(const Elf_Ehdr *ehdr, size_t idx);
-
-Elf_Shdr *elf_find_sec(const Elf_Ehdr *ehdr, const char *name);
-
-char *elf_get_strtab(const Elf_Ehdr *ehdr);
-char *elf_get_strtab_str(const Elf_Ehdr *ehdr, size_t idx);
-
-char *elf_get_dynstr(const Elf_Ehdr *ehdr);
-char *elf_get_dynstr_str(const Elf_Ehdr *ehdr, size_t idx);
-
-char *elf_get_symbol_str(const Elf_Ehdr *ehdr, size_t idx);
-
-unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
-				   const char *name, unsigned long *value);
-
-unsigned long elf_get_symbol_type(const Elf_Ehdr *ehdr, const char *name);
-
-size_t elf_find_sec_idx_by_type(const Elf_Ehdr *ehdr,
-				const uint32_t sh_type,
-				const size_t offset);
-
-size_t elf_get_num_alloc_sections(const Elf_Ehdr *ehdr);
-
-size_t elf_get_num_dyn_entries(const Elf_Ehdr *ehdr);
-
-Elf_Dyn *elf_find_dyn(const Elf_Ehdr *ehdr,
-			 const unsigned long d_tag,
-			 const unsigned int offset);
-
-void elf_hdr_endianess_swap(Elf_Ehdr *ehdr);
-
-void elf_dump_strtab(const Elf_Ehdr *ehdr);
-void elf_dump_symtab(const Elf_Ehdr *ehdr);
-void elf_dump_sections(const Elf_Ehdr *ehdr);
-
-
 #endif /* _KERNEL_ELF_H_ */
