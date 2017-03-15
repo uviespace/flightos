@@ -172,7 +172,6 @@ void elf_hdr_endianess_swap(Elf_Ehdr *ehdr)
 	ehdr->e_shnum	  = swab16(ehdr->e_shnum);
 	ehdr->e_shstrndx  = swab16(ehdr->e_shstrndx);
 
-	/* everything after is in 32 bit words */
 
 	phdr = (Elf_Phdr *) ((char *) ehdr + ehdr->e_phoff);
 
@@ -202,13 +201,16 @@ void elf_hdr_endianess_swap(Elf_Ehdr *ehdr)
 		shdr[i].sh_entsize   = swab32(shdr[i].sh_entsize);
 	}
 
-
 	shdr = elf_find_sec(ehdr, ".symtab");
 	if (shdr) {
 		sym = (Elf_Sym *) (((char *) ehdr) + shdr->sh_offset);
 
-		for (i = 0; i < shdr->sh_size / shdr->sh_entsize; i++)
-			sym[i].st_name = swab32(sym[i].st_name);
+		for (i = 0; i < shdr->sh_size / shdr->sh_entsize; i++) {
+			sym[i].st_name  = swab32(sym[i].st_name);
+			sym[i].st_value = swab32(sym[i].st_value);
+			sym[i].st_size  = swab32(sym[i].st_size);
+			sym[i].st_shndx = swab16(sym[i].st_shndx);
+		}
 	}
 
 
