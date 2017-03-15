@@ -138,6 +138,9 @@ Elf_Shdr *elf_get_sec_shstrtab(const Elf_Ehdr *ehdr)
  * @brief in-place swap the endianess of an ELF header
  *
  * @param ehdr an Elf_Ehdr
+ *
+ * @warning this is likely incomplete, so if there are issues with ELF
+ *	    interpretation, look here first
  */
 
 void elf_hdr_endianess_swap(Elf_Ehdr *ehdr)
@@ -149,6 +152,7 @@ void elf_hdr_endianess_swap(Elf_Ehdr *ehdr)
 
 	Elf_Shdr *shdr;
 	Elf_Phdr *phdr;
+	Elf_Sym  *sym;
 
 
 
@@ -197,6 +201,17 @@ void elf_hdr_endianess_swap(Elf_Ehdr *ehdr)
 		shdr[i].sh_addralign = swab32(shdr[i].sh_addralign);
 		shdr[i].sh_entsize   = swab32(shdr[i].sh_entsize);
 	}
+
+
+	shdr = elf_find_sec(ehdr, ".symtab");
+	if (shdr) {
+		sym = (Elf_Sym *) (((char *) ehdr) + shdr->sh_offset);
+
+		for (i = 0; i < shdr->sh_size / shdr->sh_entsize; i++)
+			sym[i].st_name = swab32(sym[i].st_name);
+	}
+
+
 }
 
 /**
