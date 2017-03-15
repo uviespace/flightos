@@ -307,7 +307,8 @@ export MODVERDIR := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_ve
 # Files to ignore in find ... statements
 
 export RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o    \
-			  -name CVS -o -name .pc -o -name .hg -o -name .git \) \
+			  -name CVS -o -name .pc -o -name .hg -o -name .git    \
+			  -o -name sysroot \) \
 			  -prune -o
 export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn \
 			 --exclude CVS --exclude .pc --exclude .hg --exclude .git
@@ -587,6 +588,7 @@ core-y		:= arch/$(SRCARCH)/
 kernel-y	:= kernel/
 init-y		:= init/
 libs-y		:= lib/
+xentium-y	:= dsp/	# this should be CONFIG_XENTIUM_WHATEVER
 
 -include arch/$(ARCH)/Makefile
 
@@ -594,7 +596,8 @@ leanos-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(init-y) \
 		     $(core-y) \
 		     $(kernel-y) \
-		     $(libs-y)))
+		     $(libs-y)) \
+		     $(xentium-y))
 #
 leanos-core	:= $(patsubst %/, %/built-in.o, $(core-y))
 leanos-kernel	:= $(patsubst %/, %/built-in.o, $(kernel-y))

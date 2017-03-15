@@ -44,8 +44,11 @@ struct archive {
 };
 
 
-void ar_list_files(struct archive *a);
-void ar_list_symbols(struct archive *a);
+void ar_print_files(struct archive *a);
+void ar_print_symbols(struct archive *a);
+
+char *ar_get_file_list(struct archive *a);
+
 void *ar_find_file(struct archive *a, const char *name);
 void *ar_find_symbol(struct archive *a, const char *name);
 void ar_free(struct archive *a);

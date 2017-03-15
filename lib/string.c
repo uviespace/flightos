@@ -7,8 +7,10 @@
  */
 
 
+#include <kernel/kmem.h>
 #include <kernel/export.h>
 #include <kernel/types.h>
+#include <kernel/string.h>
 
 
 /**
@@ -90,8 +92,8 @@ char *strsep(char **stringp, const char *delim)
 	end = strpbrk(start, delim);
 
 	if (end) {
-		(*end)++;
 		(*end) = '\0';
+		end++;
 	}
 
 	*stringp = end;
@@ -99,6 +101,34 @@ char *strsep(char **stringp, const char *delim)
 	return start;
 }
 EXPORT_SYMBOL(strsep);
+
+
+/**
+ * @brief return a pointer to a new string which is a duplicate of string s
+ *
+ * @parm s the string to duplicate
+ *
+ * @note the pointer is allocated using kmalloc() and may be freed with kfree()
+ */
+
+char *strdup(const char *s)
+{
+        size_t len;
+
+        char *dup;
+
+        if (!s)
+                return NULL;
+
+        len = strlen(s) + 1;
+        dup = kzalloc(len);
+
+        if (dup)
+                memcpy(dup, s, len);
+
+        return dup;
+}
+EXPORT_SYMBOL(strdup);
 
 
 /**
@@ -119,6 +149,82 @@ size_t strlen(const char *s)
 	return c - s;
 }
 EXPORT_SYMBOL(strlen);
+
+
+/**
+ * @brief finds the first occurrence of the substring needle in the string
+ *        haystack
+ *
+ * @param haystack the string to be searched
+ * @param needle   the string to search for
+ *
+ * @returns a pointer to the beginning of a substring or NULL if not found
+ */
+
+char *strstr(const char *haystack, const char *needle)
+{
+        size_t len_h;
+        size_t len_n;
+
+
+        len_n = strlen(needle);
+
+        if (!len_n)
+                return (char *) haystack;
+
+        len_h = strlen(haystack);
+
+        for ( ; len_h >= len_n; len_h--) {
+
+                if (!memcmp(haystack, needle, len_n))
+                        return (char *) haystack;
+
+                haystack++;
+        }
+
+        return NULL;
+}
+EXPORT_SYMBOL(strstr);
+
+/**
+ * @brief compares the first n bytes of the memory areas s1 and s2
+ *
+ * @param s1 the first string
+ * @param s2 the second string
+ * @param n the number of bytes to compare
+ *
+ * @returns <0, 0 or > 0 if s1 is the first n bytes are found of s1 are found to
+ *          be less than, to match or be greater than s2
+ *
+ * @note s1 and s2 are interpreted as unsigned char
+ */
+
+int memcmp(const void *s1, const void *s2, size_t n)
+{
+        const unsigned char *su1, *su2;
+
+        int res = 0;
+
+	su1 = (const unsigned char *) s1;
+	su2 = (const unsigned char *) s2;
+
+	while (n) {
+
+		if ((*su1) != (*su2)) {
+			if ((*su1) < (*su2))
+				return -1;
+			else
+				return  1;
+		}
+
+		su1++;
+		su2++;
+		n--;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(memcmp);
 
 
 /**
@@ -168,12 +274,12 @@ EXPORT_SYMBOL(memcpy);
 char *strcpy(char *dest, const char *src)
 {
 	char *tmp;
-	
-	
+
+
 	tmp = dest;
 
 	while ((*dest++ = *src++) != '\0');
-	
+
 	return tmp;
 }
 EXPORT_SYMBOL(strcpy);
@@ -251,13 +357,13 @@ int isspace(int c)
 {
 	if (c == ' ')
 		return 1;
-	
+
 	if (c == '\t')
 		return 1;
 
 	if (c == '\n')
 		return 1;
-	
+
 	if (c == '\v')
 		return 1;
 
@@ -301,7 +407,7 @@ int atoi(const char *nptr)
 		d = (*nptr) - '0';
 
 		if (d > 9)
-			break;	
+			break;
 
 		res = res * 10 + (int) d;
 		nptr++;

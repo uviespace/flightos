@@ -16,6 +16,50 @@
 
 
 
+#define BANK_SIZE               (   8*1024 )
+#define TCM_SIZE                (  32*1024 )
+#define XEN_MAILBOX_OFFSET      ( 512*1024 )
+
+//=============================================================
+// XENTIUM structure
+//=============================================================
+typedef struct {
+	// TCM
+	unsigned int tcm[TCM_SIZE/4];
+	unsigned int dummy[(XEN_MAILBOX_OFFSET-TCM_SIZE)/4];
+	// Status bits + control registers
+	unsigned int mlbx[4];      //0x00080000 .. 0x0008000C
+	unsigned int signal[8];    //0x00080010 .. 0x0008002C
+	unsigned int dma;          //0x00080030 .. 0x00080030
+	unsigned int dummy1;       //0x00080034 .. 0x00080034
+	unsigned int timer[2];     //0x00080038 .. 0x0008003C
+	unsigned int irq;          //0x00080040 .. 0x00080040
+	unsigned int dummy2;       //0x00080044 .. 0x00080044
+	unsigned int status;       //0x00080048 .. 0x00080048
+	unsigned int pc;           //0x0008004C .. 0x0008004C
+	unsigned int fsm_state;    //0x00080050 .. 0x00080050
+} volatile S_xen;
+
+typedef struct S_xdev{
+	/* Status bits + control registers */
+	volatile unsigned int mlbx[4];      //0x00080000 .. 0x0008000C
+	volatile unsigned int signal[8];    //0x00080010 .. 0x0008002C
+	volatile unsigned int dma;          //0x00080030 .. 0x00080030
+	volatile unsigned int dummy1;       //0x00080034 .. 0x00080034
+	volatile unsigned int timer[2];     //0x00080038 .. 0x0008003C
+	volatile unsigned int irq;          //0x00080040 .. 0x00080040
+	volatile unsigned int dummy2;       //0x00080044 .. 0x00080044
+	volatile unsigned int status;       //0x00080048 .. 0x00080048
+	volatile unsigned int pc;           //0x0008004C .. 0x0008004C
+	volatile unsigned int fsm_state;    //0x00080050 .. 0x00080050
+} S_xdev;
+
+typedef volatile unsigned int S_tcm;
+S_xen*       p_xen0                                             = (S_xen*)              (0x20000000);
+S_xen*       p_xen1               = (S_xen*)        (0x20100000);
+
+
+
 
 
 
@@ -278,6 +322,8 @@ int xentium_kernel_load(struct xen_kernel *x, void *p)
 	if (xentium_load_kernel(x))
 		goto cleanup;
 
+		p_xen0->mlbx[0] = 0x30000000;
+//	p_xen1->mlbx[0] = 0x30000000;
 
 
 	if (_xen.cnt == _xen.sz) {

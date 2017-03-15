@@ -382,15 +382,12 @@ static unsigned int ar_get_filecount(char *p, struct archive *a)
 
 
 /**
- * @brief print symbols in the archive
+ * @brief print list of symbols in the archive
  *
  * @param a a struct archive
- * @param name the file name to search for
- *
- * @return a pointer or NULL if not found
  */
 
-void ar_list_symbols(struct archive *a)
+void ar_print_symbols(struct archive *a)
 {
 	unsigned long i;
 
@@ -421,15 +418,12 @@ void ar_list_symbols(struct archive *a)
 
 
 /**
- * @brief print files in the archive
+ * @brief print list of files in the archive
  *
  * @param a a struct archive
- * @param name the file name to search for
- *
- * @return a pointer or NULL if not found
  */
 
-void ar_list_files(struct archive *a)
+void ar_print_files(struct archive *a)
 {
 	unsigned long i;
 
@@ -458,6 +452,57 @@ void ar_list_files(struct archive *a)
 	printk("AR:\n");
 }
 
+
+/**
+ * @brief get a space-separated list of file names in the archive
+ *
+ * @param a a struct archive
+ *
+ * @return a pointer or NULL if not found
+ */
+
+char *ar_get_file_list(struct archive *a)
+{
+	unsigned long i;
+
+	size_t sz = 0;
+
+	char *files = NULL;
+
+
+	if (!a)
+		goto exit;	
+
+	if (!a->fname)
+		goto exit;	
+
+	if (!a->fnamesz)
+		goto exit;	
+
+	for (i = 0; i < a->n_file; i++)
+		sz += a->fnamesz[i] + 1;
+
+	if (!sz)
+		goto exit;	
+
+	files = (char *) kzalloc(sz);
+
+	if (!files)
+		goto exit;
+
+	sz = 0;
+	for (i = 0; i < a->n_file; i++) {
+		memcpy(&files[sz], a->fname[i], a->fnamesz[i]);
+		sz += a->fnamesz[i];
+		files[sz++] = ' ';
+	}
+
+	/* terminate end of string */
+	files[sz - 1] = '\0';
+
+exit:
+	return files;
+}
 
 
 /**
