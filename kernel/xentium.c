@@ -110,7 +110,7 @@ static int xentium_setup_kernel(struct xen_kernel *m)
 			return -1;	
 
 		if (shdr->sh_flags & SHF_ALLOC) {
-			printk(MSG "found alloc section: %s, size %ld\n",
+			pr_debug(MSG "found alloc section: %s, size %ld\n",
 			       elf_get_shstrtab_str(m->ehdr, i),
 			       shdr->sh_size);
 
@@ -118,7 +118,7 @@ static int xentium_setup_kernel(struct xen_kernel *m)
 
 			if (shdr->sh_addralign > m->align) {
 				m->align = shdr->sh_addralign;
-				printk(MSG "align: %d\n", m->align);
+				pr_debug(MSG "align: %d\n", m->align);
 			}
 
 		}
@@ -212,7 +212,7 @@ static int xentium_load_kernel(struct xen_kernel *x)
 	int i;
 
 
-	printk(MSG "\n" MSG "\n"
+	pr_debug(MSG "\n" MSG "\n"
 	       MSG "Loading kernel run-time sections\n");
 
 	x->num_sec = elf_get_num_alloc_sections(x->ehdr);
@@ -248,13 +248,13 @@ static int xentium_load_kernel(struct xen_kernel *x)
 		strcpy(s->name, src);
 
 		if (sec->sh_type & SHT_NOBITS) {
-			printk(MSG "\tZero segment %10s at %p size %ld\n",
+			pr_debug(MSG "\tZero segment %10s at %p size %ld\n",
 			       s->name, (char *) sec->sh_addr,
 			       sec->sh_size);
 
 			bzero((void *) sec->sh_addr, s->size);
 		} else {
-			printk(MSG "\tcopy segment %10s from %p to %p size %ld\n",
+			pr_debug(MSG "\tcopy segment %10s from %p to %p size %ld\n",
 			       s->name,
 			       (char *) x->ehdr + sec->sh_offset,
 			       (char *) sec->sh_addr,
@@ -264,7 +264,10 @@ static int xentium_load_kernel(struct xen_kernel *x)
 			       (char *) x->ehdr + sec->sh_offset,
 			       sec->sh_size);
 
-			printk(MSG "\tadjust byte ordering\n");
+
+			/* we byte-swap all loadable sections, because the DMA
+			 * of the Xentium reverses everything back into little
+			 * endian words */
 
 			p = (uint32_t *) sec->sh_addr;
 			for (i = 0; i < sec->sh_size / sizeof(uint32_t); i++)
@@ -279,7 +282,7 @@ static int xentium_load_kernel(struct xen_kernel *x)
 		s++;
 
 		if (s > &x->sec[x->num_sec]) {
-			printk(MSG "Error out of section memory\n");
+			pr_debug(MSG "Error out of section memory\n");
 			goto error;
 		}
 	}
@@ -297,24 +300,89 @@ error:
 }
 
 
+struct xen_kernel_cfg {
+	char *name;
+	unsigned long capabilities;
+	unsigned long crit_buf_lvl;
+};
 
-#include <asm-generic/swab.h>
+
+/**
+ * load the kernels configuration data
+ */
+
+int xentium_config_kernel(struct xen_kernel *x)
+{
+	unsigned long symaddr;
+
+	struct xen_kernel_cfg x_cfg;
+	size_t len = 0;
+	uint32_t *p;
+
+	char *name;
+
+	if (!elf_get_symbol_value(x->ehdr, "_xen_kernel_param", &symaddr)) {
+		pr_warn(MSG "Error, _xen_kernel_param not found\n");
+		return -1;
+	}
+
+	memcpy((void *) &x_cfg, (void *) symaddr, sizeof(struct xen_kernel));
+	
+	/* everything but the "name" entry (which is mashed up from our
+	 * perspective) is already in correct (big endian) order.
+	 * Since the string stored in .rodata is aligned to 4 bytes,
+	 * we'll locate the first occurence of '\0', round up to the next word
+	 * boundary, then swab32() on the buffer to restore the string.
+	 * The Xentium DMA will reverse endianess to little endian on the
+	 * relevant run time sections, we don't need to care about that.
+	 */
+
+	while (x_cfg.name[len] != '\0') len++;
+
+	len = ALIGN(len, sizeof(uint32_t));
+
+	name = kmalloc(len);
+	if (!name)
+		return -1;
+
+	p = (uint32_t *) name;
+
+	memcpy(name, (void *) x_cfg.name, len);
+
+	len = len / sizeof(uint32_t);
+
+	do {
+		len--;
+		p[len] = swab32(p[len]);
+	} while (len);
+	
+	x_cfg.name = name;
+
+	printk(MSG "Configuration of kernel %s:\n"
+	       MSG "\tcapabilities:          %x\n"
+	       MSG "\tcritical buffer level: %d\n",
+	       x_cfg.name, x_cfg.capabilities, x_cfg.crit_buf_lvl);
+
+
+	return 0;
+}
+
+
 int xentium_kernel_load(struct xen_kernel *x, void *p)
 {
-	unsigned long symval;
 
 
 	/* the ELF binary starts with the ELF header */
 	x->ehdr = (Elf_Ehdr *) p;
 
-	printk(MSG "Checking ELF header\n");
+	pr_debug(MSG "Checking ELF header\n");
 
 
 
 	if (xentium_elf_header_check(x->ehdr))
 		goto error;
 
-	printk(MSG "Setting up module configuration\n");
+	pr_debug(MSG "Setting up module configuration\n");
 
 	if (xentium_setup_kernel(x))
 		goto error;
@@ -322,8 +390,17 @@ int xentium_kernel_load(struct xen_kernel *x, void *p)
 	if (xentium_load_kernel(x))
 		goto cleanup;
 
-		p_xen0->mlbx[0] = 0x30000000;
-//	p_xen1->mlbx[0] = 0x30000000;
+
+	if (xentium_config_kernel(x))
+		goto cleanup;
+
+
+	printk("starting xentium with ep %x\n", x->ep);
+#if 1
+	p_xen0->mlbx[0] = x->ep;
+#else
+	p_xen1->mlbx[0] = x->ep;
+#endif
 
 
 	if (_xen.cnt == _xen.sz) {
@@ -339,12 +416,12 @@ int xentium_kernel_load(struct xen_kernel *x, void *p)
 
 	return 0;
 cleanup:
-	printk("cleanup\n");
+	pr_err("cleanup\n");
 #if 0
 	xentium_kernel_unload(m);
 #endif
 error:
-	printk("error\n");
+	pr_err("error\n");
 	return -1;
 }
 

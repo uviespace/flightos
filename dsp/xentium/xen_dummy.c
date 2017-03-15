@@ -3,8 +3,18 @@
 #include <xen_printf.h>
 
 
+struct xen_kernel_cfg {
+	char *name;
+	unsigned long capabilities;
+	unsigned long crit_buf_lvl;
+};
 
-const unsigned int _crit_buf_lvl __attribute__((used)) = 1234; 
+const struct xen_kernel_cfg _xen_kernel_param  __attribute__((used)) = 
+	{	"xen_dummy",
+		0xdeadbeef,
+		123
+	};
+
 
 
 
