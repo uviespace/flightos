@@ -96,7 +96,7 @@ void module_load_xen_kernels(void)
 		if (!file)
 			pr_err(MSG "Failed to read file %s\n", fname);
 
-		if (!xentium_kernel_load(&x, file))
+		if (xentium_kernel_load(&x, file))
 			pr_err(MSG "Error loading Xentium kernel %s\n", fname);
 
 		kfree(file);
