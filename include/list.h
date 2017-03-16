@@ -322,6 +322,18 @@ static inline void list_del_init(struct list_head *entry)
 }
 
 /**
+ * @brief delete from one list and add as another's head
+ * @param list the entry to move
+ * @param head the head that will precede our entry
+ */
+static inline void list_move(struct list_head *list, struct list_head *head)
+{
+	__list_del_entry(list);
+	list_add(list, head);
+}
+
+
+/**
  * @brief add a new entry
  * @param new: new entry to be added
  * @param head: list head to add it before
