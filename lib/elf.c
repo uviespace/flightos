@@ -146,9 +146,6 @@ Elf_Shdr *elf_get_sec_shstrtab(const Elf_Ehdr *ehdr)
 void elf_hdr_endianess_swap(Elf_Ehdr *ehdr)
 {
 	uint32_t i;
-	uint32_t len;
-
-	uint32_t *p;
 
 	Elf_Shdr *shdr;
 	Elf_Phdr *phdr;
@@ -473,7 +470,6 @@ unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
 
 {
 	unsigned int i;
-	unsigned int idx;
 	size_t sym_cnt;
 
 	Elf_Shdr *symtab;
@@ -700,7 +696,6 @@ void elf_dump_symtab(const Elf_Ehdr *ehdr)
 	Elf_Sym *symbols;
 
 	size_t sym_cnt;
-	unsigned int idx;
 	unsigned int i;
 
 

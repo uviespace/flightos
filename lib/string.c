@@ -203,7 +203,6 @@ int memcmp(const void *s1, const void *s2, size_t n)
 {
         const unsigned char *su1, *su2;
 
-        int res = 0;
 
 	su1 = (const unsigned char *) s1;
 	su2 = (const unsigned char *) s2;
