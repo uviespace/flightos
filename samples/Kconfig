@@ -23,4 +23,9 @@ config SAMPLE_CHUNK
 	help
 	  Build a sample demonstrating the use of the chunk memory allocator.
 
+config SAMPLE_PROC_CHAIN
+	bool "Build processing chain sample code"
+	help
+	  Build a sample demonstrating how to create a processing chain. 
+
 endif # SAMPLES

@@ -40,10 +40,10 @@
 #include <kernel/types.h>
 #include <kernel/kmem.h>
 #include <errno.h>
-#include <list.h>
 
 
 #include <data_proc_task.h>
+
 #define MSG "PT: "
 
 
@@ -204,6 +204,8 @@ unsigned long pt_get_pend_step_op_code(struct proc_task *t)
 {
 	struct proc_step *s;
 
+	if (!t)
+		return 0;
 
 	if (list_empty(&t->todo))
 		return 0;
@@ -466,6 +468,9 @@ void pt_destroy(struct proc_task *t)
 {
 	struct proc_step *p_elem;
 
+
+	if (!t)
+		return;
 
 	list_for_each_entry(p_elem, &t->todo, node)
 		kfree(p_elem->op_info);

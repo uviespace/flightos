@@ -17,6 +17,7 @@
 #include <kernel/sysctl.h>
 
 
+
 #define MSG "MAIN: "
 
 void module_image_load_embedded(void);
@@ -34,12 +35,19 @@ static void kernel_init(void)
 }
 
 
+
+
+
+
+
+
 #ifdef CONFIG_TARGET_COMPILER_BOOT_CODE
 
 int main(void)
 {
 	void *addr;
 	struct elf_module m;
+
 
 	kernel_init();
 
@@ -80,8 +88,18 @@ int main(void)
 	modules_list_loaded();
 #endif
 
+
+
+
+
+
+
+
+#if 0
 	/* load all available Xentium kernels from the embedded modules image */
 	module_load_xen_kernels();
+	while(1);
+#endif
 
 	return 0;
 }

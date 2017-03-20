@@ -5,20 +5,42 @@
 #ifndef _DATA_PROC_TRACKER_H_
 #define _DATA_PROC_TRACKER_H_
 
+#include <kernel/types.h>
+#include <list.h>
+#include <data_proc_task.h>
 
-struct proc_tracker;
+struct proc_tracker {
+	struct list_head tasks;
+	size_t n_tasks;
+	size_t n_tasks_crit;
 
+	unsigned long op_code;
+	
+	int (*op)(unsigned long op_code, struct proc_task *);
+
+
+	struct list_head node;	/* to be used for external tracking */
+};
+
+
+unsigned long pt_track_get_id(struct proc_tracker *pt);
+ 
 int pt_track_get_usage(struct proc_tracker *pt);
+
+int pt_track_level_critical(struct proc_tracker *pt);
 
 int pt_track_put(struct proc_tracker *pt, struct proc_task *t);
 
-struct proc_task pt_track_get(struct proc_tracker *pt);
+int pt_track_put_force(struct proc_tracker *pt, struct proc_task *t);
 
-void pt_track_sort_seq(struct proc_tracker *pt)
+struct proc_task *pt_track_get(struct proc_tracker *pt);
 
-struct proc_tracker *pt_track_create(size_t nmemb);
+void pt_track_sort_seq(struct proc_tracker *pt);
 
-int pt_track_expand(struct proc_tracker *pt, size_t nmemb);
+struct proc_tracker *pt_track_create(int (*op)(unsigned long op_code,
+					       struct proc_task *),
+				     unsigned long op_code,
+				     size_t n_tasks_crit);
 
 void pt_track_destroy(struct proc_tracker *pt);
 

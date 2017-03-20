@@ -5,7 +5,8 @@
 #ifndef _DATA_PROC_TASK_H_
 #define _DATA_PROC_TASK_H_
 
-
+#include <kernel/types.h>
+#include <list.h>
 
 
 struct proc_task {
