@@ -25,7 +25,7 @@
 
 
 /* BCC is at least 4.4.2 */
-#if defined(GCC_VERSION) && (GCC_VERSION >= 404020)
+#if defined(GCC_VERSION) && (GCC_VERSION >= 40402)
 #include <stdint.h>
 #else
 /* this must do... */
