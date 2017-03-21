@@ -375,7 +375,7 @@ void pt_set_data(struct proc_task *t, void *data, size_t nmemb)
  * @brief set the type id of a processing task
  *
  * @param t a struct proc_task
- * @param type the type id to set 
+ * @param type the type id to set
  *
  */
 
@@ -408,7 +408,7 @@ void pt_set_seq(struct proc_task *t, unsigned long seq)
  *
  * @param an arbitrary type identifier
  * @param an arbitrary sequence number
- * 
+ *
  * @return a pointer to the newly created task or NULL on error
  */
 

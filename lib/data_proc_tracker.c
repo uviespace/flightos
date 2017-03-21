@@ -32,7 +32,7 @@ unsigned long pt_track_get_op_code(struct proc_tracker *pt)
 
 
 /**
- * @brief check if the tracker is above its critical number of tasks 
+ * @brief check if the tracker is above its critical number of tasks
  *
  * @param pt a struct proc_tracker
  *
@@ -50,7 +50,7 @@ int pt_track_level_critical(struct proc_tracker *pt)
  *
  * @param pt a struct proc_tracker
  *
- * return number of tasks tracked 
+ * return number of tasks tracked
  */
 
 int pt_track_get_usage(struct proc_tracker *pt)
@@ -79,7 +79,7 @@ int pt_track_put(struct proc_tracker *pt, struct proc_task *t)
 
 	if (!pt)
 		return -EINVAL;
-	
+
 	if (!t)
 		return -EINVAL;
 
@@ -111,7 +111,7 @@ int pt_track_put_force(struct proc_tracker *pt, struct proc_task *t)
 {
 	if (!pt)
 		return -EINVAL;
-	
+
 	if (!t)
 		return -EINVAL;
 
@@ -139,11 +139,11 @@ struct proc_task *pt_track_get(struct proc_tracker *pt)
 	if (list_empty(&pt->tasks))
 		return NULL;
 
-	
+
 	t = list_entry(pt->tasks.next, struct proc_task, node);
-	
+
 	list_del(&t->node);
-	
+
 	pt->n_tasks--;
 
 	return t;
@@ -185,7 +185,7 @@ int pt_track_execute_next(struct proc_tracker *pt)
 
 void pt_track_sort_seq(struct proc_tracker *pt)
 {
-	printk("TODO: list_sort\n");
+	printk("TODO: list_sort not implemented\n");
 }
 
 
@@ -202,9 +202,8 @@ void pt_track_sort_seq(struct proc_tracker *pt)
  * @return processing tracker or NULL on error
  */
 
-struct proc_tracker *pt_track_create(int (*op)(unsigned long op_code,
-					       struct proc_task *),
-				     unsigned long op_code, size_t n_tasks_crit)
+struct proc_tracker *pt_track_create(op_func_t op, unsigned long op_code,
+				     size_t n_tasks_crit)
 {
 	struct proc_tracker *pt;
 
@@ -224,7 +223,7 @@ struct proc_tracker *pt_track_create(int (*op)(unsigned long op_code,
 	pt->op = op;
 
 	pt->n_tasks_crit = n_tasks_crit;
-	
+
 	pt->op_code = op_code;
 
 	INIT_LIST_HEAD(&pt->tasks);

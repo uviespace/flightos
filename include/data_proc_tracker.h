@@ -9,14 +9,18 @@
 #include <list.h>
 #include <data_proc_task.h>
 
+
+
+typedef int (*op_func_t)(unsigned long op_code, struct proc_task *);
+
 struct proc_tracker {
 	struct list_head tasks;
 	size_t n_tasks;
 	size_t n_tasks_crit;
 
 	unsigned long op_code;
-	
-	int (*op)(unsigned long op_code, struct proc_task *);
+
+	op_func_t op;
 
 
 	struct list_head node;	/* to be used for external tracking */
@@ -24,7 +28,7 @@ struct proc_tracker {
 
 
 unsigned long pt_track_get_id(struct proc_tracker *pt);
- 
+
 int pt_track_get_usage(struct proc_tracker *pt);
 
 int pt_track_level_critical(struct proc_tracker *pt);
@@ -37,9 +41,7 @@ struct proc_task *pt_track_get(struct proc_tracker *pt);
 
 void pt_track_sort_seq(struct proc_tracker *pt);
 
-struct proc_tracker *pt_track_create(int (*op)(unsigned long op_code,
-					       struct proc_task *),
-				     unsigned long op_code,
+struct proc_tracker *pt_track_create(op_func_t op, unsigned long op_code,
 				     size_t n_tasks_crit);
 
 void pt_track_destroy(struct proc_tracker *pt);
