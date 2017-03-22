@@ -7,11 +7,14 @@
 #include <kernel/printk.h>
 #include <kernel/err.h>
 #include <kernel/xentium.h>
+#include <kernel/module.h>
 #include <kernel/kmem.h>
 #include <kernel/kernel.h>
 #include <asm-generic/swab.h>
 #include <kernel/string.h>
 #include <elf.h>
+
+#include <data_proc_net.h>
 
 
 
@@ -60,25 +63,46 @@ S_xen*       p_xen1               = (S_xen*)        (0x20100000);
 
 
 
-
-
-
-
-
-
 #define MSG "XEN: "
-
 
 
 /* if we need more space, this is how many entries we will add */
 #define KERNEL_REALLOC 10
+
 /* this is where we keep track of loaded modules */
 static struct {
+	struct proc_net *pn;
 	struct xen_kernel **x;
+	struct xen_kernel_cfg **cfg;
 	int    sz;
 	int    cnt;
 } _xen;
 
+
+
+/* this is scheduler, but we need to do the manual processing dance
+ * until we have threads, remmber:
+ * 
+ *  * pt = pn_get_next_pending_tracker(pn)
+ *
+ * while (1) {
+ *	t = pn_get_next_pending_task(pt)
+ *	ret = pt->op(pt_get_pend_step_op_code(t), t);
+ *	if (!pn_eval_task_status(pn, pt, t, ret))
+ *		pn_node_to_queue_tail(pn, pt);
+ *		abort_processing:
+ *	}
+ * }
+ *
+ * etc...
+ */
+
+static int op_xen_schedule_kernel(unsigned long op_code, struct proc_task *t)
+{
+	printk(MSG "scheduling kernel with op code %x\n", op_code);
+
+	return PN_TASK_SUCCESS;
+}
 
 
 
@@ -103,8 +127,8 @@ static int xentium_setup_kernel(struct xen_kernel *m)
 	m->ep       = m->ehdr->e_entry;
 
 
-
 	for (i = 0; i < m->ehdr->e_shnum; i++) {
+
 		shdr = elf_get_sec_by_idx(m->ehdr, i);
 		if (!shdr)
 			return -1;	
@@ -120,7 +144,6 @@ static int xentium_setup_kernel(struct xen_kernel *m)
 				m->align = shdr->sh_addralign;
 				pr_debug(MSG "align: %d\n", m->align);
 			}
-
 		}
 	}
 
@@ -267,7 +290,8 @@ static int xentium_load_kernel(struct xen_kernel *x)
 
 			/* we byte-swap all loadable sections, because the DMA
 			 * of the Xentium reverses everything back into little
-			 * endian words */
+			 * endian words
+			 */
 
 			p = (uint32_t *) sec->sh_addr;
 			for (i = 0; i < sec->sh_size / sizeof(uint32_t); i++)
@@ -300,22 +324,16 @@ error:
 }
 
 
-struct xen_kernel_cfg {
-	char *name;
-	unsigned long capabilities;
-	unsigned long crit_buf_lvl;
-};
-
 
 /**
  * load the kernels configuration data
  */
 
-int xentium_config_kernel(struct xen_kernel *x)
+struct xen_kernel_cfg *xentium_config_kernel(struct xen_kernel *x)
 {
 	unsigned long symaddr;
 
-	struct xen_kernel_cfg x_cfg;
+	struct xen_kernel_cfg *cfg;
 	size_t len = 0;
 	uint32_t *p;
 
@@ -323,10 +341,17 @@ int xentium_config_kernel(struct xen_kernel *x)
 
 	if (!elf_get_symbol_value(x->ehdr, "_xen_kernel_param", &symaddr)) {
 		pr_warn(MSG "Error, _xen_kernel_param not found\n");
-		return -1;
+		return NULL;
 	}
 
-	memcpy((void *) &x_cfg, (void *) symaddr, sizeof(struct xen_kernel));
+
+
+	cfg = (struct xen_kernel_cfg *) kzalloc(sizeof(struct xen_kernel_cfg));
+	if (!cfg)
+		return NULL;
+
+
+	memcpy(cfg, (void *) symaddr, sizeof(struct xen_kernel));
 	
 	/* everything but the "name" entry (which is mashed up from our
 	 * perspective) is already in correct (big endian) order.
@@ -335,19 +360,26 @@ int xentium_config_kernel(struct xen_kernel *x)
 	 * boundary, then swab32() on the buffer to restore the string.
 	 * The Xentium DMA will reverse endianess to little endian on the
 	 * relevant run time sections, we don't need to care about that.
+	 *
+	 * yes, this may "leak" a few (3) bytes, so don't store plain text
+	 * passwords there :D :D
+	 * XXX: alloc second char buffer of actual string size, then strncpy()
+	 *      and free the initial one (or just krealloc() >:-))
 	 */
 
-	while (x_cfg.name[len] != '\0') len++;
+	while (cfg->name[len] != '\0') len++;
 
-	len = ALIGN(len, sizeof(uint32_t));
+	len = ALIGN(len + sizeof(uint32_t), sizeof(uint32_t));
 
 	name = kmalloc(len);
-	if (!name)
-		return -1;
+	if (!name) {
+		kfree(cfg);
+		return NULL;
+	}
 
 	p = (uint32_t *) name;
 
-	memcpy(name, (void *) x_cfg.name, len);
+	memcpy(name, cfg->name, len);
 
 	len = len / sizeof(uint32_t);
 
@@ -356,20 +388,31 @@ int xentium_config_kernel(struct xen_kernel *x)
 		p[len] = swab32(p[len]);
 	} while (len);
 	
-	x_cfg.name = name;
+	cfg->name = name;
 
 	printk(MSG "Configuration of kernel %s:\n"
-	       MSG "\tcapabilities:          %x\n"
+	       MSG "\top code     :          %x\n"
 	       MSG "\tcritical buffer level: %d\n",
-	       x_cfg.name, x_cfg.capabilities, x_cfg.crit_buf_lvl);
+	       cfg->name, cfg->op_code, cfg->crit_buf_lvl);
 
 
-	return 0;
+	return cfg;
 }
 
+static int xentium_init(void);
 
-int xentium_kernel_load(struct xen_kernel *x, void *p)
+int xentium_kernel_add(void *p)
 {
+	struct xen_kernel *x;
+	struct xen_kernel_cfg *cfg = NULL;
+	struct proc_tracker *pt = NULL;
+
+
+	xentium_init();	/* XXX */
+
+	x = (struct xen_kernel *) kzalloc(sizeof(struct xen_kernel));
+	if (!x)
+		goto error;
 
 
 	/* the ELF binary starts with the ELF header */
@@ -391,14 +434,29 @@ int xentium_kernel_load(struct xen_kernel *x, void *p)
 		goto cleanup;
 
 
-	if (xentium_config_kernel(x))
+	cfg = xentium_config_kernel(x);
+	if (!cfg)
+		goto cleanup;
+
+	x->ehdr = NULL;	/* not used anymore */
+
+
+
+	pt = pt_track_create(op_xen_schedule_kernel,
+			     cfg->op_code,
+			     cfg->crit_buf_lvl);
+	if (!pt)
+		goto cleanup;
+
+	if (pn_add_node(_xen.pn, pt))
 		goto cleanup;
 
 
+
+
+
+#if 0
 	printk("starting xentium with ep %x\n", x->ep);
-#if 1
-	p_xen0->mlbx[0] = x->ep;
-#else
 	p_xen1->mlbx[0] = x->ep;
 #endif
 
@@ -406,17 +464,31 @@ int xentium_kernel_load(struct xen_kernel *x, void *p)
 	if (_xen.cnt == _xen.sz) {
 		_xen.x = krealloc(_xen.x, (_xen.sz + KERNEL_REALLOC) *
 				   sizeof(struct xen_kernel **));
+		_xen.cfg = krealloc(_xen.cfg, (_xen.sz + KERNEL_REALLOC) * 
+				    sizeof(struct xen_kernel_cfg **));
 
 		bzero(&_xen.x[_xen.sz], sizeof(struct xen_kernel **) *
 		      KERNEL_REALLOC);
+		
+		bzero(&_xen.cfg[_xen.sz], sizeof(struct xen_kernel_cfg **) *
+		      KERNEL_REALLOC);
+
 		_xen.sz += KERNEL_REALLOC;
 	}
 
-	_xen.x[_xen.cnt++] = x;
+	_xen.x[_xen.cnt] = x;
+	_xen.cfg[_xen.cnt] = cfg;
+
+	_xen.cnt++;
+
+
 
 	return 0;
 cleanup:
 	pr_err("cleanup\n");
+	kfree(x);
+	kfree(cfg);
+	pt_track_destroy(pt);
 #if 0
 	xentium_kernel_unload(m);
 #endif
@@ -425,3 +497,74 @@ error:
 	return -1;
 }
 
+
+/**
+ * define the output for the network
+ */
+
+int xentium_config_output_node(op_func_t op_output)
+{
+	if (pn_create_output_node(_xen.pn, op_output))
+		return -1;
+
+	return 0;
+}
+
+
+/**
+ * @brief add a new to the network
+ */
+
+void xentium_input_task(struct proc_task *t)
+{
+	pn_input_task(_xen.pn, t);
+	pn_process_inputs(_xen.pn);
+}
+
+
+/**
+ * @brief run a processing cycle 
+ */
+
+void xentium_schedule_next(void)
+{
+	pn_process_next(_xen.pn);
+
+	pn_process_outputs(_xen.pn);
+}
+
+
+/**
+ * @brief driver cleanup function
+ */
+
+static int xentium_exit(void)
+{
+	printk(MSG "module_exit() not implemented\n");
+
+	return 0;
+}
+
+
+/**
+ * @brief driver initialisation
+ */
+
+static int xentium_init(void)
+{
+
+
+	if (!_xen.pn) {
+		printk(MSG "initialising\n");
+	       _xen.pn = pn_create();
+	}
+
+	if (!_xen.pn)
+		return -ENOMEM;
+
+
+	return 0;
+}
+
+module_init(xentium_init);
+module_exit(xentium_exit);

@@ -3,6 +3,17 @@
 
 #include <kernel/init.h>
 #include <kernel/elf.h>
+#include <data_proc_net.h>
+
+/* this structure is used in xentium kernels to define their parameters
+ * and capabilities
+ */
+struct xen_kernel_cfg {
+	char *name;
+	unsigned long op_code;
+	unsigned long crit_buf_lvl;
+};
+
 
 struct xen_module_section {
 	char *name;
@@ -30,6 +41,9 @@ struct xen_kernel {
 
 
 
-int xentium_kernel_load(struct xen_kernel *x, void *p);
+int xentium_kernel_add(void *p);
+void xentium_schedule_next(void);
+void xentium_input_task(struct proc_task *t);
+int xentium_config_output_node(op_func_t op_output);
 
 #endif /* _KERNEL_XENTIUM_H_ */

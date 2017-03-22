@@ -73,8 +73,6 @@ void module_load_xen_kernels(void)
 	char *fname;
 	void *file;
 
-	struct xen_kernel x;
-
 
 	list = ar_get_file_list(&mod_ar);
 
@@ -96,8 +94,8 @@ void module_load_xen_kernels(void)
 		if (!file)
 			pr_err(MSG "Failed to read file %s\n", fname);
 
-		if (xentium_kernel_load(&x, file))
-			pr_err(MSG "Error loading Xentium kernel %s\n", fname);
+		if (xentium_kernel_add(file))
+			pr_err(MSG "Error adding Xentium kernel %s\n", fname);
 
 		kfree(file);
 

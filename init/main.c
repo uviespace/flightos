@@ -35,6 +35,68 @@ static void kernel_init(void)
 }
 
 
+#include <data_proc_net.h>
+#include <kernel/xentium.h>
+
+int xen_op_output(unsigned long op_code, struct proc_task *t)
+{
+	ssize_t i;
+	ssize_t n;
+
+	unsigned int *p = NULL;
+
+
+	n = pt_get_nmemb(t);
+	printk("XEN OUT: op code %d, %d items\n", op_code, n);
+
+	if (!n)
+		goto exit;
+
+
+	p = (unsigned int *) pt_get_data(t);
+	if (!p)
+		goto exit;
+
+
+
+	for (i = 0; i < n; i++) {
+		printk("\t%d\n", p[i]);
+	}
+
+exit:
+	kfree(p);	/* clean up our data buffer */
+
+	pt_destroy(t);
+
+	return PN_TASK_SUCCESS;
+}
+
+void xen_new_input_task(size_t n)
+{
+	struct proc_task *t;
+
+	static int seq;
+
+	int i;
+	unsigned int *data;
+
+
+
+	data = kzalloc(sizeof(unsigned int) * n);
+
+	for (i = 0; i < n; i++)
+		data[i] = i;
+
+
+	t = pt_create(data, n, 3, 0, seq++);
+
+	BUG_ON(!t);
+
+	BUG_ON(pt_add_step(t, 0xdeadbeef, NULL));
+	BUG_ON(pt_add_step(t, 0xdeadbee0, NULL));
+
+	xentium_input_task(t);
+}
 
 
 
@@ -95,10 +157,25 @@ int main(void)
 
 
 
-#if 0
+#if 1
 	/* load all available Xentium kernels from the embedded modules image */
 	module_load_xen_kernels();
-	while(1);
+
+
+	xentium_config_output_node(xen_op_output);
+
+
+	xen_new_input_task(3);
+	xen_new_input_task(3);
+	xen_new_input_task(3);
+
+	xentium_schedule_next();
+	xentium_schedule_next();
+	xentium_schedule_next();
+	xentium_schedule_next();
+	xentium_schedule_next();
+
+
 #endif
 
 	return 0;
