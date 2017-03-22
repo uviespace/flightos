@@ -215,13 +215,13 @@ struct proc_tracker *pn_get_next_pending_tracker(struct proc_net *pn)
 		if (cnt++ > pn->n)
 			break;
 
-		if (!pt_track_tasks_pending(pt))
-			pn_node_to_queue_tail(pn, pt);
-		else
-			break;
+		if (pt_track_tasks_pending(pt))
+			return pt;
+
+		pn_node_to_queue_tail(pn, pt);
 	}
 
-	return pt;
+	return NULL;
 }
 
 

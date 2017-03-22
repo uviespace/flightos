@@ -152,6 +152,8 @@ struct proc_task *pt_track_get(struct proc_tracker *pt)
 {
 	struct proc_task *t;
 
+	if (!pt)
+		return NULL;
 
 	if (list_empty(&pt->tasks))
 		return NULL;
