@@ -60,6 +60,23 @@ int pt_track_get_usage(struct proc_tracker *pt)
 
 
 /**
+ * @brief check for pending tasks in a tracker
+ *
+ * @param pt a struct proc_tracker
+ *
+ * @returns 1 if tasks pending, 0 otherwise
+ */
+
+int pt_track_tasks_pending(struct proc_tracker *pt)
+{
+	if (pt && list_filled(&pt->tasks))
+		return 1;
+
+	return 0;
+}
+
+
+/**
  * @brief add a new item to the processing tracker
  *
  * @param pt a struct processing_tracker
