@@ -73,7 +73,7 @@ struct irl_vector_elem {
 
 #ifdef CONFIG_LEON2
 #define IRL_SIZE	LEON2_IRL_SIZE
-#define EIRL_SIZE	LEON2_IRL_SIZE
+#define EIRL_SIZE	LEON2_EIRL_SIZE
 
 static struct leon2_irqctrl_registermap  *leon_irqctrl_regs;
 static struct leon2_eirqctrl_registermap *leon_eirqctrl_regs;
