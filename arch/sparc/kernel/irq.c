@@ -424,6 +424,10 @@ static int leon_irq_queue(struct irl_vector_elem *p_elem)
 /**
  *
  * @brief execute deferred (low-priority) handlers
+ *
+ * @note see todo
+ * @todo TODO we do not track deferred handler IRQ numbers, so we'll just
+ *	 pass -1 for now and hope the user knows what he's doing -.-
  */
 
 void leon_irq_queue_execute(void)
@@ -442,7 +446,7 @@ void leon_irq_queue_execute(void)
 
 		if (likely(p_elem->handler)) {
 
-			if (p_elem->handler(p_elem->data))
+			if (p_elem->handler(-1, p_elem->data))
 				leon_irq_queue(p_elem);
 			else
 				list_add_tail(&p_elem->handler_node,
@@ -480,9 +484,9 @@ static int leon_irq_dispatch(unsigned int irq)
 
 	list_for_each_entry(p_elem, &irl_vector[irq], handler_node) {
 		if (likely(p_elem->priority == ISR_PRIORITY_NOW))
-			p_elem->handler(p_elem->data);
+			p_elem->handler(irq, p_elem->data);
 		else if (leon_irq_queue(p_elem) < 0)
-			p_elem->handler(p_elem->data);
+			p_elem->handler(irq, p_elem->data);
 	}
 
 	return 0;
@@ -557,9 +561,9 @@ static int leon_eirq_dispatch(unsigned int irq)
 			 * queueing fails
 			 */
 			if (likely(p_elem->priority == ISR_PRIORITY_NOW))
-				p_elem->handler(p_elem->data);
+				p_elem->handler(eirq, p_elem->data);
 			else if (leon_irq_queue(p_elem) < 0)
-				p_elem->handler(p_elem->data);
+				p_elem->handler(eirq, p_elem->data);
 		}
 	}
 

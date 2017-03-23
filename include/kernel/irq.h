@@ -29,7 +29,7 @@ enum irqreturn {
 
 typedef enum irqreturn irqreturn_t;
 
-typedef irqreturn_t (*irq_handler_t)(void *);
+typedef irqreturn_t (*irq_handler_t)(unsigned int irq, void *);
 enum isr_exec_priority {ISR_PRIORITY_NOW, ISR_PRIORITY_DEFERRED};
 
 
