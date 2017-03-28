@@ -60,6 +60,7 @@ struct irl_vector_elem {
 	irq_handler_t handler;
 	enum isr_exec_priority priority;
 	void *data;
+	unsigned int irq;
 	struct list_head handler_node;
 };
 
@@ -400,6 +401,7 @@ static int leon_irq_queue(struct irl_vector_elem *p_elem)
 	uint32_t psr_flags;
 	struct irl_vector_elem *p_queue;
 
+
 	if (unlikely(list_empty(&irq_queue_pool_head)))
 		return -EBUSY;
 
@@ -412,6 +414,7 @@ static int leon_irq_queue(struct irl_vector_elem *p_elem)
 	p_queue->handler  = p_elem->handler;
 	p_queue->priority = p_elem->priority;
 	p_queue->data     = p_elem->data;
+	p_queue->irq      = p_elem->irq;
 
 	list_move_tail(&p_queue->handler_node, &irl_queue_head);
 
@@ -422,12 +425,7 @@ static int leon_irq_queue(struct irl_vector_elem *p_elem)
 
 
 /**
- *
  * @brief execute deferred (low-priority) handlers
- *
- * @note see todo
- * @todo TODO we do not track deferred handler IRQ numbers, so we'll just
- *	 pass -1 for now and hope the user knows what he's doing -.-
  */
 
 void leon_irq_queue_execute(void)
@@ -446,7 +444,7 @@ void leon_irq_queue_execute(void)
 
 		if (likely(p_elem->handler)) {
 
-			if (p_elem->handler(-1, p_elem->data))
+			if (p_elem->handler(p_elem->irq, p_elem->data))
 				leon_irq_queue(p_elem);
 			else
 				list_add_tail(&p_elem->handler_node,
@@ -610,9 +608,10 @@ int irl_register_handler(unsigned int irq,
 	p_elem = list_entry((&irl_pool_head)->next, struct irl_vector_elem,
 			    handler_node);
 
-	p_elem->handler = handler;
+	p_elem->handler  = handler;
 	p_elem->priority = priority;
-	p_elem->data = data;
+	p_elem->data     = data;
+	p_elem->irq      = irq;
 
 	list_move_tail(&p_elem->handler_node, &irl_vector[irq]);
 
@@ -672,9 +671,10 @@ static int eirl_register_handler(unsigned int irq,
 	p_elem = list_entry((&irl_pool_head)->next, struct irl_vector_elem,
 		    handler_node);
 
-	p_elem->handler = handler;
+	p_elem->handler  = handler;
 	p_elem->priority = priority;
-	p_elem->data = data;
+	p_elem->data     = data;
+	p_elem->irq      = LEON_REAL_EIRQ(irq);
 
 	list_move_tail(&p_elem->handler_node,
 		       &eirl_vector[LEON_REAL_EIRQ(irq)]);
