@@ -9,8 +9,9 @@
 
 
 /* this is a bit crude, but must do for now */
-#define panic(x) {}while(1)
+#define panic(x) {} while(1);
 
+/* the BUG() macros may be repurposed to log an error and boot to safe mode! */
 #include <stdio.h>
 #define BUG() do { \
         printf("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
