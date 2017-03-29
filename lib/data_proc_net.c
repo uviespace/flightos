@@ -171,6 +171,19 @@ static int pn_task_to_next_node(struct proc_net *pn, struct proc_task *t)
 
 
 /**
+ * @brief move a tracker node to the top of the processing net queue
+ *
+ * @param pn a struct proc_net
+ * @param pt a struct proc_tracker
+ */
+
+void pn_node_to_queue_head(struct proc_net *pn, struct proc_tracker *pt)
+{
+	list_move(&pt->node, &pn->nodes);
+}
+
+
+/**
  * @brief move a tracker node to the end of the processing net queue
  *
  * @param pn a struct proc_net
@@ -180,6 +193,28 @@ static int pn_task_to_next_node(struct proc_net *pn, struct proc_task *t)
 void pn_node_to_queue_tail(struct proc_net *pn, struct proc_tracker *pt)
 {
 	list_move_tail(&pt->node, &pn->nodes);
+}
+
+
+/**
+ * @brief move critical trackers to head of queue
+ *
+ * @param pn a struct proc_net
+ *
+ * @note this does not sort, but rather moves any critical trackers to the
+ * top op the queue
+ */
+
+void pn_queue_critical_trackers(struct proc_net *pn)
+{
+	struct proc_tracker *pt;
+	struct proc_tracker *p_tmp;
+
+
+	list_for_each_entry_safe(pt, p_tmp, &pn->nodes, node) {
+		if (pt_track_level_critical(pt))
+			pn_node_to_queue_head(pn, pt);
+	}
 }
 
 
@@ -327,6 +362,9 @@ int pn_process_next(struct proc_net *pn)
 	struct proc_tracker *pt;
 
 
+	/* make sure critical trackers are on top */
+	pn_queue_critical_trackers(pn);
+
 	pt = pn_get_next_pending_tracker(pn);
 	if (!pt)
 		return cnt;
@@ -346,7 +384,6 @@ int pn_process_next(struct proc_net *pn)
 
 
 	/* move processing task to end of queue */
-	/* XXX should insert that based on critical level/fill state */
 	pn_node_to_queue_tail(pn, pt);
 
 	return cnt;

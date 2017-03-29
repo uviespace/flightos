@@ -31,6 +31,16 @@ struct proc_net;
 
 int pt_track_execute_next(struct proc_tracker *pt);
 void pn_input_task(struct proc_net *pn, struct proc_task *t);
+void pn_queue_critical_trackers(struct proc_net *pn);
+struct proc_tracker *pn_get_next_pending_tracker(struct proc_net *pn);
+struct proc_task *pn_get_next_pending_task(struct proc_tracker *pt);
+void pn_node_to_queue_head(struct proc_net *pn, struct proc_tracker *pt);
+void pn_node_to_queue_tail(struct proc_net *pn, struct proc_tracker *pt);
+
+
+int pn_eval_task_status(struct proc_net *pn, struct proc_tracker *pt,
+			struct proc_task *t, int ret);
+
 int pn_process_next(struct proc_net *pn);
 int pn_process_inputs(struct proc_net *pn);
 int pn_process_outputs(struct proc_net *pn);
