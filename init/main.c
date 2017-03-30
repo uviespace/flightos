@@ -16,7 +16,7 @@
 #include <kernel/sbrk.h>
 #include <kernel/sysctl.h>
 
-
+#include <asm/processor.h>
 
 #define MSG "MAIN: "
 
@@ -28,11 +28,16 @@ void module_load_xen_kernels(void);
 
 static void kernel_init(void)
 {
-	setup_arch();
-#ifdef CONFIG_SYSCTL
-	sysctl_init();
-#endif
+	/* Initcalls are executed by the libgloss boot code at this time,
+	 * so we define our them below.
+	 * No need to do anything here at the moment.
+	 */
 }
+
+arch_initcall(setup_arch);
+#ifdef CONFIG_SYSCTL
+subsys_initcall(sysctl_init);
+#endif
 
 
 #include <data_proc_net.h>
@@ -47,11 +52,11 @@ int xen_op_output(unsigned long op_code, struct proc_task *t)
 
 
 	n = pt_get_nmemb(t);
-	printk("XEN OUT: op code %d, %d items\n", op_code, n);
 
 	if (!n)
 		goto exit;
 
+	printk("XEN OUT: op code %d, %d items t: %p\n", op_code, n, t);
 
 	p = (unsigned int *) pt_get_data(t);
 	if (!p)
@@ -60,7 +65,7 @@ int xen_op_output(unsigned long op_code, struct proc_task *t)
 
 
 	for (i = 0; i < n; i++) {
-		printk("\t%d\n", p[i]);
+		printk("XEN_OUT: \t%d\n", p[i]);
 	}
 
 exit:
@@ -88,12 +93,15 @@ void xen_new_input_task(size_t n)
 		data[i] = i;
 
 
-	t = pt_create(data, n, 3, 0, seq++);
+	t = pt_create(data, n, 4, 0, seq++);
+	printk("\nT: %p\n", t);
 
 	BUG_ON(!t);
 
 	BUG_ON(pt_add_step(t, 0xdeadbeef, NULL));
-	BUG_ON(pt_add_step(t, 0xdeadbee0, NULL));
+	BUG_ON(pt_add_step(t, 0xb19b00b5, NULL));
+//	BUG_ON(pt_add_step(t, 0xdeadbeef, NULL));
+//	BUG_ON(pt_add_step(t, 0xb19b00b5, NULL));
 
 	xentium_input_task(t);
 }
@@ -166,14 +174,16 @@ int main(void)
 
 
 	xen_new_input_task(3);
-	xen_new_input_task(3);
-	xen_new_input_task(3);
-
-	xentium_schedule_next();
-	xentium_schedule_next();
-	xentium_schedule_next();
-	xentium_schedule_next();
-	xentium_schedule_next();
+	xen_new_input_task(10);
+#if 0
+	xen_new_input_task(20);
+	xen_new_input_task(30);
+#endif
+	while (1) {
+		xentium_schedule_next();
+		xentium_output_tasks();
+		cpu_relax();
+	}
 
 
 #endif
