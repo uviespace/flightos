@@ -5,13 +5,23 @@
 #include <kernel/elf.h>
 
 
+#ifdef MODULE
 
-#define module_init(initfunc)   \
+#define module_init(initfunc)					\
         int _module_init(void) __attribute__((alias(#initfunc)));
 
-#define module_exit(exitfunc)   \
+#define module_exit(exitfunc)					\
         int _module_exit(void) __attribute__((alias(#exitfunc)));
 
+#else /* MODULE */
+
+
+#define module_init(initfunc) device_initcall(initfunc);
+
+#define module_exit(exitfunc) __exitcall(exitfunc);
+
+
+#endif /* MODULE */
 
 
 struct module_section {
@@ -36,7 +46,7 @@ struct elf_module {
 	unsigned int align;
 
 	Elf_Ehdr *ehdr;		/* coincides with start of module image */
-	
+
 	size_t size;
 
 	struct module_section *sec;
