@@ -8,7 +8,7 @@
 
 #include <noc.h>
 #include <kernel/types.h>
-
+#include <list.h>
 
 
 #define NOC_DMA_CHANNELS	8
@@ -98,6 +98,9 @@ struct noc_dma_transfer {
 
 	struct list_head node;
 };
+
+struct noc_dma_channel *noc_dma_reserve_channel(void);
+void noc_dma_release_channel(struct noc_dma_channel *c);
 
 int noc_dma_req_xfer(void *src, void *dst, uint16_t x_elem, uint16_t y_elem,
 		     enum noc_dma_elem_size elem_size,

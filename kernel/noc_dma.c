@@ -34,6 +34,10 @@
 
 #define MSG "NOC DMA: "
 
+/**
+ * NoC DMA channel control register layout
+ * @see MPPB datasheet v4.03, p64
+ */
 
 __extension__
 struct noc_dma_channel_ctrl {
@@ -50,6 +54,7 @@ struct noc_dma_channel_ctrl {
 #endif
 	};
 };
+
 
 /**
  * NoC DMA channel configuration register layout
@@ -112,7 +117,6 @@ struct noc_dma_channel {
 compile_time_assert(sizeof(struct noc_dma_channel) == 0x40,
 		    NOC_DMA_CHANNEL_CONFIG_SIZE_INVALID);
 
-
 /* we use this to track channels in our channel pool */
 struct noc_dma_channel_node {
 
@@ -123,8 +127,6 @@ struct noc_dma_channel_node {
 
 	struct list_head node;
 };
-
-
 
 
 
@@ -401,16 +403,30 @@ static int noc_dma_init_transfer(struct noc_dma_channel  *c,
 }
 
 
-static void noc_dma_release_transfer(struct noc_dma_channel_node *c,
-				     struct noc_dma_transfer *t)
-{
-	t->callback = NULL;
-	t->userdata = NULL;
+/**
+ * @brief return a reserved channel
+ */
 
+static void noc_dma_release_channel_node(struct noc_dma_channel_node *c)
+{
 	c->transfer = NULL;
 
 	list_add_tail(&c->node, &dma_channel_pool_head);
+}
+
+
+/**
+ * @brief release a transfer item to the pool and return the reserved channel
+ */
+
+static void noc_dma_release_transfer(struct noc_dma_transfer *t)
+{
+
+	t->callback = NULL;
+	t->userdata = NULL;
+
 	list_add_tail(&t->node, &dma_transfer_pool_head);
+
 }
 
 
@@ -435,7 +451,8 @@ static int noc_dma_execute_transfer(struct noc_dma_channel  *c,
 	if (ret) {
 		n = container_of((struct noc_dma_channel **) &c,
 				 struct noc_dma_channel_node, channel);
-		noc_dma_release_transfer(n, t);
+		noc_dma_release_transfer(t);
+		noc_dma_release_channel_node(n);
 		return ret;
 	}
 
@@ -449,7 +466,6 @@ static int noc_dma_execute_transfer(struct noc_dma_channel  *c,
 
 /**
  * @brief reserve a NoC DMA channel
- * @note  the channel will automatically deregister on interrupt
  *
  * @param t	a pointer to a struct noc_dma_transfer
  *
@@ -536,7 +552,7 @@ static inline void noc_dma_program_transfer(void)
  */
 #warning "NoC DMA: user callbacks are executed in interrupt mode"
 
-static irqreturn_t noc_dma_service_irq_handler(void *userdata)
+static irqreturn_t noc_dma_service_irq_handler(unsigned int irq, void *userdata)
 {
 	struct noc_dma_transfer *t;
 	struct noc_dma_channel_node  *c;
@@ -551,7 +567,8 @@ static irqreturn_t noc_dma_service_irq_handler(void *userdata)
 	if (t->callback)
 		t->callback(t->userdata);
 
-	noc_dma_release_transfer(c, t);
+	noc_dma_release_transfer(t);
+	noc_dma_release_channel_node(c);
 
 #ifdef CONFIG_NOC_DMA_STATS_COLLECT
 	noc_dma_stats.transfers_completed++;
@@ -564,6 +581,10 @@ static irqreturn_t noc_dma_service_irq_handler(void *userdata)
 }
 
 
+/**
+ * @brief add a DMA transfer item to the transfer queue
+ */
+
 static void noc_dma_register_transfer(struct noc_dma_transfer *t)
 {
 	list_add_tail(&t->node, &dma_transfer_queue_head);
@@ -574,6 +595,11 @@ static void noc_dma_register_transfer(struct noc_dma_transfer *t)
 #endif
 }
 
+
+
+/**
+ * @brief reserve a transfer item from the transfer pool
+ */
 
 static struct noc_dma_transfer *noc_dma_get_transfer_slot(void)
 {
@@ -619,11 +645,9 @@ static int noc_dma_sysctl_setup(void)
  * @brief driver cleanup function
  */
 
-static int noc_dma_exit(void)
+static void noc_dma_exit(void)
 {
 	printk(MSG "module_exit() not implemented\n");
-
-	return 0;
 }
 
 
@@ -676,8 +700,39 @@ static int noc_dma_init(void)
 
 module_init(noc_dma_init);
 module_exit(noc_dma_exit);
+
+
 /* XXX define_initcall(noc_dma_init); */
 
+
+/**
+ * @brief reserve a NoC DMA channel for external use
+ */
+
+struct noc_dma_channel *noc_dma_reserve_channel(void)
+{
+	return noc_dma_request_channel(NULL);
+}
+EXPORT_SYMBOL(noc_dma_reserve_channel);
+
+
+/**
+ * @brief return a reserved channel
+ */
+
+void noc_dma_release_channel(struct noc_dma_channel *c)
+{
+	struct noc_dma_channel_node *n;
+
+	if (!c)
+		return;
+
+	n = container_of((struct noc_dma_channel **) &c,
+			 struct noc_dma_channel_node, channel);
+
+	noc_dma_release_channel_node(n);
+}
+EXPORT_SYMBOL(noc_dma_release_channel);
 
 
 /**
@@ -777,7 +832,7 @@ int noc_dma_req_xfer(void *src, void *dst, uint16_t x_elem, uint16_t y_elem,
 	t->mtu = mtu;
 
 	/* transfers registered here will be auto-released */
-	t->irq_fwd = BOTH;
+	t->irq_fwd = IN;
 
 	t->priority = dma_priority;
 
