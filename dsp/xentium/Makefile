@@ -25,7 +25,7 @@ obj- := dummy.o
 HOSTCC := xentium-clang
 HOSTLD := xentium-ld
 
-HOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2
+HOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes -O3
 HOSTCFLAGS +=-Idsp/xentium/include
 HOSTCFLAGS += $(KERNELINCLUDE)
 
@@ -33,7 +33,7 @@ HOSTLDFLAGS += -Tdsp/xentium/sysroot/lib/default.ld
 HOSTLDFLAGS += --sysroot=dsp/xentium/sysroot
 
 xen_libs:
-xen_libs-objs := xen_printf.o data_proc_task.o lib/xen.o
+xen_libs-objs := xen_printf.o data_proc_task.o lib/xen.o lib/dma.o
 
 xen_dummy.xen : xen_libs
 HOSTLOADLIBES_xen_dummy.xen :=

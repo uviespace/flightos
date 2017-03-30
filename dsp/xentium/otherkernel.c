@@ -3,14 +3,13 @@
 #include <xen_printf.h>
 #include <data_proc_net.h>
 
-
-#define KERN_NAME		"xen_dummy"
+#define KERN_NAME		"otherkernel"
 #define KERN_STORAGE_BYTES	0
-#define KERN_OP_CODE		0xdeadbeef
-#define KERN_CRIT_TASK_LVL	25
+#define KERN_OP_CODE		0xb19b00b5
+#define KERN_CRIT_TASK_LVL	12
 
 /* actual configuration */
-struct xen_kernel_cfg _xen_kernel_param = {
+struct xen_kernel_cfg _xen_kernel_param  __attribute__((used)) = {
 	KERN_NAME, KERN_OP_CODE,
 	KERN_CRIT_TASK_LVL,
 	NULL, KERN_STORAGE_BYTES,
@@ -37,7 +36,7 @@ static void process_task(struct xen_msg_data *m)
 		m->cmd = TASK_DESTROY;
 		return;
 	}
-
+	
 
 	n = pt_get_nmemb(m->t);
 	p = (unsigned int *) pt_get_data(m->t);
@@ -47,9 +46,9 @@ static void process_task(struct xen_msg_data *m)
 
 	/* process */
 	for (i = 0; i < n; i++) {
-		b[i] += 1;
+		b[i] *= 2;
 	}
-	
+
 	/* back to main memory XXX retval */
 	xen_noc_dma_req_lin_xfer(m->dma, tcm_ext, p, n, WORD, LOW, 256);
 

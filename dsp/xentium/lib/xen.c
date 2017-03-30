@@ -48,20 +48,33 @@ unsigned long xen_get_mail(size_t mbox)
 
 
 /**
- * @brief wait for host to pass a data message for processing
+ * @brief wait for host to pass a command data message for processing
  *
  * @returns a data message pointer
  */
 
-struct xen_msg_data *xen_wait_msg(void)
+struct xen_msg_data *xen_wait_cmd(void)
 {
 	struct xen_msg_data *m;
 
-	x_wait(XEN_MSG_MBOX_MASK);
+	x_wait(XEN_CMD_MBOX_MASK);
 
-	m = (struct xen_msg_data *) xen_get_mail(XEN_MSG_MBOX);
+	m = (struct xen_msg_data *) xen_get_mail(XEN_CMD_MBOX);
 
 	return m;
+}
+
+
+/**
+ * @brief pass a data message and signal the host
+ *
+ * @param m the message to pass
+ */
+
+void xen_send_msg(struct xen_msg_data *m)
+{
+	xen_set_mail(XEN_MSG_MBOX, (unsigned long) m);
+	xen_signal_host();
 }
 
 
@@ -83,3 +96,28 @@ void xen_wait_timer(int timer, unsigned long cycles)
 	while(xen_dev_local->timer[timer]);
 }
 
+
+/**
+ * @brief wait until the DMA status bit is low (i.e. transfer complete)
+ * *
+ */
+void xen_wait_dma(void)
+{
+	/* XXX this doesn't seem to work sensibly, we can't x_wait() on the
+	 * dma irq status bit, because it is set UNTIL we clear the 
+	 * dma_irq, and we'd apparently have to also clear the latter
+	 * _before_ we even start the transfer. For now, it's easier to just
+	 * wait on the channel status bit in noc_dma_start_transfer()
+	 */
+}
+
+/**
+ * @brief get the base address of a Xentium by its numeric index
+ *
+ * @returns the base address of the Xentium
+ */
+
+void *xen_get_base_addr(size_t idx)
+{
+	return (void *) (XEN_BASE_ADDR + XEN_BLOCK_SIZE * idx);
+}
