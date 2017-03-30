@@ -53,9 +53,11 @@ menu "System-on-Chip drivers"
 
 depends on SOC
 
+
+
 config NOC_DMA
 	tristate "NoC 2D DMA driver"
-	default m
+	default y
 	depends on SOC && (MPPB || SSDP)
 	help
 	 Build the MPPBv2/SSDP NoC DMA driver.
@@ -87,6 +89,13 @@ config NOC_DMA_SAME_MASTER_TRANSFER_WORKAROUND
 	 and a low priority transfer that copies the contents of the scratch
 	 buffer to the destination. Results may be unpredictable,
 	 you have been warned.
+
+config XENTIUM
+	tristate "Xentium processing network support"
+	default y
+	depends on NOC_DMA
+	help
+	 Build the driver to operate a Xentium processing network
 
 endmenu
 
