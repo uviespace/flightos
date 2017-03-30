@@ -15,8 +15,7 @@
  *	the MPPB(v2) does not have an MMU, but the SSDP probably will.
  *
  *
- * TODO there's an issue with the xentium apparently raising multiple irqs on
- * exit
+ * TODO locking
  *
  */
 
@@ -30,6 +29,7 @@
 #include <kernel/xentium.h>
 #include <kernel/module.h>
 #include <kernel/kmem.h>
+#include <kernel/export.h>
 #include <kernel/kernel.h>
 #include <kernel/irq.h>
 #include <asm/irq.h>
@@ -38,10 +38,10 @@
 #include <kernel/string.h>
 #include <elf.h>
 
+#include <noc_dma.h>
 
 
 #define MSG "XEN: "
-
 
 
 /* XXX Argh...not so great. If it's possible to determine the platform's
@@ -54,7 +54,7 @@
 #define XEN_BASE_0	0x20000000
 #define XEN_BASE_1	0x20100000
 
-#define XENTIUMS	2
+#define XENTIUMS	1
 
 /* this is where we keep track of loaded kernels and Xentium activity */
 static struct {
@@ -67,8 +67,9 @@ static struct {
 
 	int pt_pending;
 
-	struct proc_tracker *pt[XENTIUMS];
-	struct xen_dev_mem *dev[XENTIUMS];
+	struct proc_tracker     *pt[XENTIUMS];
+	struct xen_dev_mem     *dev[XENTIUMS];
+	struct noc_dma_channel *dma[XENTIUMS];
 
 } _xen = {.dev  = {(struct xen_dev_mem *) (XEN_BASE_0 + XEN_DEV_OFFSET),
 		   (struct xen_dev_mem *) (XEN_BASE_1 + XEN_DEV_OFFSET)}
@@ -80,8 +81,6 @@ static struct {
  */
 #define KERNEL_REALLOC 10
 
-
-static int xentium_init(void);
 
 
 static int xen_idx_from_irl(int irq)
@@ -315,7 +314,7 @@ static void xen_set_ep(struct xen_dev_mem *xen, unsigned long ep)
  * @param m a data message
  */
 
-static void xen_set_msg(struct xen_dev_mem *xen, struct xen_msg_data *m)
+static void xen_set_cmd(struct xen_dev_mem *xen, struct xen_msg_data *m)
 {
 	if (!xen)
 		return;
@@ -323,7 +322,7 @@ static void xen_set_msg(struct xen_dev_mem *xen, struct xen_msg_data *m)
 	if (!m)
 		return;
 
-	xen->mbox[XEN_MSG_MBOX] = (unsigned long) m;
+	xen->mbox[XEN_CMD_MBOX] = (unsigned long) m;
 }
 
 
@@ -421,7 +420,7 @@ static int xen_load_task(struct proc_tracker *pt)
 	BUG_ON(!k);
 
 
-	printk(MSG "Starting xentium %d with ep %x (%s)\n",
+	pr_debug(MSG "Starting xentium %d with ep %x (%s)\n",
 		    x_idx, k->ep, _xen.cfg[k_idx]->name);
 
 	xen_set_tracker(x_idx, pt);
@@ -429,7 +428,10 @@ static int xen_load_task(struct proc_tracker *pt)
 	xen_set_ep(xen, k->ep);
 
 	m->xen_id = x_idx;
-	xen_set_msg(xen, m);
+
+	m->dma = _xen.dma[x_idx];
+
+	xen_set_cmd(xen, m);
 
 	return 0;
 }
@@ -450,7 +452,7 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 	BUG_ON(!xen);
 
 	pt = xen_get_tracker(x_idx);
-	
+
 	if (pt)
 		ret = pn_eval_task_status(_xen.pn, pt, m->t, pn_ret_code);
 
@@ -467,7 +469,7 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 	if (xen_get_tracker_pending()) {
 		pr_debug(MSG "Pending tracker, commanding abort.\n");
 		m->cmd = TASK_STOP;
-		xen_set_msg(xen, m);
+		xen_set_cmd(xen, m);
 		return;
 	}
 
@@ -481,7 +483,7 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 	}
 
 	/* signal next */
-	xen_set_msg(xen, m);
+	xen_set_cmd(xen, m);
 
 }
 
@@ -519,7 +521,7 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		return IRQ_HANDLED;
 	}
 
-	printk(MSG "Interrupt from Xentium %d, sequence number %d\n",
+	pr_debug(MSG "Interrupt from Xentium %d, sequence number %d\n",
 	       x_idx, pt_get_seq(m->t));
 
 
@@ -530,37 +532,37 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		 * multiple times in a task, it end up back in the tracker all
 		 * by itself
 		 */
-		printk(MSG "TASK_SUCCESS\n");
+		pr_debug(MSG "TASK_SUCCESS\n");
 		xen_handle_cmds(x_idx, m, PN_TASK_SUCCESS);
 		break;
 
 	case TASK_STOP:
 		/* task processing stopped */
-		printk(MSG "TASK_STOP\n");
+		pr_debug(MSG "TASK_STOP\n");
 		xen_handle_cmds(x_idx, m, PN_TASK_STOP);
 		break;
 
 	case TASK_DETACH:
 		/* task tracking is done in kernel */
-		printk(MSG "TASK_DETACH\n");
+		pr_debug(MSG "TASK_DETACH\n");
 		xen_handle_cmds(x_idx, m, PN_TASK_STOP);
 		break;
 
 	case TASK_RESCHED:
 		/* reschedule task and abort  */
-		printk(MSG "TASK_RESCHED\n");
+		pr_debug(MSG "TASK_RESCHED\n");
 		xen_handle_cmds(x_idx, m, PN_TASK_RESCHED);
 		break;
 
 	case TASK_SORTSEQ:
 		/* reschedule task, sort pending tasks by sequence and abort */
-		printk(MSG "TASK_SORTSEQ\n");
+		pr_debug(MSG "TASK_SORTSEQ\n");
 		xen_handle_cmds(x_idx, m, PN_TASK_SORTSEQ);
 		break;
 
 	case TASK_DESTROY:
 		/* destroy this task */
-		printk(MSG "TASK_DESTROY\n");
+		pr_debug(MSG "TASK_DESTROY\n");
 		xen_handle_cmds(x_idx, m, PN_TASK_DESTROY);
 		break;
 
@@ -581,7 +583,7 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		m->t->data = krealloc(m->t->data, m->cmd_param);
 
 		/* signal back */
-		xen_set_msg(xen, m);
+		xen_set_cmd(xen, m);
 		break;
 
 	default:
@@ -590,6 +592,7 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		break;
 	};
 
+	xentium_schedule_next();
 
 	return IRQ_HANDLED;
 }
@@ -921,8 +924,6 @@ int xentium_kernel_add(void *p)
 	struct proc_tracker *pt = NULL;
 
 
-	xentium_init();	/* XXX */
-
 	x = (struct xen_kernel *) kzalloc(sizeof(struct xen_kernel));
 	if (!x)
 		goto error;
@@ -959,6 +960,7 @@ int xentium_kernel_add(void *p)
 	pt = pt_track_create(op_xen_schedule_kernel,
 			     cfg->op_code,
 			     cfg->crit_buf_lvl);
+	printk("create %p (%p)\n", pt, cfg->op_code);
 	if (!pt)
 		goto cleanup;
 
@@ -1007,6 +1009,8 @@ error:
 	return -1;
 }
 
+EXPORT_SYMBOL(xentium_kernel_add);
+
 
 /**
  * define the output for the network
@@ -1019,6 +1023,7 @@ int xentium_config_output_node(op_func_t op_output)
 
 	return 0;
 }
+EXPORT_SYMBOL(xentium_config_output_node);
 
 
 /**
@@ -1033,7 +1038,7 @@ void xentium_input_task(struct proc_task *t)
 	/* try to poke processing, in case it stopped */
 	xentium_schedule_next();
 }
-
+EXPORT_SYMBOL(xentium_input_task);
 
 /**
  * @brief schedule a processing cycle
@@ -1043,35 +1048,37 @@ void xentium_schedule_next(void)
 {
 	int ret;
 
+	size_t i;
+
 	struct proc_tracker *pt;
 
 
-	/* move critical trackers to top of queue */
-	pn_queue_critical_trackers(_xen.pn);
+	for (i = 0; i < ARRAY_SIZE(_xen.dev); i++) {
 
-	pt = pn_get_next_pending_tracker(_xen.pn);
-	if (!pt)
-		return;
+		pt = pn_get_next_pending_tracker(_xen.pn);
+		if (!pt)
+			return;
 
-	/* tracker node is already processing */
-	if (xen_node_is_processing(pt))
-		return;
+		/* tracker node is already processing */
+		if (xen_node_is_processing(pt))
+			continue;
 
-	/* try to load new node for processing */
-	ret = xen_load_task(pt);
+		/* try to load new node for processing */
+		ret = xen_load_task(pt);
 
-	switch (ret) {
-	case -EBUSY:
-		/* mark new task */
-		xen_set_tracker_pending();
-		break;
-	default:	/* XXX other retvals ignored */
-		xen_clear_tracker_pending();
-		break;
+		switch (ret) {
+		case -EBUSY:
+			/* mark new task */
+			xen_set_tracker_pending();
+			return;
+		default:	/* XXX other retvals ignored */
+			xen_clear_tracker_pending();
+			return;
+		}
 	}
 
 }
-
+EXPORT_SYMBOL(xentium_schedule_next);
 
 /**
  * @brief process the outputs of the network
@@ -1081,17 +1088,16 @@ void xentium_output_tasks(void)
 {
 	pn_process_outputs(_xen.pn);
 }
+EXPORT_SYMBOL(xentium_output_tasks);
 
 
 /**
  * @brief driver cleanup function
  */
 
-static int xentium_exit(void)
+static void xentium_exit(void)
 {
 	printk(MSG "module_exit() not implemented\n");
-
-	return 0;
 }
 
 
@@ -1101,11 +1107,19 @@ static int xentium_exit(void)
 
 static int xentium_init(void)
 {
+	size_t i;
 
+	pr_info(MSG "initialising\n");
 
 	if (!_xen.pn) {
 		pr_info(MSG "initialising\n");
-	       _xen.pn = pn_create();
+
+		_xen.pn = pn_create();
+
+		for (i = 0; i < ARRAY_SIZE(_xen.dma); i++) {
+			_xen.dma[i] = noc_dma_reserve_channel();
+			BUG_ON(!_xen.dma[i]);
+		}
 
 		if (irq_request(LEON_WANT_EIRQ(XEN_0_EIRQ), ISR_PRIORITY_NOW,
 			    &xen_irq_handler, NULL)) {

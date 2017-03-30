@@ -13,6 +13,10 @@
  * Xentium device configuration
  */
 
+
+#define XEN_BASE_ADDR  0x20000000
+#define XEN_BLOCK_SIZE 0x00100000
+
 #define XEN_MAILBOXES	4
 #define XEN_SIGNALS	8
 #define XEN_TIMERS	2
@@ -58,8 +62,10 @@ struct xen_tcm {
 	};
 };
 
-/* the xentium-local tightly-coupled memory */ 
-static struct xen_tcm *xen_tcm_local = (struct xen_tcm *) XEN_BASE_LOCAL;
+/* the xentium-local tightly-coupled memory */
+/* this must be volatile, or xentium-clang will crap its pants, because
+ * this is effectively a NULL pointer */
+static volatile struct xen_tcm *xen_tcm_local = (struct xen_tcm *) XEN_BASE_LOCAL;
 
 
 

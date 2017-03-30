@@ -8,6 +8,7 @@
 #define _KERNEL_XENTIUM_IO_H_
 
 
+#include <noc_dma.h>
 #include <data_proc_net.h>
 
 /**
@@ -49,10 +50,12 @@ enum xen_cmd {
 struct xen_msg_data {
 
 	struct proc_task *t;
-	unsigned long xen_id;	/* the Xentium's id */
+	unsigned long xen_id;		/* the Xentium's id */
 
-	enum xen_cmd  cmd;	/* command request */
-	unsigned long cmd_param; /* command parameter */
+	struct noc_dma_channel *dma;	/* the reserved DMA channel */
+
+	enum xen_cmd  cmd;		/* command request */
+	unsigned long cmd_param;	/* command parameter */
 };
 
 
@@ -69,12 +72,17 @@ struct xen_msg_data {
 
 /**
  * xentium <> host I/O
+ *
+ * we need two mailboxes to exchange command, otherwise x_wait() may trigger on
+ * the write done by the xentíum itself
  */
 
 #define XEN_EP_MBOX		0
 
+#define XEN_CMD_MBOX		1
+#define XEN_CMD_MBOX_MASK	XEN_WAITMASK_MBOX_1
+
 #define XEN_MSG_MBOX		2
-#define XEN_MSG_MBOX_MASK	XEN_WAITMASK_MBOX_2
 
 
 #endif /* _KERNEL_XENTIUM_IO_H_ */
