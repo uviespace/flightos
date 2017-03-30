@@ -219,17 +219,14 @@ void pn_queue_critical_trackers(struct proc_net *pn)
 
 
 /**
- * @brief locate the first tracker that holds at least one task
+ * @brief locate the next tracker that holds at least one task
  *
  * @param pn a struct proc_net
  *
  * @return a pointer to a struct proc_task or NULL if none was found
  *
- * @note empty trackers are moved to the end of the queue
- *
- * ideally, the tracker nodes would already be sorted so that the most critical
- * tracker was the first item
- * XXX implement that sometime...
+ * @note trackers are always moved to the end of the queue, critical trackers
+ *	 have priority
  */
 
 struct proc_tracker *pn_get_next_pending_tracker(struct proc_net *pn)
@@ -244,16 +241,17 @@ struct proc_tracker *pn_get_next_pending_tracker(struct proc_net *pn)
 	if (list_empty(&pn->nodes))
 		return NULL;
 
+	pn_queue_critical_trackers(pn);
 
 	list_for_each_entry_safe(pt, p_tmp, &pn->nodes, node) {
 
 		if (cnt++ > pn->n)
 			break;
 
+		pn_node_to_queue_tail(pn, pt);
+
 		if (pt_track_tasks_pending(pt))
 			return pt;
-
-		pn_node_to_queue_tail(pn, pt);
 	}
 
 	return NULL;
@@ -362,9 +360,6 @@ int pn_process_next(struct proc_net *pn)
 	struct proc_tracker *pt;
 
 
-	/* make sure critical trackers are on top */
-	pn_queue_critical_trackers(pn);
-
 	pt = pn_get_next_pending_tracker(pn);
 	if (!pt)
 		return cnt;
@@ -381,10 +376,6 @@ int pn_process_next(struct proc_net *pn)
 		if (!pn_eval_task_status(pn, pt, t, ret))
 			break;
 	}
-
-
-	/* move processing task to end of queue */
-	pn_node_to_queue_tail(pn, pt);
 
 	return cnt;
 }
