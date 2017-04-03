@@ -444,7 +444,7 @@ void leon_irq_queue_execute(void)
 
 		if (likely(p_elem->handler)) {
 
-			if (p_elem->handler(p_elem->irq, p_elem->data))
+			if (!p_elem->handler(p_elem->irq, p_elem->data))
 				leon_irq_queue(p_elem);
 			else
 				list_add_tail(&p_elem->handler_node,
