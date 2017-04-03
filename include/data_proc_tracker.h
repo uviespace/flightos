@@ -33,11 +33,14 @@ int pt_track_tasks_pending(struct proc_tracker *pt);
 
 int pt_track_get_usage(struct proc_tracker *pt);
 
+
 int pt_track_level_critical(struct proc_tracker *pt);
 
 int pt_track_put(struct proc_tracker *pt, struct proc_task *t);
 
 int pt_track_put_force(struct proc_tracker *pt, struct proc_task *t);
+
+int pt_track_pending(struct proc_tracker *pt);
 
 struct proc_task *pt_track_get(struct proc_tracker *pt);
 

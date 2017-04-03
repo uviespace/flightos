@@ -141,6 +141,25 @@ int pt_track_put_force(struct proc_tracker *pt, struct proc_task *t)
 
 
 /**
+ * @brief check for pending item in processing tracker
+ *
+ * @param pt a struct processing_tracker
+ *
+ * @return 1 if pending, 0 otherwise
+ */
+
+int pt_track_pending(struct proc_tracker *pt)
+{
+	if (!pt)
+		return 0;
+
+	if (list_empty(&pt->tasks))
+		return 0;
+
+	return 1;
+}
+
+/**
  * @brief get the next item from processing tracker
  *
  * @param pt a struct processing_tracker
