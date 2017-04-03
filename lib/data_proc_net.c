@@ -268,6 +268,9 @@ struct proc_tracker *pn_get_next_pending_tracker(struct proc_net *pn)
 
 struct proc_task *pn_get_next_pending_task(struct proc_tracker *pt)
 {
+	if (!pt)
+		return NULL;
+
 	return pt_track_get(pt);
 }
 
@@ -281,11 +284,24 @@ struct proc_task *pn_get_next_pending_task(struct proc_tracker *pt)
  * @þaram ret a tasks op function's return code
  *
  * @returns 1 if processing of the current tracker may continue or 0 to abort
+ *
+ * @note also signals abort for invalid parameters (e.g. NULL);
  */
 
 int pn_eval_task_status(struct proc_net *pn, struct proc_tracker *pt,
 			struct proc_task *t, int ret)
 {
+
+	if (!pn)
+		goto task_abort;
+
+	if (!pt)
+		goto task_abort;
+
+	if (!t)
+		goto task_abort;
+
+
 	switch (ret) {
 	case PN_TASK_SUCCESS:
 		/* move to next stage */
@@ -430,7 +446,7 @@ int pn_process_inputs(struct proc_net *pn)
 			pt = pn_find_tracker(pn, op);
 			if (!pt) {
 				pr_crit("Error, no such op code, "
-					"destroying task\n");
+					"destroying input task\n");
 
 				pt_destroy(t);
 
@@ -438,7 +454,6 @@ int pn_process_inputs(struct proc_net *pn)
 				pt = list_entry(pn->nodes.next,
 						struct proc_tracker, node);
 
-				t = pt_track_get(pt);
 				continue;
 			}
 		 }
@@ -468,6 +483,9 @@ int pn_process_outputs(struct proc_net *pn)
 	struct proc_task *t;
 
 
+	if (!pn)
+		return 0;
+
 	while (1) {
 		t = pt_track_get(pn->out);
 
@@ -487,7 +505,7 @@ int pn_process_outputs(struct proc_net *pn)
 /**
  * @brief create an output node of the network
  *
- * @returns 0 on success, -ENOMEM on alloc error
+ * @returns 0 on success, -ENOMEM on alloc error, -EINVAL on NULL pn
  *
  * @note this destroys the previous output node on success only, otherwise the
  *	 original node is left intact
@@ -498,6 +516,9 @@ int pn_create_output_node(struct proc_net *pn, op_func_t op)
 {
 	struct proc_tracker *pt;
 
+
+	if (!pn)
+		return -EINVAL;
 
 	pt = pt_track_create(op, PN_OP_NODE_OUT, 1);
 
