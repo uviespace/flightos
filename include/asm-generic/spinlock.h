@@ -83,4 +83,4 @@ static void spin_unlock(__attribute__((unused)) struct spinlock *lock)
 }
 #endif
 
-#define /* _ASM_GENERIC_SPINLOCK_H_ */
+#endif /* _ASM_GENERIC_SPINLOCK_H_ */
