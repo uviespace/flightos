@@ -52,6 +52,8 @@
 #include <kernel/export.h>
 #include <kernel/string.h>
 
+#include <kernel/init.h>
+
 #include <errno.h>
 
 #include <list.h>
@@ -560,7 +562,7 @@ void sysset_show_tree(struct sysset *sysset)
  * @brief initalises sysctl
  */
 
-int32_t sysctl_init(void)
+static int sysctl_init(void)
 {
 	if (sys_set)
 		return -1;
@@ -577,3 +579,4 @@ int32_t sysctl_init(void)
 
 	return 0;
 }
+subsys_initcall(sysctl_init);

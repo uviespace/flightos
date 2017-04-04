@@ -68,7 +68,5 @@ void sysset_show_tree(struct sysset *sysset);
 struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path);
 
 
-int32_t sysctl_init(void);
-
 
 #endif
