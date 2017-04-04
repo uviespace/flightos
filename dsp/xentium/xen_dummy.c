@@ -27,7 +27,6 @@ static void process_task(struct xen_msg_data *m)
 
 	struct xen_tcm *tcm_ext;
 
-	
 	b = (volatile unsigned int *) xen_tcm_local;
 
 	tcm_ext = xen_get_base_addr(m->xen_id);
@@ -47,11 +46,12 @@ static void process_task(struct xen_msg_data *m)
 
 	/* process */
 	for (i = 0; i < n; i++) {
-		b[i] += 1;
+		b[i] += 10;
 	}
-	
+
 	/* back to main memory XXX retval */
 	xen_noc_dma_req_lin_xfer(m->dma, tcm_ext, p, n, WORD, LOW, 256);
+
 
 	m->cmd = TASK_SUCCESS;
 }
@@ -66,7 +66,7 @@ int main(void)
 		m = xen_wait_cmd();
 
 		switch (m->cmd) {
-			case TASK_STOP:
+			case TASK_EXIT:
 				/* confirm abort */
 				xen_send_msg(m);
 				return 0;
