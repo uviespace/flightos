@@ -1,6 +1,9 @@
 /**
- * linker references to embedded modules.image
+ * @file init/modules-image.c
+ *
+ * load files and modules in embedded modules.image
  */
+
 
 #include <kernel/printk.h>
 #include <kernel/ar.h>
@@ -12,8 +15,8 @@
 
 
 extern unsigned char _binary_modules_image_start __attribute__((weak));
-extern unsigned char _binary_modules_image_end __attribute__((weak));
-extern unsigned char _binary_modules_image_size __attribute__((weak));
+extern unsigned char _binary_modules_image_end   __attribute__((weak));
+extern unsigned char _binary_modules_image_size  __attribute__((weak));
 
 struct archive mod_ar;
 
