@@ -61,8 +61,13 @@ static void reserve_kernel_stack(void)
 
 static void mem_init(void)
 {
+#ifdef CONFIG_MPPB
 	sp_banks[0].base_addr = 0x40000000;
-	sp_banks[0].num_bytes = 0x02800000;
+	sp_banks[0].num_bytes = 0x10000000;
+#else /* e.g. GR712 eval */
+	sp_banks[0].base_addr = 0x40000000;
+	sp_banks[0].num_bytes = 0x00800000;
+#endif
 
 #if (SPARC_PHYS_BANKS > 0)
 	sp_banks[1].base_addr = 0x60000000;
