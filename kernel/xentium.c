@@ -1,12 +1,94 @@
 /**
  * @file kernel/xentium.c
  *
- * TODO This is still quite a mess...
  *
- * TODO Currently, parallel nodes are not supported unless multiple kernels
- *	of the same type are loaded. We can fix that if we link the kernel
- *	object code ourselves, since xentium-clang cannot currently produce
- *	relocatable executables.
+ *
+ * This is the Xentium processing network driver. It builds upon data_proc_net.c
+ * and maps tasks selected by op codes to the appropriate Xentium kernel
+ * program. To load and set up the "op code" nodes, the user must load
+ * corresponding ELF binaries of Xentium programs. These ELF binaries must
+ * export their capabilities as a struct xen_kernel_cfg (see
+ * kernel/xentium_io.h) and make use of the commanding exchange protocol (same
+ * file). See also dsp/xentium for kernel programs.
+ *
+ *
+ * A minimum setup requires the user to add at least one kernel, e.g.
+ *
+ *	xentium_kernel_add(elf_kernel_binary_addr);
+ *
+ * and configure a custom output node that is of type op_func_t (see
+ * data_proc_tracker.h):
+ *
+ * int xentium_config_output_node(xen_op_output)
+ * {
+ *	...
+ *	return PN_TASK_SUCCESS;
+ * }
+ *
+ * via
+ *	xentium_config_output_node(xen_op_output);
+ *
+ * which corresponds to the call to pn_create_output_node() when using the
+ * generic processing network (data_proc_net.c) implementation
+ *
+ *
+ * Note that the user is responsible to free the data pointer of the task
+ * and the task itself (i.e. pt_destroy()), the same way that one would with
+ * a non-DSP processing network (see samples/proc_chain/ for an example)
+ *
+ *
+ * New processing tasks can then be added into the network, e.g.
+ *
+ *	struct proc_task t = pt_create(data, ...);
+ *
+ *	pt_add_step(t, op1, ...));
+ *	pt_add_step(t, op2, ...));
+ *
+ *	xentium_input_task(t);
+ *
+ * the task will then move through the selected nodes in the processing network.
+ *
+ * Just as with a non-DSP processing network, the Xentiums are passed the
+ * reference to the struct proc_task, which they must be able to interpret
+ * and/or process as the user desires.
+ *
+ * In addition, the Xentiums are passed a DMA channel each, that they may use
+ * to transfer memory contents to and from their local tightly couple memory
+ * (TCM).
+ *
+ * The task of the host processor consists of command exchange and loading of
+ * the Xentium kernel programs as needed. Typically, a nodes are scheduled for
+ * processing in round-robin style given their current order, with the exception
+ * of nodes for which their (as defined by the Xenitum program itself) critical
+ * level of pending task items has been reached. These are moved to the head of
+ * the queue and scheduled to be processed before the remaining items.
+ *
+ * Note that due to the linked list tracking of tasks in a node, they can never
+ * fail unless the system runs out of memory. It is the users responsibility to
+ * regulate the total amount of tasks inserted into the network. This is easily
+ * controlled if the allocatable memory used to supply data buffers to the
+ * individual processing tasks is configured such that the number of createable
+ * tasks do not require more system memory resources than is available, i.e.
+ * if only N units of system memory are left and 1 task requires 1 unit of
+ * memory, only at most N buffers should be allocatable from the processing
+ * data buffer.
+ *
+ *
+ * If a task passes through the processing network, it will eventually end up in
+ * the output node. It is up to the user to retrieve and deallocate tasks form
+ * this node by calling
+ *
+ *	xentium_output_tasks();
+ *
+ *
+ * This will execute the output node previously configured by
+ * xentium_config_output_node()
+ *
+ *
+ * This is still a mess. TODOs are listed in order of priority
+ *
+ * TODO Resource locking is horrific atm, but (somewhat) works for now. We
+ *	really need thread support, then this is easily fixed.
  *
  * TODO We either need a custom allocator or some kind of physical address
  *	(i.e. DMA-capable) solution for all memory that is used during
@@ -14,8 +96,13 @@
  *	the actual task data is stored. Currently, this is not an issue, because
  *	the MPPB(v2) does not have an MMU, but the SSDP probably will.
  *
+ * TODO At some point, we will want to add sysctl support to export statistics
+ *      of processing node usage.
  *
- * TODO locking
+ * TODO Currently, parallel nodes are not supported unless multiple kernels
+ *	of the same type are loaded. We can fix that if we link the kernel
+ *	object code ourselves, since xentium-clang cannot currently produce
+ *	relocatable executables.
  *
  */
 
@@ -34,7 +121,10 @@
 #include <kernel/irq.h>
 #include <asm/irq.h>
 
+#include <asm-generic/spinlock.h>
 #include <asm-generic/swab.h>
+#include <asm-generic/io.h>
+
 #include <kernel/string.h>
 #include <elf.h>
 
@@ -54,7 +144,7 @@
 #define XEN_BASE_0	0x20000000
 #define XEN_BASE_1	0x20100000
 
-#define XENTIUMS	1
+#define XENTIUMS	2
 
 /* this is where we keep track of loaded kernels and Xentium activity */
 static struct {
@@ -66,6 +156,8 @@ static struct {
 	int    cnt;
 
 	int pt_pending;
+
+	struct spinlock lock;
 
 	struct proc_tracker     *pt[XENTIUMS];
 	struct xen_dev_mem     *dev[XENTIUMS];
@@ -82,11 +174,15 @@ static struct {
 #define KERNEL_REALLOC 10
 
 
+/**
+ * @brief calculate the system index of the Xentium from its IRL number
+ */
 
 static int xen_idx_from_irl(int irq)
 {
 	return irq - XEN_0_EIRQ;
 }
+
 
 /**
  * @brief find an unused Xentium
@@ -156,6 +252,7 @@ static void xen_clear_tracker_pending(void)
 	_xen.pt_pending = 0;
 }
 
+
 /**
  * @brief set the current processing task node active in a xentium
  * @param idx the index of the xentium
@@ -167,6 +264,7 @@ static void xen_set_tracker(size_t idx, struct proc_tracker *pt)
 	if (idx < ARRAY_SIZE(_xen.pt))
 		_xen.pt[idx] = pt;
 }
+
 
 /**
  * @brief get the current processing task node active in a xentium
@@ -181,6 +279,7 @@ static struct proc_tracker *xen_get_tracker(size_t idx)
 
 	return NULL;
 }
+
 
 /**
  * @brief check if a kernel is in use
@@ -339,8 +438,9 @@ static struct xen_msg_data *xen_get_msg(struct xen_dev_mem *xen)
 	if (!xen)
 		return NULL;
 
-	return (struct xen_msg_data *) xen->mbox[XEN_MSG_MBOX];
+	return (struct xen_msg_data *) ioread32be(&xen->mbox[XEN_MSG_MBOX]);
 }
+
 
 /**
  *
@@ -437,6 +537,58 @@ static int xen_load_task(struct proc_tracker *pt)
 }
 
 
+/**
+ * @brief schedule a processing cycle
+ */
+
+void xentium_schedule_next_internal(void)
+{
+	int ret;
+
+	size_t i;
+
+	struct proc_tracker *pt;
+
+
+
+	if (!spin_try_lock(&_xen.lock))
+	    return;
+
+
+	for (i = 0; i < ARRAY_SIZE(_xen.dev); i++) {
+
+		pt = pn_get_next_pending_tracker(_xen.pn);
+		if (!pt)
+			goto unlock;
+
+		/* tracker node is already processing */
+		if (xen_node_is_processing(pt))
+			continue;
+
+		/* try to load new node for processing */
+		ret = xen_load_task(pt);
+
+		switch (ret) {
+		case -EBUSY:
+			/* mark new task */
+			xen_set_tracker_pending();
+			goto unlock;
+		default:	/* XXX other retvals ignored */
+			xen_clear_tracker_pending();
+			goto unlock;
+		}
+	}
+
+unlock:
+	spin_unlock(&_xen.lock);
+
+}
+
+
+/**
+ * @brief handle xentium command IO
+ */
+
 static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 {
 	int ret = 0;
@@ -458,17 +610,17 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 
 	/* abort */
 	if (!ret) {
-		pr_debug(MSG "Task aborted.\n");
+		pr_debug(MSG "Task %x aborted.\n", pt->op_code);
 		kfree(m);
 		xen_set_tracker(x_idx, NULL);
-		xentium_schedule_next();
 		return;
 	}
 
 
 	if (xen_get_tracker_pending()) {
-		pr_debug(MSG "Pending tracker, commanding abort.\n");
-		m->cmd = TASK_STOP;
+		pr_debug(MSG "Pending tracker, commanding abort of %x\n",
+			 pt->op_code);
+		m->cmd = TASK_EXIT;
 		xen_set_cmd(xen, m);
 		return;
 	}
@@ -476,8 +628,9 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 	m->t = pn_get_next_pending_task(pt);
 
 	if (!m->t) {
-		pr_debug(MSG "No more tasks, commanding abort.\n");
-		m->cmd = TASK_STOP;
+		pr_debug(MSG "No more tasks, commanding abort of %x.\n",
+			 pt->op_code);
+		m->cmd = TASK_EXIT;
 	} else {
 		pr_debug(MSG "Next task\n");
 	}
@@ -486,8 +639,6 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 	xen_set_cmd(xen, m);
 
 }
-
-
 
 
 /**
@@ -501,7 +652,6 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 	struct xen_dev_mem *xen;
 
 	struct xen_msg_data *m;
-
 
 
 
@@ -586,23 +736,23 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		xen_set_cmd(xen, m);
 		break;
 
+	case TASK_EXIT:
+		pr_debug(MSG "Task %x exiting.\n",
+			xen_get_tracker(x_idx)->op_code);
+		kfree(m);
+		xen_set_tracker(x_idx, NULL);
+		break;
+
 	default:
-		pr_err(MSG "unknown command received %d\n", m->cmd);
+		pr_err(MSG "unknown command received %x\n", m->cmd);
 		/* Ignore. Would reset Xentium here */
 		break;
 	};
 
-	xentium_schedule_next();
+	xentium_schedule_next_internal();
 
 	return IRQ_HANDLED;
 }
-
-
-
-
-
-
-
 
 
 /**
@@ -647,7 +797,6 @@ static int xentium_setup_kernel(struct xen_kernel *m)
 
 	return 0;
 }
-
 
 
 /**
@@ -733,8 +882,9 @@ static int xentium_load_kernel(struct xen_kernel *x)
 	int i;
 
 
-	pr_debug(MSG "\n" MSG "\n"
-	       MSG "Loading kernel run-time sections\n");
+	pr_debug(MSG "\n"
+		 MSG "\n"
+		 MSG "Loading kernel run-time sections\n");
 
 	x->num_sec = elf_get_num_alloc_sections(x->ehdr);
 	x->sec = (struct xen_kern_section *)
@@ -775,7 +925,8 @@ static int xentium_load_kernel(struct xen_kernel *x)
 
 			bzero((void *) sec->sh_addr, s->size);
 		} else {
-			pr_debug(MSG "\tcopy segment %10s from %p to %p size %ld\n",
+			pr_debug(MSG "\t"
+				 "copy segment %10s from %p to %p size %ld\n",
 			       s->name,
 			       (char *) x->ehdr + sec->sh_offset,
 			       (char *) sec->sh_addr,
@@ -792,11 +943,9 @@ static int xentium_load_kernel(struct xen_kernel *x)
 			 */
 
 			p = (uint32_t *) sec->sh_addr;
+
 			for (i = 0; i < sec->sh_size / sizeof(uint32_t); i++)
 				p[i] = swab32(p[i]);
-
-
-
 		}
 
 		s->addr = sec->sh_addr;
@@ -822,7 +971,6 @@ error:
 }
 
 
-
 /**
  * load the kernels configuration data
  */
@@ -836,6 +984,7 @@ struct xen_kernel_cfg *xentium_config_kernel(struct xen_kernel *x)
 	uint32_t *p;
 
 	char *name;
+
 
 	if (!elf_get_symbol_value(x->ehdr, "_xen_kernel_param", &symaddr)) {
 		pr_warn(MSG "Error, _xen_kernel_param not found\n");
@@ -917,11 +1066,20 @@ struct xen_kernel_cfg *xentium_config_kernel(struct xen_kernel *x)
 }
 
 
+/**
+ * @brief add a new xentium kernel
+ *
+ * @param p the memory address where the ELF binary resides
+ *
+ * @returns -1 on error, 0 otherwise
+ */
+
 int xentium_kernel_add(void *p)
 {
 	struct xen_kernel *x;
+
 	struct xen_kernel_cfg *cfg = NULL;
-	struct proc_tracker *pt = NULL;
+	struct proc_tracker *pt    = NULL;
 
 
 	x = (struct xen_kernel *) kzalloc(sizeof(struct xen_kernel));
@@ -960,52 +1118,61 @@ int xentium_kernel_add(void *p)
 	pt = pt_track_create(op_xen_schedule_kernel,
 			     cfg->op_code,
 			     cfg->crit_buf_lvl);
-	printk("create %p (%p)\n", pt, cfg->op_code);
+
 	if (!pt)
 		goto cleanup;
 
 	if (pn_add_node(_xen.pn, pt))
 		goto cleanup;
 
+	pr_debug(MSG "Added new Xentium kernel node with op code 0x%x\n",
+		 cfg->op_code);
+
 
 	if (_xen.cnt == _xen.sz) {
-		_xen.x = krealloc(_xen.x, (_xen.sz + KERNEL_REALLOC) *
+		_xen.x = krealloc(_xen.x,
+				  (_xen.sz + KERNEL_REALLOC) *
 				   sizeof(struct xen_kernel **));
+
 		_xen.cfg = krealloc(_xen.cfg, (_xen.sz + KERNEL_REALLOC) *
 				    sizeof(struct xen_kernel_cfg **));
 
 		_xen.kernel_in_use = krealloc(_xen.kernel_in_use,
 				      (_xen.sz + KERNEL_REALLOC) * sizeof(int));
 
-		bzero(&_xen.x[_xen.sz], sizeof(struct xen_kernel **) *
-		      KERNEL_REALLOC);
+		bzero(&_xen.x[_xen.sz],
+		      KERNEL_REALLOC * sizeof(struct xen_kernel **));
 
-		bzero(&_xen.cfg[_xen.sz], sizeof(struct xen_kernel_cfg **) *
-		      KERNEL_REALLOC);
+		bzero(&_xen.cfg[_xen.sz],
+		      KERNEL_REALLOC * sizeof(struct xen_kernel_cfg **));
 
-		bzero(&_xen.kernel_in_use[_xen.sz], sizeof(int) * KERNEL_REALLOC);
+		bzero(&_xen.kernel_in_use[_xen.sz],
+		      KERNEL_REALLOC * sizeof(int));
 
 		_xen.sz += KERNEL_REALLOC;
 	}
 
-	_xen.x[_xen.cnt] = x;
+	_xen.x[_xen.cnt]    = x;
 	_xen.cfg[_xen.cnt] = cfg;
 
 	_xen.cnt++;
 
 
-
 	return 0;
+
 cleanup:
 	pr_err("cleanup\n");
 	kfree(x);
 	kfree(cfg);
 	pt_track_destroy(pt);
 #if 0
+	/* TODO */
 	xentium_kernel_unload(m);
 #endif
+
 error:
 	pr_err("error\n");
+
 	return -1;
 }
 
@@ -1013,7 +1180,7 @@ EXPORT_SYMBOL(xentium_kernel_add);
 
 
 /**
- * define the output for the network
+ * @brief set the output function of the network
  */
 
 int xentium_config_output_node(op_func_t op_output)
@@ -1028,60 +1195,49 @@ EXPORT_SYMBOL(xentium_config_output_node);
 
 /**
  * @brief add a new task to the network
+ *
+ * @returns 0 on success, -EBUSY if new task cannot be added at this time
  */
 
-void xentium_input_task(struct proc_task *t)
+int xentium_input_task(struct proc_task *t)
 {
+	if (!spin_try_lock(&_xen.lock))
+		return -EBUSY;
+
 	pn_input_task(_xen.pn, t);
 	pn_process_inputs(_xen.pn);
 
+	spin_unlock(&_xen.lock);
+
 	/* try to poke processing, in case it stopped */
-	xentium_schedule_next();
+	xentium_schedule_next_internal();
+
+	return 0;
 }
 EXPORT_SYMBOL(xentium_input_task);
 
+
 /**
- * @brief schedule a processing cycle
+ * @brief try to schedule the next processing cycle
+ *
+ * @note This is not usually needed, because adding a new task at the input
+ *       of the network will cause it to be scheduled immediately if possible.
+ *       All subsequent interaction with a Xentium will then re-trigger
+ *       processing of pending nodes until all tasks in the network reach the
+ *       output stage
  */
 
 void xentium_schedule_next(void)
 {
-	int ret;
-
-	size_t i;
-
-	struct proc_tracker *pt;
-
-
-	for (i = 0; i < ARRAY_SIZE(_xen.dev); i++) {
-
-		pt = pn_get_next_pending_tracker(_xen.pn);
-		if (!pt)
-			return;
-
-		/* tracker node is already processing */
-		if (xen_node_is_processing(pt))
-			continue;
-
-		/* try to load new node for processing */
-		ret = xen_load_task(pt);
-
-		switch (ret) {
-		case -EBUSY:
-			/* mark new task */
-			xen_set_tracker_pending();
-			return;
-		default:	/* XXX other retvals ignored */
-			xen_clear_tracker_pending();
-			return;
-		}
-	}
-
+	xentium_schedule_next_internal();
 }
 EXPORT_SYMBOL(xentium_schedule_next);
 
+
 /**
  * @brief process the outputs of the network
+ *
+ * @note This is to be called by the user at their discretion.
  */
 
 void xentium_output_tasks(void)
@@ -1099,6 +1255,7 @@ static void xentium_exit(void)
 {
 	printk(MSG "module_exit() not implemented\n");
 }
+module_exit(xentium_exit);
 
 
 /**
@@ -1138,6 +1295,4 @@ static int xentium_init(void)
 
 	return 0;
 }
-
 module_init(xentium_init);
-module_exit(xentium_exit);

@@ -18,7 +18,7 @@
 struct xen_kernel_cfg {
 	char *name;
 	unsigned long op_code;
-	
+
 	unsigned long crit_buf_lvl;
 
 	void  *data;	/* permanent kernel storage, allocated by driver */
@@ -40,6 +40,7 @@ enum xen_cmd {
 	TASK_DESTROY = PN_TASK_DESTROY, /* something is wrong, destroy task */
 	TASK_NEW,			/* allocate a new task */
 	TASK_DATA_REALLOC,		/* (re)allocate task data pointer */
+	TASK_EXIT,			/* Xentium exiting */
 };
 
 

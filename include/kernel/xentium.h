@@ -48,7 +48,7 @@ struct xen_kernel {
 
 int xentium_kernel_add(void *p);
 void xentium_schedule_next(void);
-void xentium_input_task(struct proc_task *t);
+int xentium_input_task(struct proc_task *t);
 void xentium_output_tasks(void);
 int xentium_config_output_node(op_func_t op_output);
 
