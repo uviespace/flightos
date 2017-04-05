@@ -1,8 +1,20 @@
-#include <kernel/kmem.h>
+/**
+ * Note this demo does not set up interrupts correctly, so you can at most use
+ * 8 transfers, until all channels are blocked in the NoC DMA manager.
+ *
+ * You need at least a basic calloc/free implementation in you c library. If you
+ * don't have one, set a fixed buffer location for "src".
+ *
+ */
+
 #include <kernel/kernel.h>
 #include <kernel/printk.h>
 #include <noc_dma.h>
 #include <noc.h>
+
+#include <stdlib.h> /* calloc() free() */
+
+
 
 static void noc_dma_2d_print(unsigned long *p, size_t x_sz, size_t y_sz)
 {
@@ -27,7 +39,7 @@ static void noc_dma_2d_print(unsigned long *p, size_t x_sz, size_t y_sz)
  * @see MPPB datasheet v4.03, p62, Tbl. 73
  */
 
-void noc_dma_test_transfers(void)
+static void noc_dma_test_transfers(void)
 {
 	int i;
 
@@ -39,7 +51,7 @@ void noc_dma_test_transfers(void)
 	const uint16_t y_size = 19;
 
 
-	src = kcalloc(x_size * y_size, sizeof(unsigned long));
+	src = calloc(x_size * y_size, sizeof(unsigned long));
 	BUG_ON(!src);
 
 	dst = (unsigned long *) NOC_SCRATCH_BUFFER_BASE;
@@ -74,6 +86,16 @@ void noc_dma_test_transfers(void)
 	printk("\n--- {DST} ---\n");
 	noc_dma_2d_print(dst, x_size, y_size);
 
-	kfree(src);
+	free(src);
 }
+
+
+
+int main(int argc, char **argv)
+{
+	noc_dma_test_transfers();
+
+	return 0;
+}
+
 

@@ -28,4 +28,10 @@ config SAMPLE_PROC_CHAIN
 	help
 	  Build a sample demonstrating how to create a processing chain. 
 
+config SAMPLE_NOC_DMA
+	bool "Build NoC DMA sample code"
+	depends on NOC_DMA
+	help
+	  Build a sample demonstrating how to use the NoC DMA interface.
+
 endif # SAMPLES
