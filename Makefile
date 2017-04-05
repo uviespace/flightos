@@ -593,7 +593,8 @@ core-y		:= arch/$(SRCARCH)/
 kernel-y	:= kernel/
 init-y		:= init/
 libs-y		:= lib/
-xentium-y	:= dsp/	# this should be CONFIG_XENTIUM_WHATEVER
+
+xentium-$(CONFIG_BUILD_XEN_KERNELS) := dsp/
 
 -include arch/$(ARCH)/Makefile
 

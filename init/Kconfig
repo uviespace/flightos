@@ -79,6 +79,11 @@ config EMBED_MODULES_IMAGE
 endif # MODULES
 
 
+config BUILD_XEN_KERNELS
+	bool "Build Xentium DSP kernel programs"
+	help
+	  Enable this option in order to build the Xentium kernel programs
+	  in dsp/xentium.
 
 
 menu "Compile-time checks and compiler options"
