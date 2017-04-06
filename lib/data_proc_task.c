@@ -47,18 +47,6 @@
 #define MSG "PT: "
 
 
-
-struct proc_step {
-
-	unsigned long op_code;	/* the operation to perform on this item */
-	void *op_info;		/* arbitrary additional data used by
-				 * the processing of this item
-				 */
-	struct list_head node;
-};
-
-
-
 /**
  * @brief print the current processing todo list
  * @param t a struct proc_task

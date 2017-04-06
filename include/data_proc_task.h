@@ -9,6 +9,15 @@
 #include <list.h>
 
 
+struct proc_step {
+
+	unsigned long op_code;	/* the operation to perform on this item */
+	void *op_info;		/* arbitrary additional data used by
+				 * the processing of this item
+				 */
+	struct list_head node;
+};
+
 struct proc_task {
 
 	void *data;
