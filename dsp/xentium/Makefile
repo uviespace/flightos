@@ -33,7 +33,11 @@ HOSTLDFLAGS += -Tdsp/xentium/sysroot/lib/default.ld
 HOSTLDFLAGS += --sysroot=dsp/xentium/sysroot
 
 xen_libs:
-xen_libs-objs := xen_printf.o data_proc_task.o lib/xen.o lib/dma.o
+xen_libs-objs := lib/xen_printf.o
+xen_libs-objs += lib/xen.o
+xen_libs-objs += lib/dma.o
+xen_libs-objs += lib/kmem.o
+xen_libs-objs += ../../lib/data_proc_task.o
 
 xen_dummy.xen : xen_libs
 HOSTLOADLIBES_xen_dummy.xen :=
@@ -41,10 +45,18 @@ xen_dummy.xen-objs := xen_dummy.o $(xen_libs-objs)
 hostprogs-y := xen_dummy.xen
 
 
-otherkernel.xen : xen_dummy.xen xen_libs 
+otherkernel.xen : xen_dummy.xen xen_libs
 HOSTLOADLIBES_otherkernel.xen := -Ttext $$(readelf -s dsp/xentium/xen_dummy.xen|grep -w _end |awk '{print $$2}')
 otherkernel.xen-objs := otherkernel.o $(xen_libs-objs)
 hostprogs-y += otherkernel.xen
+
+
+# XXX using the .S file works, but make throws a message; needs to address that at some point
+xen_rampfit.xen : otherkernel.xen xen_libs
+HOSTLOADLIBES_xen_rampfit.xen := -Ttext $$(readelf -s dsp/xentium/otherkernel.xen|grep -w _end |awk '{print $$2}')
+xen_rampfit.xen-objs := kernel/rampfit/xen_rampfit.o $(xen_libs-objs) kernel/rampfit/xen_asm_rampfit.S
+hostprogs-y += xen_rampfit.xen
+
 
 
 

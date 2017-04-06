@@ -199,7 +199,7 @@ static int noc_dma_start_transfer(struct noc_dma_channel *chan)
 		return -EBUSY;
 
 	iowrite32(NOC_DMA_CHANNEL_START, &chan->start);
-	
+
 	/* XXX remove once we figure out how to properly use the Xentium's
 	 * DMA status bits
 	 */
@@ -300,7 +300,7 @@ static int noc_dma_init_transfer(struct noc_dma_channel  *c,
  * @param y_stride_dst the width of stride in destination y
  *
  * @param mtu the maximum transfer unit of a NoC packet
- * 
+ *
  * @returns <0 on error
  */
 
@@ -349,7 +349,7 @@ int xen_noc_dma_req_xfer(struct noc_dma_channel *c,
 
 	t.priority = dma_priority;
 
-	
+
 	ret = noc_dma_init_transfer(c, &t);
 	if (ret)
 		return ret;

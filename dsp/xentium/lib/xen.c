@@ -27,7 +27,7 @@ void xen_set_mail(size_t mbox, unsigned long msg)
 {
 	if (mbox >= XEN_MAILBOXES)
 		return;
-		
+
 	xen_dev_local->mbox[mbox] = msg;
 }
 
@@ -42,7 +42,7 @@ unsigned long xen_get_mail(size_t mbox)
 {
 	if (mbox < XEN_MAILBOXES)
 		return xen_dev_local->mbox[mbox];
-	
+
 	return 0;
 }
 
@@ -92,7 +92,7 @@ void xen_wait_timer(int timer, unsigned long cycles)
 
 
 	xen_dev_local->timer[timer] = cycles;
-	
+
 	while(xen_dev_local->timer[timer]);
 }
 
@@ -104,7 +104,7 @@ void xen_wait_timer(int timer, unsigned long cycles)
 void xen_wait_dma(void)
 {
 	/* XXX this doesn't seem to work sensibly, we can't x_wait() on the
-	 * dma irq status bit, because it is set UNTIL we clear the 
+	 * dma irq status bit, because it is set UNTIL we clear the
 	 * dma_irq, and we'd apparently have to also clear the latter
 	 * _before_ we even start the transfer. For now, it's easier to just
 	 * wait on the channel status bit in noc_dma_start_transfer()

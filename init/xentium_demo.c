@@ -16,6 +16,20 @@
 #include <kernel/xentium.h>
 
 
+
+/**
+ * Some implementation dependent op info passed by whatever created the task
+ * this could also just exist in the <data> buffer as a interpretable structure.
+ * This is really up to the user...
+ * Note: the xentium kernel processing a task must know the same structure
+ */
+
+struct myopinfo {
+	unsigned int ramplen;
+};
+
+
+
 /**
  * @brief the output function of the xentium processing network
  */
@@ -28,6 +42,9 @@ static int xen_op_output(unsigned long op_code, struct proc_task *t)
 	unsigned int *p = NULL;
 
 
+
+	/* need to address those caching issues at some point */
+	asm("flush");
 
 	n = pt_get_nmemb(t);
 
@@ -42,7 +59,8 @@ static int xen_op_output(unsigned long op_code, struct proc_task *t)
 	if (!p)
 		goto exit;
 
-	printk("XEN_OUT: \t%d\n", ioread32be(&p[n-1]));
+	for (i = 0; i < n; i++)
+		printk("XEN_OUT: \t%d\n", ioread32be(&p[i]));
 
 
 exit:
@@ -73,7 +91,11 @@ static void xen_new_input_task(size_t n)
 	int i;
 	unsigned int *data;
 
+	struct myopinfo *nfo;
 
+	nfo  = kzalloc(sizeof(struct myopinfo));
+	if (!nfo)
+		return;
 
 	data = kzalloc(sizeof(unsigned int) * n);
 	if (!data)
@@ -86,11 +108,8 @@ static void xen_new_input_task(size_t n)
 
 	BUG_ON(!t);
 
-	BUG_ON(pt_add_step(t, 0xdeadbeef, NULL));
-	BUG_ON(pt_add_step(t, 0xb19b00b5, NULL));
-	BUG_ON(pt_add_step(t, 0xdeadbeef, NULL));
-	BUG_ON(pt_add_step(t, 0xb19b00b5, NULL));
-	BUG_ON(pt_add_step(t, 0xb19b00b5, NULL));
+	nfo->ramplen = 16;
+	BUG_ON(pt_add_step(t, 0x00bada55, nfo));
 
 	while (xentium_input_task(t) < 0)
 		printk("Xenitium input busy!\n");
@@ -110,12 +129,9 @@ void xen_demo(void)
 
 	xentium_config_output_node(xen_op_output);
 
+	xen_new_input_task(32);
 	while (1) {
-		static int seq = 100;
 
-		if (seq < 120)
-			xen_new_input_task(seq++);
-		
 		xentium_output_tasks();
 	}
 

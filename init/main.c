@@ -59,7 +59,7 @@ int main(void)
 	void *addr;
 	struct elf_module m;
 
-	
+
 	printk(MSG "Loading module image\n");
 
 	/* load the embedded AR image */
@@ -89,7 +89,7 @@ int main(void)
 	pr_debug(MSG "noc_dma module address is %p\n", addr);
 	if (addr)
 		module_load(&m, addr);
-	
+
 	modules_list_loaded();
 #endif
 
