@@ -21,7 +21,8 @@ struct proc_step {
 struct proc_task {
 
 	void *data;
-	size_t nmemb;
+	size_t size;		/* size of the buffer in bytes */
+	size_t nmemb;		/* elements in the buffer */
 
 	struct proc_step *pool;
 
@@ -54,18 +55,20 @@ int pt_add_step(struct proc_task *t,
 
 
 size_t pt_get_nmemb(struct proc_task *t);
+size_t pt_get_size(struct proc_task *t);
 void *pt_get_data(struct proc_task *t);
 unsigned long pt_get_type(struct proc_task *t);
 unsigned long pt_get_seq(struct proc_task *t);
 
 void pt_set_nmemb(struct proc_task *t, size_t nmemb);
-void pt_set_data(struct proc_task *t, void *data, size_t nmemb);
+void pt_set_size(struct proc_task *t, size_t size);
+void pt_set_data(struct proc_task *t, void *data, size_t size);
 
 void pt_set_type(struct proc_task *t, unsigned long type);
 void pt_set_seq(struct proc_task *t, unsigned long seq);
 
 
-struct proc_task *pt_create(void *data, size_t nmemb, size_t steps,
+struct proc_task *pt_create(void *data, size_t size, size_t steps,
 			    unsigned long type, unsigned long seq);
 void pt_destroy(struct proc_task *t);
 

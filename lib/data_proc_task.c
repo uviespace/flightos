@@ -278,6 +278,20 @@ size_t pt_get_nmemb(struct proc_task *t)
 	return t->nmemb;
 }
 
+
+/**
+ * @brief get the size of the data buffer of a processing task
+ *
+ * @param t a struct proc_task
+ *
+ * @return the byte size ofthe buffer
+ */
+
+size_t pt_get_size(struct proc_task *t)
+{
+	return t->size;
+}
+
 /**
  * @brief get the data buffer in a processing task
  *
@@ -327,8 +341,6 @@ unsigned long pt_get_seq(struct proc_task *t)
  *
  * @param t a struct proc_task
  * @param nmemb the number of elements in the data buffer
- *
- * @return the number of elements in the buffer
  */
 
 void pt_set_nmemb(struct proc_task *t, size_t nmemb)
@@ -338,24 +350,37 @@ void pt_set_nmemb(struct proc_task *t, size_t nmemb)
 
 
 /**
+ * @brief set the size of the data buffer of a processing task
+ *
+ * @param t a struct proc_task
+ * @param size the byte size of the buffer
+ *
+ */
+
+void pt_set_size(struct proc_task *t, size_t size)
+{
+	t->size = size;
+}
+
+/**
  * @brief set the data buffer in a processing task
  *
  * @param t a struct proc_task
  * @param data a pointer to a data buffer (may be NULL)
- * @param nmemb the number of elements in the buffer
+ * @param size the byte size of the buffer
  * @param steps the number of processing steps to allocate initially
  *
  * @return a pointer to the newly created task or NULL on error
  */
 
-void pt_set_data(struct proc_task *t, void *data, size_t nmemb)
+void pt_set_data(struct proc_task *t, void *data, size_t size)
 {
 	t->data  = data;
 
 	if (!t->data)
-		t->nmemb = 0;
+		t->size = 0;
 	else
-		t->nmemb = nmemb;
+		t->size = size;
 }
 
 
@@ -391,7 +416,7 @@ void pt_set_seq(struct proc_task *t, unsigned long seq)
  * @brief create a processing task
  *
  * @param data a pointer to a data buffer (may be NULL)
- * @param nmemb the number of elements in the buffer
+ * @param size the byte size of the buffer
  * @param steps the number of processing steps to allocate initially
  *
  * @param an arbitrary type identifier
@@ -400,7 +425,7 @@ void pt_set_seq(struct proc_task *t, unsigned long seq)
  * @return a pointer to the newly created task or NULL on error
  */
 
-struct proc_task *pt_create(void *data, size_t nmemb, size_t steps,
+struct proc_task *pt_create(void *data, size_t size, size_t steps,
 			    unsigned long type, unsigned long seq)
 {
 	size_t i;
@@ -435,9 +460,10 @@ struct proc_task *pt_create(void *data, size_t nmemb, size_t steps,
 	t->seq  = seq;
 
 	if (!t->data)
-		t->nmemb = 0;
+		t->size = 0;
 	else
-		t->nmemb = nmemb;
+		t->size = size;
+
 
 
 	return t;

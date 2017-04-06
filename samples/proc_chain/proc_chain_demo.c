@@ -238,7 +238,8 @@ void pn_new_input_task(struct proc_net *pn, size_t n)
 	for (i = 0; i < n; i++)
 		data[i] = i;
 
-	pt_set_data(t, data, n);
+	pt_set_data(t, data, n * sizeof(unsigned int));
+	pt_set_nmemb(t, n);
 
 
 	pn_input_task(pn, t);
