@@ -46,19 +46,20 @@ struct xen_dev_mem {
 	unsigned long fsm_state;
 };
 
-/* the xentium-local device memory */ 
+/* the xentium-local device memory */
 static struct xen_dev_mem *xen_dev_local = (struct xen_dev_mem *)
 					   (XEN_BASE_LOCAL + XEN_DEV_OFFSET);
 
 __extension__
 struct xen_tcm {
 	union {
-		char *tcm[XEN_TCM_SIZE];
-
-		char *bank1[XEN_TCM_BANK_SIZE];
-		char *bank2[XEN_TCM_BANK_SIZE];
-		char *bank3[XEN_TCM_BANK_SIZE];
-		char *bank4[XEN_TCM_BANK_SIZE];
+		char tcm[XEN_TCM_SIZE];
+		struct {
+			char bank1[XEN_TCM_BANK_SIZE];
+			char bank2[XEN_TCM_BANK_SIZE];
+			char bank3[XEN_TCM_BANK_SIZE];
+			char bank4[XEN_TCM_BANK_SIZE];
+		};
 	};
 };
 
