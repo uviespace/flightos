@@ -6,6 +6,7 @@
 #ifndef _CHUNK_H_
 #define _CHUNK_H_
 
+#include <list.h>
 
 struct chunk_pool {
 	struct list_head full;
