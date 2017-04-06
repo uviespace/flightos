@@ -736,6 +736,24 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		xen_set_cmd(xen, m);
 		break;
 
+	case TASK_KZALLOC:
+		pr_debug(MSG "Allocation request for %d bytes.\n", m->size);
+		m->ptr = kzalloc(m->size);
+		xen_set_cmd(xen, m);
+		break;
+
+	case TASK_KMALLOC:
+		pr_debug(MSG "Allocation request for %d bytes.\n", m->size);
+		m->ptr = kmalloc(m->size);
+		xen_set_cmd(xen, m);
+		break;
+
+	case TASK_KFREE:
+		pr_debug(MSG "kfree() request for address %x bytes.\n", m->ptr);
+		kfree(m->ptr);
+		xen_set_cmd(xen, m);
+		break;
+
 	case TASK_EXIT:
 		pr_debug(MSG "Task %x exiting.\n",
 			xen_get_tracker(x_idx)->op_code);

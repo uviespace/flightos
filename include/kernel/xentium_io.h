@@ -40,6 +40,9 @@ enum xen_cmd {
 	TASK_DESTROY = PN_TASK_DESTROY, /* something is wrong, destroy task */
 	TASK_NEW,			/* allocate a new task */
 	TASK_DATA_REALLOC,		/* (re)allocate task data pointer */
+	TASK_KZALLOC,			/* request memory buffer */
+	TASK_KMALLOC,			/* request memory buffer */
+	TASK_KFREE,			/* release memory buffer */
 	TASK_EXIT,			/* Xentium exiting */
 };
 
@@ -57,6 +60,9 @@ struct xen_msg_data {
 
 	enum xen_cmd  cmd;		/* command request */
 	unsigned long cmd_param;	/* command parameter */
+
+	void *ptr;			/* kmem pointers */
+	size_t size;			/* kmem size request */
 };
 
 
