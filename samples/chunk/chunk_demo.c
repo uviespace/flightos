@@ -19,7 +19,7 @@ static void page_free(void *addr)
 	free(addr);
 }
 
-static size_t get_alloc_size()
+static size_t get_alloc_size(void *addr)
 {
 	return PAGE_SIZE;
 }
@@ -45,4 +45,7 @@ int main(void)
 
 	for (i = DO_ALLOC - 1; i >= 0; i--)
 		chunk_free(&pool, p[i]);
+
+
+	return 0;
 }
