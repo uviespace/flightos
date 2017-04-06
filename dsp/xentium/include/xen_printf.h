@@ -24,7 +24,7 @@
 #define PAD_RIGHT 0x1
 #define PAD_ZERO  0x2
 
-int x_printf(const char *format, ...);
+int printk(const char *format, ...);
 int x_sprintf(char *str, const char *format, ...);
 
 

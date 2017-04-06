@@ -298,13 +298,15 @@ static int print(char **str, const char *format, va_list args )
  *
  */
 
-int x_printf(const char *format, ...)
+int printk(const char *format, ...)
 {
         va_list args;
         
         va_start( args, format );
         return print( 0, format, args );
 }
+
+
 
 /**
  * @brief 'man sprintf' (mostly)
