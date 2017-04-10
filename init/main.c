@@ -5,15 +5,17 @@
 #include <generated/autoconf.h>
 
 #include <kernel/init.h>
-
-#include <kernel/module.h> /* module_load */
-#include <kernel/ksym.h> /* lookup_symbol */
+#include <kernel/module.h>
+#include <kernel/ksym.h>
 #include <kernel/printk.h>
-
 #include <modules-image.h>
 
-#include "xentium_demo.h"
+#ifdef CONFIG_MPPB
+#include <asm/processor.h>
+#endif
 
+/* for our demo */
+#include "xentium_demo.h"
 
 
 #define MSG "MAIN: "
@@ -31,7 +33,6 @@
 
 
 #ifdef CONFIG_TARGET_COMPILER_BOOT_CODE
-
 
 /**
  * @brief kernel initialisation routines
@@ -65,7 +66,6 @@ int main(void)
 	/* load the embedded AR image */
 	module_image_load_embedded();
 
-
 	/* look up a kernel symbol */
 	printk(MSG "Looked up symbol %s at %p\n",
 	       "printk", lookup_symbol("printk"));
@@ -76,10 +76,9 @@ int main(void)
 
 #if 0
 	/* If you have kernel modules embedded in your modules.images, this
-	 * is how you can access them
+	 * is how you can access them:
+	 * lookup the module containing <symbol>
 	 */
-
-	/* lookup the module containing <symbol> */
 	addr = module_lookup_symbol_embedded("somefunction");
 
 	/* XXX the image is not necessary aligned properly, so we can't access
@@ -93,6 +92,17 @@ int main(void)
 	modules_list_loaded();
 #endif
 
+#ifdef CONFIG_MPPB
+	/* The mppbv2 LEON's cache would really benefit from cache sniffing...
+	 * Interactions with DMA or Xentiums are a pain when using the lower
+	 * half of the AHB SDRAM memory bank and since we don't create
+	 * a complete memory configuration for this demonstrator, we'll
+	 * to just disable the dcache entirely >:(
+	 */
+	cpu_dcache_disable();
+#endif
+
+	/* run the demo */
 	xen_demo();
 
 	return 0;
