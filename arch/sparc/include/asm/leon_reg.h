@@ -49,6 +49,8 @@
 #define LEON2_IRL_SIZE	16 /* number of interrupts on primary */
 #define LEON2_EIRL_SIZE	32 /* number of interrupts on extended */
 
+#define LEON2_CACHECTRL		0x80000014
+#define LEON2_POWERDOWN		0x80000018
 
 
 struct leon2_irqctrl_registermap {
@@ -65,7 +67,23 @@ struct leon2_eirqctrl_registermap {
         uint32_t eirq_clear;
 };
 
-
+__extension__
+struct leon2_cachectrl {
+	union {
+		uint32_t ccr;
+		struct {
+			uint32_t reserved01:14;
+			uint32_t instr_burst_fetch:1;
+			uint32_t instr_cache_flush_pend:1;
+			uint32_t data_cache_flush_pend:1;
+			uint32_t reserved02:9;
+			uint32_t data_cache_freeze_on_irq:1;
+			uint32_t instr_cache_freeze_on_irq:1;
+			uint32_t data_cache_state:2;
+			uint32_t instr_cache_state:2;
+		};
+	};
+};
 
 
 
