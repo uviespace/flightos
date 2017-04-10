@@ -1,3 +1,5 @@
+Requirements/Architecture with links/traceability
+-------------------------------------------------
 
 requirements first, then architecture
 
@@ -10,6 +12,13 @@ makeglossaries <file>
 biber <file>
 
 then recompile
+
+
+Usermanual
+------------
+
+as above
+
 
 
 TODO: Makefile
