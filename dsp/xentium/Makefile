@@ -25,7 +25,7 @@ obj- := dummy.o
 HOSTCC := xentium-clang
 HOSTLD := xentium-ld
 
-HOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes -O3
+HOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2
 HOSTCFLAGS +=-Idsp/xentium/include
 HOSTCFLAGS += $(KERNELINCLUDE)
 
@@ -41,22 +41,25 @@ xen_libs-objs += ../../lib/data_proc_task.o
 
 xen_dummy.xen : xen_libs
 HOSTLOADLIBES_xen_dummy.xen :=
-xen_dummy.xen-objs := xen_dummy.o $(xen_libs-objs)
+xen_dummy.xen-objs := kernel/dummy/xen_dummy.o $(xen_libs-objs)
 hostprogs-y := xen_dummy.xen
 
 
-otherkernel.xen : xen_dummy.xen xen_libs
-HOSTLOADLIBES_otherkernel.xen := -Ttext $$(readelf -s dsp/xentium/xen_dummy.xen|grep -w _end |awk '{print $$2}')
-otherkernel.xen-objs := otherkernel.o $(xen_libs-objs)
-hostprogs-y += otherkernel.xen
-
-
 # XXX using the .S file works, but make throws a message; needs to address that at some point
-xen_rampfit.xen : otherkernel.xen xen_libs
-HOSTLOADLIBES_xen_rampfit.xen := -Ttext $$(readelf -s dsp/xentium/otherkernel.xen|grep -w _end |awk '{print $$2}')
+xen_rampfit.xen : xen_dummy.xen xen_libs
+HOSTLOADLIBES_xen_rampfit.xen := -Ttext $$(readelf -s dsp/xentium/xen_dummy.xen|grep -w _end |awk '{print $$2}')
 xen_rampfit.xen-objs := kernel/rampfit/xen_rampfit.o $(xen_libs-objs) kernel/rampfit/xen_asm_rampfit.S
 hostprogs-y += xen_rampfit.xen
 
+xen_deglitch.xen : xen_rampfit.xen xen_libs
+HOSTLOADLIBES_xen_deglitch.xen := -Ttext $$(readelf -s dsp/xentium/xen_rampfit.xen|grep -w _end |awk '{print $$2}')
+xen_deglitch.xen-objs := kernel/deglitch/xen_deglitch.o $(xen_libs-objs)
+hostprogs-y += xen_deglitch.xen
+
+xen_stack.xen : xen_deglitch.xen xen_libs
+HOSTLOADLIBES_xen_stack.xen := -Ttext $$(readelf -s dsp/xentium/xen_deglitch.xen|grep -w _end |awk '{print $$2}')
+xen_stack.xen-objs := kernel/stack/xen_stack.o $(xen_libs-objs)
+hostprogs-y += xen_stack.xen
 
 
 

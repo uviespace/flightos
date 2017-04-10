@@ -1,4 +1,6 @@
 /**
+ * @brief fit ramps to data in an array
+ *
  * NOTE: This is for demonstration purposes only. There are lot of things that
  * are not verified/handled/you name it, but the purpose of this kernel
  * is to show off the what can be done and how with the resources available.
@@ -19,9 +21,9 @@
 #include <xen_printf.h>
 #include <data_proc_net.h>
 #include <kernel/kmem.h>
+#include <xentium_demo.h>
 
-
-
+#define DMA_MTU	256	/* arbitrary DMA packet size */
 
 /* this kernel's properties */
 
@@ -37,14 +39,6 @@ struct xen_kernel_cfg _xen_kernel_param = {
 };
 
 
-/**
- * see init/xentium_demo.c
- */
-
-struct myopinfo {
-	unsigned int ramplen;
-};
-
 
 /* prototype of our assembly function */
 int FastIntFixedRampFitBuffer(long *bank1, long *bank2,
@@ -58,6 +52,7 @@ int FastIntFixedRampFitBuffer(long *bank1, long *bank2,
 static void process_task(struct xen_msg_data *m)
 {
 	size_t n;
+	size_t len;
 	size_t n_ramps;
 
 	long *p;
@@ -69,8 +64,7 @@ static void process_task(struct xen_msg_data *m)
 
 	struct xen_tcm *tcm_ext;
 
-	struct myopinfo *op_info;
-
+	struct ramp_op_info *op_info;
 
 
 	if (!m->t) {
@@ -94,18 +88,21 @@ static void process_task(struct xen_msg_data *m)
 	 */
 	tcm_ext = xen_get_base_addr(m->xen_id);
 
-
-
-
-
-	op_info = (struct myopinfo *) pt_get_pend_step_op_info(m->t);
+	op_info = pt_get_pend_step_op_info(m->t);
 	if (!op_info) {
 		m->cmd = TASK_DESTROY;
 		return;
 	}
 
-	/* number of elements in data buffer. */
+	/* lenght of the data buffer */
+	len = pt_get_size(m->t);
+
+	/* number of elements to process */
 	n = pt_get_nmemb(m->t);
+
+	if (n > len / sizeof(long)) {
+		n = len / sizeof(long);
+	}
 
 	if (n & 0x3) {
 		printk("Warning: N is not a multiple of 4, adjusting.\n");
@@ -122,7 +119,7 @@ static void process_task(struct xen_msg_data *m)
 
 
 	/* the data buffer of this task */
-	p = (unsigned long *) pt_get_data(m->t);
+	p = (long *) pt_get_data(m->t);
 
 	/* retrieve data to TCM
 	 * XXX no retval handling
@@ -165,10 +162,10 @@ static void process_task(struct xen_msg_data *m)
 
 	xen_noc_dma_req_xfer(m->dma, p, tcm_ext, 2, n/2, WORD,
 			     1, (int16_t)(b3 - b1),
-			     2, 1, LOW, 256);
+			     2, 1, LOW, DMA_MTU);
 
 	/* process the ramps*/
-	FastIntFixedRampFitBuffer((long *) b1,
+	n_ramps = FastIntFixedRampFitBuffer((long *) b1,
 				  (long *) b3,
 				  n, op_info->ramplen, slopes);
 
@@ -180,10 +177,10 @@ static void process_task(struct xen_msg_data *m)
 	 * same NoC node (if you do, it gets stuck)
 	 */
 	xen_noc_dma_req_lin_xfer(m->dma, slopes, tcm_ext, n_ramps,
-				 WORD, LOW, 256);
+				 WORD, LOW, DMA_MTU);
 
 	/* now into the task_'s data buffer */
-	xen_noc_dma_req_lin_xfer(m->dma, tcm_ext, p, n_ramps,  WORD, LOW, 256);
+	xen_noc_dma_req_lin_xfer(m->dma, tcm_ext, p, n_ramps,  WORD, LOW, DMA_MTU);
 
 	/* update the member size of the buffer */
 	pt_set_nmemb(m->t, n_ramps);
@@ -203,6 +200,7 @@ static void process_task(struct xen_msg_data *m)
 int main(void)
 {
 	struct xen_msg_data *m;
+
 
 	while (1) {
 		m = xen_wait_cmd();
