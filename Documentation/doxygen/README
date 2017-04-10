@@ -1,0 +1,5 @@
+
+be sure to copy the .js and .css files to the html/ directory or they will not be found by the browser
+
+
+doxygen requires plantuml to be installed in the current configuration
