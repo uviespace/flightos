@@ -110,6 +110,19 @@ void pt_rewind_steps_done(struct proc_task *t)
 
 
 /**
+ * @brief move all processing steps from the todo list to the free list,
+ *
+ * @param t a struct proc_task
+ */
+
+void pt_del_all_pending(struct proc_task *t)
+{
+	while(pt_get_pend_step_op_code(t))
+		pt_next_pend_step_done(t);
+}
+
+
+/**
  * @brief delete the last done processing step and move it to free list
  *
  * @param t a struct proc_task

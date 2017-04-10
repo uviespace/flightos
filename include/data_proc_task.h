@@ -44,6 +44,8 @@ int pt_del_last_step_done(struct proc_task *t);
 
 int pt_del_pend_step(struct proc_task *t);
 
+void pt_del_all_pending(struct proc_task *t);
+
 int pt_next_pend_step_done(struct proc_task *t);
 
 unsigned long pt_get_pend_step_op_code(struct proc_task *t);
