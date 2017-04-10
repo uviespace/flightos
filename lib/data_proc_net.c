@@ -337,8 +337,14 @@ int pn_eval_task_status(struct proc_net *pn, struct proc_tracker *pt,
 
 	case PN_TASK_DESTROY:
 		pr_debug(MSG "destroy task\n");
-		/* something is wrong, destroy this task */
-		pt_destroy(t);
+		/* something is wrong, destroy this task by clearing 
+		 * its member count and pending steps, so it is moved
+		 * directly to the output node, where it can be deallocated
+		 * by the user's ouput function
+		 */
+		pt_set_nmemb(t, 0);
+		pt_del_all_pending(t);
+		pn_task_to_next_node(pn, t);
 		goto task_continue;
 
 	default:
