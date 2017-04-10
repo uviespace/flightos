@@ -99,7 +99,7 @@
  * TODO At some point, we will want to add sysctl support to export statistics
  *      of processing node usage.
  *
- * TODO Currently, parallel nodes are not supported unless multiple kernels
+ * TODO For now, parallel nodes are not supported unless multiple kernels
  *	of the same type are loaded. We can fix that if we link the kernel
  *	object code ourselves, since xentium-clang cannot currently produce
  *	relocatable executables.
@@ -135,7 +135,8 @@
 
 
 /* XXX Argh...not so great. If it's possible to determine the platform's
- * Xentium configuration at runtime from AMBA PnP at some point, implement that.
+ * Xentium configuration at runtime from AMBA PnP at some point (in the SSDP?),
+ * implement that.
  */
 
 #define XEN_0_EIRQ	30
@@ -421,7 +422,7 @@ static void xen_set_cmd(struct xen_dev_mem *xen, struct xen_msg_data *m)
 	if (!m)
 		return;
 
-	xen->mbox[XEN_CMD_MBOX] = (unsigned long) m;
+	iowrite32be((unsigned long) m, &xen->mbox[XEN_CMD_MBOX]);
 }
 
 
@@ -627,6 +628,7 @@ static void xen_handle_cmds(int x_idx, struct xen_msg_data *m, int pn_ret_code)
 
 	m->t = pn_get_next_pending_task(pt);
 
+
 	if (!m->t) {
 		pr_debug(MSG "No more tasks, commanding abort of %x.\n",
 			 pt->op_code);
@@ -674,8 +676,8 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 	pr_debug(MSG "Interrupt from Xentium %d, sequence number %d\n",
 	       x_idx, pt_get_seq(m->t));
 
-
-	switch (m->cmd) {
+	/* The mppb...argh */
+	switch (ioread32be(&m->cmd)) {
 
 	case TASK_SUCCESS:
 		/* Step complete, go to next one. If the same step was scheduled
@@ -695,7 +697,7 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 	case TASK_DETACH:
 		/* task tracking is done in kernel */
 		pr_debug(MSG "TASK_DETACH\n");
-		xen_handle_cmds(x_idx, m, PN_TASK_STOP);
+		xen_handle_cmds(x_idx, m, PN_TASK_DETACH);
 		break;
 
 	case TASK_RESCHED:
@@ -716,10 +718,13 @@ static irqreturn_t xen_irq_handler(unsigned int irq, void *userdata)
 		xen_handle_cmds(x_idx, m, PN_TASK_DESTROY);
 		break;
 
-	case TASK_NEW:
-		/* create a new task an pass it to the xentium */
-		pr_crit(MSG "TASK_NEW: unimplemented\n");
-		BUG();
+	case TASK_ATTACH:
+		/* track this task again and confirm to xentium */
+		pr_debug(MSG "TASK_ATTACH\n");
+		ioread32be(&m->t);
+		pn_eval_task_status(_xen.pn, xen_get_tracker(x_idx),
+				    m->t, PN_TASK_SUCCESS);
+		xen_set_cmd(xen, m);
 		break;
 
 	case TASK_DATA_REALLOC:

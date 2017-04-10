@@ -38,7 +38,7 @@ enum xen_cmd {
 	TASK_RESCHED = PN_TASK_RESCHED, /* requeue this task and abort */
 	TASK_SORTSEQ = PN_TASK_SORTSEQ, /* TASK_RESCHED and sort by seq cntr */
 	TASK_DESTROY = PN_TASK_DESTROY, /* something is wrong, destroy task */
-	TASK_NEW,			/* allocate a new task */
+	TASK_ATTACH,			/* queue this task and let xentium continue */
 	TASK_DATA_REALLOC,		/* (re)allocate task data pointer */
 	TASK_KZALLOC,			/* request memory buffer */
 	TASK_KMALLOC,			/* request memory buffer */
