@@ -102,8 +102,10 @@ int main(void)
 	cpu_dcache_disable();
 #endif
 
+#ifdef CONFIG_XENTIUM_PROC_DEMO
 	/* run the demo */
 	xen_demo();
+#endif
 
 	return 0;
 }

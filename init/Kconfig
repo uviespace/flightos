@@ -85,6 +85,13 @@ config BUILD_XEN_KERNELS
 	  Enable this option in order to build the Xentium kernel programs
 	  in dsp/xentium.
 
+config XENTIUM_PROC_DEMO
+	bool "Build a Xentium Processing Demo kernel"
+	depends on BUILD_XEN_KERNELS && XENTIUM
+	help
+	  Enable this option in order to build a kernel that runs a Xentium
+	  processing demo.
+
 
 menu "Compile-time checks and compiler options"
 
