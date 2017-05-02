@@ -1,5 +1,11 @@
 /**
  * @file lib/elf.c
+ *
+ * @ingroup elf
+ * @defgroup elf ELF file access
+ *
+ * @brief ELF file access
+ *
  */
 
 

@@ -2,6 +2,8 @@
  * @brief SPARC Reference (SR) Memory Management Unit (MMU)
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  *
+ * @ingroup srmmu
+ *
  * @see SPARCv8 Architecture Manual for more info
  */
 

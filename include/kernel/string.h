@@ -1,5 +1,7 @@
 /**
  * @file include/kernel/string.h
+ *
+ * @ingroup string
  */
 
 #ifndef _KERNEL_STRING_H_

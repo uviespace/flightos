@@ -1,7 +1,8 @@
-
 /**
  * @brief SRMMU register access functions
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
+ *
+ * @ingroup srmmu
  *
  * @note only LEON ASI is supported
  */

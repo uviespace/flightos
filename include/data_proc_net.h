@@ -1,5 +1,7 @@
 /**
  * @file include/data_proc_net.h
+ *
+ * @ingroup data_proc_net
  */
 
 #ifndef _DATA_PROC_NET_H_

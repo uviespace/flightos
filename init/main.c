@@ -1,5 +1,13 @@
 /**
  * @file init/main.c
+ *
+ * @ingroup main
+ * @defgroup main Kernel Main Function
+ * 
+ * @brief the kernel main function
+ *
+ * Here we set up the kernel.
+ *
  */
 
 #include <generated/autoconf.h>

@@ -1,11 +1,18 @@
 /**
  * @file kernel/kmem.c
  *
- * A simple high-level allocator that uses sbrk() to retrieve memory.
- * Is similar to lib/chunk.c, but a lot simpler. I need to respect sbrk()
- * so I can't just use _chunk_ because it may release any parent chunk,
- * while we need to do that from _kmem_last  to first as the become free.
- * I don't have time do do this properly, so this must do for now..
+ * @ingroup kmem
+ * @defgroup kmem Kernel Memory Allocator
+ *
+ * @brief a malloc-like kernel memory allocator 
+ *
+ * A simple high-level allocator that uses kernel_sbrk() implemented by the
+ * architecture-specific (MMU) code to allocate memory. If no MMU is available,
+ * it falls back to using the architecture's boot memory allocator.
+ *
+ * This is similar to @ref chunk, but a lot simpler. This needs to respect
+ * sbrk() so it can't just use @chunk because it may release any parent chunk,
+ * while we need to do that from _kmem_last to _kmem_init as they become free.
  */
 
 #include <list.h>

@@ -1,5 +1,10 @@
 /**
  * @file dsp/xentium/lib/xen.c
+ *
+ * @ingroup xen
+ *
+ * @brief host processor and Xentium interaction
+ *
  */
 
 #include <xen.h>

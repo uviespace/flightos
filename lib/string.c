@@ -1,6 +1,12 @@
 /*+
  * @file lib/string.c
  *
+ * @ingroup string
+ *
+ * @defgroup string String Manipulation
+ *
+ * @brief implememnts generic string manipulation functions
+ *
  * @note some of theses are just wrappers
  * @todo these functions are very generic, for performance, add architecture
  * specific implementations

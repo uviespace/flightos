@@ -1,9 +1,32 @@
 /**
  * @file lib/data_proc_tracker.c
  *
+ * @ingroup data_proc_tracker
+ * @defgroup data_proc_tracker Data Processing Task Tracker
  *
- * This is a list based processing task reference tracker.
+ * @brief A processing task reference tracker.
  *
+ * @image html usermanual/images/proc_tracker.png
+ *
+ * A data processing tracker tracks and executes tasks created with
+ * @ref data_proc_task. On creation, an operator function and a corresponding
+ * operation code identifier is assigned to the tracker.
+ *
+ * A critical level of input tasks may be assigned, which may be checked
+ * by the user to quickly determine if a tracker has accumulated a certain
+ * number of tasks for processing. This level is completely arbitrary and
+ * implementation dependent.
+ *
+ * Trackers do no do much themselves, they are essentially containers that
+ * are used as building blocks for a larger processing chain implementation
+ * (e.g. @ref data_proc_net) that manages the propagation of tasks.
+ * A user may add (pt_track_put()), execute (pt_track_execute_next()) and
+ * remove (pt_track_get()) tasks.
+ *
+ * pt_track_execute_next() executes the first item in the task list by feeding
+ * it to the operator function. It is up to the user to evaluate return codes,
+ * manipulate the step list of the @ref data_proc_task and remove it from the
+ * tracker.
  *
  */
 

@@ -1,14 +1,20 @@
 /**
  * @file lib/data_proc_net.c
  *
+ * @ingroup data_proc_net
+ * @defgroup data_proc_net Data Processing Network
  *
- * This can be used to create data processing networks.
+ * @brief A generic data processing network.
+ *
+ * @image html usermanual/images/task_network.png
+ *
+ * This can be used to create arbitrary data processing networks.
  *
  * Each node in the network is a data processing tracker with a particular op
  * code. Tasks created with pt_create() are inserted into the network via the
  * input node and exit the network via the output node. Each processing task
  * is forwarded through the nodes as defined in its sequence of steps
- * (via pt_add_step()), which form the processing chain the task must pass
+ * (via pt_add_step()), which form the processing chain the task must pass,
  * in order to be completed from the "chain link nodes" of the network.
  *
  * The steps are defined as "op codes" that must match an op code of a node in
@@ -30,42 +36,51 @@
  * interpretable data buffers.
  *
  *
+ * A node processing cycle can be started by simply calling:
  *
- *
- *
- * Node procesing can be done by simply calling:
- *
- * pn_process_next()
+ * @code{.c}
+ *	pn_process_next()
+ * @endcode
  *
  * which does all the work and returns the number of tasks processed in the next
  * pending node.
  *
  *
  * This is equivalent to doing it manually:
+ * 
+ * @code{.c}
+ *	pt = pn_get_next_pending_tracker(pn);
  *
- * pt = pn_get_next_pending_tracker(pn)
- *
- * while (1) {
- *	t = pn_get_next_pending_task(pt)
- *	ret = pt->op(pt_get_pend_step_op_code(t), t);
- *	if (!pn_eval_task_status(pn, pt, t, ret))
- *		pn_node_to_queue_tail(pn, pt);
- *		abort_processing:
+ *	 while (1) {
+ *		t = pn_get_next_pending_task(pt)
+ *		ret = pt->op(pt_get_pend_step_op_code(t), t);
+ *		if (!pn_eval_task_status(pn, pt, t, ret))
+ *			pn_node_to_queue_tail(pn, pt);
+ *			abort_processing:
+ *		}
  *	}
- * }
+ * @endcode
  *
  * This may be used when the call to pt->op() needs special control.
  *
  *
  * Input and output nodes are special, they must be processed explicitly by
  * calling
+ *
+ * @code{.c}
  *	pn_process_inputs(pn);
+ * @endcode
+ *
  * and
+ *
+ * @code{.c}
  *	pn_process_outputs(pn);
+ * @endcode
  *
  * This allows the operator of the processing network to control the I/O rate.
  *
- *
+ * 
+ * @example proc_chain_demo.c
  */
 
 #include <kernel/printk.h>

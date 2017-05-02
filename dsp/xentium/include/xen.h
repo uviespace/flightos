@@ -1,5 +1,12 @@
 /**
  * @file dsp/xentium/include/xen.h
+ * @ingroup xen
+ *
+ * @defgroup xen Xentium Kernel Interface
+ * @brief a host interface and support library for Xentium Processing Kernels
+ *
+ * @defgroup xen_kernel Xentium Processing Kernels
+ * @brief a set of Xentium Processing Kernels
  */
 
 #ifndef _DSP_XENTIUM_XEN_H_

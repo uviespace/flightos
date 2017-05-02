@@ -1,3 +1,9 @@
+/**
+ * @file include/kernel/module.h
+ *
+ * @ingroup kernel_module
+ */
+
 #ifndef _KERNEL_MODULE_H_
 #define _KERNEL_MODULE_H_
 

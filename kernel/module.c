@@ -1,6 +1,13 @@
 /**
  * @file kernel/module.c
  *
+ * @ingroup kernel_module
+ * @defgroup kernel_module Loadable Kernel Module Support
+ *
+ * @brief implements loadable kernel modules
+ *
+ *
+ *
  *
  * TODO 1. module chainloading, reference counting and dependency
  *	   tracking for automatic unloading of unused modules

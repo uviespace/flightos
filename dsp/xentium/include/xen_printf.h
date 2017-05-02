@@ -3,6 +3,8 @@
  * @author  Armin Luntzer (armin.luntzer@univie.ac.at)
  * @date    November, 2013
  *
+ * @ingroup xen
+ *
  *
  * @copyright 
  * This program is free software; you can redistribute it and/or modify it

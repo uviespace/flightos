@@ -1,4 +1,6 @@
 /**
+ * @ingroup xen_kernel
+ *
  * @brief this is just a dummy that uses the DMA to copy at most one TCM
  *	  bank of 32 bit words from the main memory and back
  */

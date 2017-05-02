@@ -1,3 +1,8 @@
+/**
+ * @file include/elf.h
+ * @ingroup elf
+ */
+
 #ifndef _KERNEL_ELF_H_
 #define _KERNEL_ELF_H_
 

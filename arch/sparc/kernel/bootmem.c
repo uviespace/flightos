@@ -1,15 +1,19 @@
 /**
  * @file arch/sparc/kernel/bootmem.c
  *
- * This sets up a buddy system memory manager that handles the physical RAM
- * banks. The kernel image RAM section itself is reserved, and a more
- * fine-grained boot memory allocator is set up that can be used to reserve
- * memory for low-level kernel objects such as MMU tables.
+ * @ingroup sparc
+ *
+ * @brief uses @ref chunk to manage the physical RAM banks
+ *
+ * This sets up a buddy system memory manager via @ref chunk that 
+ * handles the physical RAM banks. The kernel image RAM section itself is
+ * reserved, and a more fine-grained boot memory allocator is set up that can be
+ * used to reserve memory for low-level kernel objects such as MMU tables.
  *
  * Note that because we don't use a two-stage bootstrap process at this time,
  * we will 1:1 map the relevant physical memory bank addresses through the MMU,
  * so the low level objects may be used without a translation step for now,
- * but we will migrate to a new kernel stack base at (2^32 - 1) once we
+ * but we will migrate to a new kernel stack base at (2^32 - 1) VA once we
  * have set up the MMU.
  *
  * Because of the above, user space memory will be mapped below the

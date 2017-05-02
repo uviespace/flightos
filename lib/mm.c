@@ -2,6 +2,10 @@
  *
  * @file lib/mm.c
  *
+ * @ingroup buddy_mm
+ * @defgroup buddy_mm Buddy-System Memory Manager
+ * @brief a buddy-system memory manager
+ *
  * This is a buddy-system memory manager.
  *
  *
@@ -33,6 +37,8 @@
  * chunk from the base and manage it on your own.
  *
  * @todo not atomic
+ *
+ * @example mm_demo.c
  */
 
 

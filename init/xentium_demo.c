@@ -1,5 +1,8 @@
 /**
  * @file init/xentium_demo.c
+ * 
+ * @ingroup xen_demo
+ * @defgroup xen_demo Xentium Demonstrator
  *
  * @brief demonstrates how a Xentium processing network is used
  */

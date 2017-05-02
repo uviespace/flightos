@@ -1,3 +1,10 @@
+/**
+ * @file arch/sparc/kernel/module.c
+ *
+ * @ingroup sparc
+ * @brief implements architecture-specific @ref kernel_module interfaces
+ */
+
 #include <kernel/module.h>
 #include <kernel/printk.h>
 #include <kernel/err.h>

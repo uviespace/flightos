@@ -1,5 +1,10 @@
 /**
  * @file arch/sparc/kernel/setup.c
+ *
+ * @ingroup sparc
+ * @defgroup sparc SPARC
+ * @brief the SPARC architecture-specific implementation
+ *
  */
 
 #include <string.h> /* memset() */

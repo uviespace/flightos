@@ -1,6 +1,8 @@
 /**
  * @file include/kernel/xentium_dev.h
  *
+ * @ingroup xentium_driver
+ *
  * @note this file may also be included in xentium kernel code
  */
 

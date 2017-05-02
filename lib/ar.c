@@ -1,4 +1,10 @@
 /**
+ * @file lib/ar.c
+ *
+ * @ingroup ar
+ * @defgroup ar AR reader
+ *
+ * @brief an AR file reader
  *
  * This is a very simple AR reader. It expects indexed SVR4/GNU type archive,
  * i.e. created invoking: ar rcs <archive> <files...>
@@ -16,6 +22,8 @@
  *
  * @note The sym array in struct archive may be used to lookup a module
  *       dependency when resolving symbols.
+ *
+ * @example ar_demo.c
  */
 
 

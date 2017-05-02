@@ -1,7 +1,8 @@
 /**
  * @file    include/kernel/irq.h
  * @author  Armin Luntzer (armin.luntzer@univie.ac.at)
- * @date    December, 2013
+ *
+ * @ingroup irq
  *
  * @copyright GPLv2
  *

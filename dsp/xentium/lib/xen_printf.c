@@ -1,10 +1,12 @@
 /**
- * @file   xentium/xen_printf.c
+ * @file   dsp/xentium/lib/xen_printf.c
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   November, 2013
  * @brief  a printf function suitable for use in xentium programs
  * @note  there are many like it, but this one is mine...
  * @note the lack of a cross-processor locking mechanism obviously implies that x_printf and leon printf writes might interfere
+ *
+ * @ingroup xen
  *
  * @copyright 
  * This program is free software; you can redistribute it and/or modify it

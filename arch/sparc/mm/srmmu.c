@@ -2,6 +2,10 @@
  *
  * @file arch/sparc/mm/srmmu.c
  *
+ * @ingroup srmmu
+ * @defgroup srmmu SPARC Reference MMU
+ *
+ * @brief access to the SPARC Reference MMU (SRMMU)
  *
  *
  * ## Overview
@@ -19,9 +23,11 @@
  * address through the MMU, you can use the context table pointer (ctp) as
  * page table entry (pte):
  *
+ * @code{.c}
  *	srmmu_set_ctx_tbl_addr((unsigned long) _mmu_ctp);
  *	_mmu_ctp[0] = SRMMU_PTE(0x0, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
  *	srmmu_set_ctx(0);
+ * @endcode
  *
  * so the virtual address mapping starts at physical address address 0x0.
  * Note: accessing memory regions not actually mapped in hardware will
@@ -32,14 +38,19 @@
  * against accidential R/W/X operations, you can point a level 0 ctp to a
  * level 1 table by setting it up as a page table descriptor (ptd):
  *
+ * @code{.c}
  *	_mmu_ctp[0] = SRMMU_PTD((unsigned long) &ctx->tbl.lvl1[0]);
+ * @endcode
  *
  * Let's say you want to map a 16 MiB chunk starting at 0x40000000
  * transparently through the MMU, you would then set lvl 1 table entry
  * 0x40 (64), since lvl1 tables addresses are formed by the two highest-order
  * bytes:
+ *
+ * @code{.c}
  *	ctx->tbl.lvl1[0x40] =
  *		SRMMU_PTE(0x40000000, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
+ * @endcode
  *
  * an then select the MMU context.
  *
@@ -57,8 +68,10 @@
  *
  * Let's say you created a second mapping to the same physical address:
  *
+ * @code{.c}
  *	ctx->tbl.lvl1[0xaa] =
  *		SRMMU_PTE(0x40000000, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
+ * @endcode
  *
  * and try to access 0xaa123456. The MMU will then replace 0xaa with 0x40, and
  * you'll get the same physical address again!
@@ -72,15 +85,20 @@
  * setting up the entry as a pte, you would configure it as a ptd that
  * references a lvl 2 table, e.g.
  *
+ * @code{.c}
  *	ctx->tbl.lvl1[0x40] = SRMMU_PTD((unsigned long) &ctx->tbl->lvl2[0]);
+ * @endcode
  *
  * and then set up the lvl 2 table entries, which reference 64 chunks of 256 KiB
  * each, which means that the next 6 _bits_ in the address are used by the MMU
  * for the offset into the table, i.e. (addr & 0x00FC0000 ) >> 18
  *
  * If you configure a mapping for 0xaa04xxxx, you would set:
+ *
+ * @code{.c}
  *	ctx->tbl.lvl2[0xaa][0x01] =
  *		SRMMU_PTE(0x40000000, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
+ * @endcode
  *
  * and then access 0xaa04cdef, the MMU will strip the upper 14 bits from that
  * address and replace them with the upper 14 bits of 0x40000000 and hence

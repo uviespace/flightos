@@ -1,6 +1,11 @@
 /**
  * @file lib/chunk.c
  *
+ * @ingroup chunk
+ * @defgroup chunk Memory Chunk Allocator
+ *
+ * @brief a chunk-based memory allocator
+ *
  *
  * This is a stepping stone to something like malloc()
  *
@@ -28,6 +33,7 @@
  *	 a single chunk up to the alignement boundary and adds it to the "full"
  *	 pool, then returns the following (aligned) chunk.
  *
+ * @example chunk_demo.c
  */
 
 #include <unistd.h>

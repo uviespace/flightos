@@ -1,6 +1,9 @@
 /**
+ * @file dsp/xentium/lib/kmem.c
  *
- * kmalloc/kfree via host processor for added convenience...
+ * @ingroup xen
+ *
+ * @brief kmalloc/kfree via host processor for added convenience...
  *
  */
 

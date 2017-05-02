@@ -2,6 +2,11 @@
  * @file kernel/irq.c
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  *
+ * @ingroup irq
+ * @defgroup irq IRQ interface
+ *
+ * @brief kernel IRQ interface
+ *
  * this implements the high-level IRQ logic (which is admittedly not very
  * thought-through)
  */

@@ -1,8 +1,13 @@
+/**
+ * @file arch/sparc/kernel/elf.c
+ *
+ * @ingroup sparc
+ *
+ * @brief implements the architecture-specific ELF interface
+ *
+ */
+
 #include <kernel/elf.h>
-
-
-
-
 
 
 /**

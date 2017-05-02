@@ -1,5 +1,7 @@
 /**
  * @file include/kernel/xentium.h
+ *
+ * @ingroup xentium_driver
  */
 
 #ifndef _KERNEL_XENTIUM_H_

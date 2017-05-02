@@ -1,5 +1,9 @@
 /**
  * @file   arch/sparc/kernel/stacktrace.c
+ *
+ * @ingroup sparc
+ *
+ * @brief stack tracking for the SPARC target
  */
 
 #include <stdlib.h>

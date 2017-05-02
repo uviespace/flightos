@@ -1,5 +1,7 @@
 /**
  * @file include/data_proc_tracker.h
+ *
+ * @ingroup data_proc_tracker
  */
 
 #ifndef _DATA_PROC_TRACKER_H_
@@ -9,21 +11,27 @@
 #include <list.h>
 #include <data_proc_task.h>
 
-
-
+/**
+ * the operator function type associated with a processing tracker
+ */
 typedef int (*op_func_t)(unsigned long op_code, struct proc_task *);
 
+/**
+ * @struct the data processing tracker structure
+ */
 struct proc_tracker {
-	struct list_head tasks;
-	size_t n_tasks;
-	size_t n_tasks_crit;
+	struct list_head tasks;	/*!< a list head links the tracked tasks */ 
+	size_t n_tasks;		/*!< the current number of tracked tasks */
+	size_t n_tasks_crit;	/*!< the number of tasks above which the
+				  tracker should be considered critical */
 
-	unsigned long op_code;
+	unsigned long op_code;	/*!< the op code identifier of the tracker */
 
-	op_func_t op;
+	op_func_t op;		/*!< the operator function of this tracker */
 
 
-	struct list_head node;	/* to be used for external tracking */
+	struct list_head node;	/*!< may be used for external tracking of this
+				   tracker */
 };
 
 

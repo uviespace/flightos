@@ -1,10 +1,33 @@
 /**
  * @file kernel/noc_dma.c
  *
+ * @ingroup noc_dma
+ * @defgroup noc_dma SSDP/MPPBv2 NoC DMA driver
+ *
+ * @brief a driver for the SSDP/MPPBv2 NoC DMA
+ *
+ *
+ *
+ * This implements transfers via the NoC DMA feature of the SSDP/MPPBv2.
+ *
+ * Complex transfers (2D) may be programmed via noc_dma_req_xfer(), simpler (1D)
+ * transfers may be requested via noc_dma_req_lin_xfer().
+ *
+ * A requested transfer is added to a queue of configurable length and executed
+ * as soon as a DMA channel becomes available. The caller is informed of
+ * transfer completion via a supplied callback notification function.
+ *
+ * Channels may be reserved for exclusive external use via
+ * noc_dma_reserve_channel() and returned by noc_dma_release_channel().
+ *
+ *
+ *
  * @note parameter limits are usually not checked, as they are implicit by type
  *
  * @todo stuck channel detection (needs threading or at least a timer service)
  *	 and reset (if possible, transfer size 0 maybe? need to test...)
+ *
+ * @example noc_dma_demo.c
  */
 
 

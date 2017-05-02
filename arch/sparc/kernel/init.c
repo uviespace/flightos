@@ -1,5 +1,9 @@
 /**
  * @file arch/sparc/kernel/init.c
+ *
+ * @ingroup sparc
+ *
+ * @brief initalises paging
  */
 
 #include <mm.h>

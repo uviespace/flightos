@@ -1,5 +1,7 @@
 /**
  * @file arch/sparc/kernel/mm.c
+ *
+ * @ingroup sparc
  */
 
 #include <mm.h>

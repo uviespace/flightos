@@ -1,5 +1,10 @@
 /**
  * @file arch/sparc/kernel/mmu.c
+ *
+ * @ingroup sparc
+ * 
+ * @brief SPARC MMU initialisation, context, trap handling and sbrk()
+ *
  */
 
 #include <mm.h>

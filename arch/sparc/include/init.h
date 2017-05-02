@@ -1,5 +1,7 @@
 /**
  * @file arch/sparc/include/init.h
+ *
+ * @ingroup sparc
  */
 
 #ifndef _SPARC_INIT_H_

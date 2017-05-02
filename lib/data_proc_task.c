@@ -1,8 +1,14 @@
 /**
  * @file lib/data_proc_task.c
  *
+ * @ingroup data_proc_task
+ * @defgroup data_proc_task Data Processing Task
  *
- * This manages processing tasks. Each task tracks an arbitrary number of steps
+ * @brief a data processing task
+ *
+ * @image html usermanual/images/proc_task.png
+ *
+ * Each processing task tracks an arbitrary number of steps
  * that each describe the next operation to perform on the data buffer tracked
  * by the processing task. Pending operations are stored in a "todo" list,
  * completed operations are stored in a "done" list.
@@ -16,11 +22,11 @@
  * by the first processing operation.
  *
  * The data buffer need not be tracked in kmalloc() and will not be freed
- * on pt_destroy, but all op_info data are and hence must be allocated
+ * on pt_destroy(), but all op_info data are and hence must be allocated
  * accordingly.
  *
  * The number of elements may be any value that can be interpreted by the
- * prcessing task and need not represent the actual size of the buffer. (They
+ * processing task and need not represent the actual size of the buffer. (They
  * should not exceed the buffer size tho...)
  *
  * The "done" list of processing steps is currently only used to rewind a list

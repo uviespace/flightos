@@ -1,50 +1,62 @@
 /**
  * @file kernel/xentium.c
  *
+ * @ingroup xentium_driver
+ * @defgroup xentium_driver Xentium driver
  *
+ * @brief Xentium processing network driver
  *
- * This is the Xentium processing network driver. It builds upon data_proc_net.c
- * and maps tasks selected by op codes to the appropriate Xentium kernel
- * program. To load and set up the "op code" nodes, the user must load
- * corresponding ELF binaries of Xentium programs. These ELF binaries must
- * export their capabilities as a struct xen_kernel_cfg (see
- * kernel/xentium_io.h) and make use of the commanding exchange protocol (same
- * file). See also dsp/xentium for kernel programs.
+ * This is the Xentium processing network driver. It builds upon
+ * @ref data_proc_net and maps tasks selected by op codes to the appropriate
+ * Xentium kernel program. To load and set up the "op code" nodes, the user
+ * loads corresponding ELF binaries of Xentium programs. These ELF binaries must
+ * export their capabilities as a struct xen_kernel_cfg and make use of the
+ * command exchange protocol (see kernel/xentium_io.h).
+ * See also dsp/xentium/ subdirectory for kernel programs.
  *
  *
  * A minimum setup requires the user to add at least one kernel, e.g.
  *
+ * @code{.c}
  *	xentium_kernel_add(elf_kernel_binary_addr);
+ * @endcode
  *
  * and configure a custom output node that is of type op_func_t (see
  * data_proc_tracker.h):
  *
- * int xentium_config_output_node(xen_op_output)
- * {
- *	...
- *	return PN_TASK_SUCCESS;
- * }
+ * @code{.c}
+ *	int xentium_config_output_node(xen_op_output)
+ *	{
+ *		...
+ *		return PN_TASK_SUCCESS;
+ *	}
+ * @endcode
  *
  * via
+ *
+ * @code{.c}
  *	xentium_config_output_node(xen_op_output);
+ * @endcode
  *
  * which corresponds to the call to pn_create_output_node() when using the
- * generic processing network (data_proc_net.c) implementation
+ * generic @ref data_proc_net implementation
  *
  *
  * Note that the user is responsible to free the data pointer of the task
  * and the task itself (i.e. pt_destroy()), the same way that one would with
- * a non-DSP processing network (see samples/proc_chain/ for an example)
+ * a non-DSP processing network (see @ref proc_chain_demo.c)
  *
  *
  * New processing tasks can then be added into the network, e.g.
  *
+ * @code{.c}
  *	struct proc_task t = pt_create(data, ...);
  *
  *	pt_add_step(t, op1, ...));
  *	pt_add_step(t, op2, ...));
  *
  *	xentium_input_task(t);
+ * @endcode
  *
  * the task will then move through the selected nodes in the processing network.
  *
@@ -52,9 +64,9 @@
  * reference to the struct proc_task, which they must be able to interpret
  * and/or process as the user desires.
  *
- * In addition, the Xentiums are passed a DMA channel each, that they may use
- * to transfer memory contents to and from their local tightly couple memory
- * (TCM).
+ * In addition, the Xentiums are passed a DMA channel each (reserved from @ref
+ * noc_dma), which they may use to transfer memory contents to and from their
+ * local tightly couple memory (TCM).
  *
  * The task of the host processor consists of command exchange and loading of
  * the Xentium kernel programs as needed. Typically, a nodes are scheduled for
@@ -78,7 +90,9 @@
  * the output node. It is up to the user to retrieve and deallocate tasks form
  * this node by calling
  *
+ * @code{.c}
  *	xentium_output_tasks();
+ * @endcode
  *
  *
  * This will execute the output node previously configured by

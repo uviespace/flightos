@@ -1,4 +1,7 @@
 /**
+ *
+ * @ingroup xen_kernel
+ *
  * @brief stack "frames"
  *
  * NOTE: This is for demonstration purposes only. There are lot of things that

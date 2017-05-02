@@ -1,5 +1,6 @@
 /**
  * @file include/kernel/kmem.h
+ * @ingroup kmem
  */
 
 #ifndef _KERNEL_KMEM_H_

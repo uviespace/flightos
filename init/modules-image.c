@@ -1,7 +1,10 @@
 /**
  * @file init/modules-image.c
  *
- * load files and modules in embedded modules.image
+ * @ingroup modimg
+ * @defgroup modimg Modules Image Loader
+ *
+ * @brief load files and modules in embedded modules.image
  */
 
 

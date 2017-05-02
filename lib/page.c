@@ -1,6 +1,11 @@
 /**
  * @file kernel/page.c
+ * @ingroup page
+ * @defgroup page Page Map Manager
  *
+ * @brief a page map manager and allocator
+ * 
+ * Manages a memory pool managed by @ref buddy_mm 
  *
  * @note this only ever uses one page map at a time, so if you want to remap
  *	 boot memory, define a new map or just expand the number of nodes in the

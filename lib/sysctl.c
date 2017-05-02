@@ -15,8 +15,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @defgroup sysctl system control and statistics
- * @brief
+ * @defgroup sysctl System Control Interface
+ * @brief system control interface
  *
  * This system statistics/configuration functionality is tailored/derived
  * from how sysfs/kobjects works in Linux. For obvious reasons, access via a
@@ -44,6 +44,8 @@
  *
  *
  * @note explicit references to linux source files are not always given
+ *
+ * @example sysctl_demo.c
  */
 
 #include <kernel/printk.h>

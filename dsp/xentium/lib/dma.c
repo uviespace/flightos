@@ -1,5 +1,9 @@
 /**
- * @file dsp/xentium/lib/xdma.c
+ * @file dsp/xentium/lib/dma.c
+ *
+ * @ingroup xen
+ *
+ * @brief NoC DMA access from the Xentium
  *
  * These are mostly just duplicates of the noc_dma access functions...
  */

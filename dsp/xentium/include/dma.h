@@ -1,5 +1,6 @@
 /**
  * @file dsp/xentium/include/xdma.h
+ * @ingroup xen
  */
 
 #ifndef _DSP_XENTIUM_DMA_H_

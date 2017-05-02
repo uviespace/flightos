@@ -1,4 +1,6 @@
 /**
+ * @ingroup xen_kernel
+ *
  * @brief deglitch an array
  *
  * NOTE: This is for demonstration purposes only. There are lot of things that
