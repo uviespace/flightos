@@ -93,7 +93,10 @@
 
 \section{Purpose of the Document}
 
-This document gives an overview on how to use the LeanOS operating system.
+This document gives an overview on how to use the LeanOS operating system with
+regard to Xentium processing. An overview of the structure of LeanOS will be
+given, detailed information relevant to system programming must however be 
+looked up in the in-line documentation of the source files.
 
 \chapter{Applicable and Reference Documents} % does not break automatically for some reason
 
@@ -266,6 +269,71 @@ found in the \gls{SSDP} and the \gls{MPPB}. A major focus is the integration
 of the \gls{Xentium} \glspl{DSP} into a processing network that can be used to
 create arbitrary pipelines on a per-task-packet basis (see below).
 
+\chapter {Structure and Concept}
+
+\section {Source Code Organisation}
+
+The operating system code is composed of a \emph{generic} and a
+\emph{processor architecture} component. The generic section typically
+provides higher-level, abstract APIs which may rely on the architecture code
+to implement backends to certain interface dependencies. Examples are
+low level memory management, \gls{MMU} access and interrupt management. \\
+
+\section {Processor Architectures}
+
+The implemented processor architectures are located in the \emph{arch/}
+subdirectory of the source tree. At \emph{minimum}, the function
+\emph{setup\_arch()} is expected to be implemented. This function must set up a
+basic platform boot memory manager and implement (de-)allocation functions
+\emph{bootmem\_alloc()} and \emph{bootmem\_free()} in a way that
+arbitrary-sized chunks of memory can be requested and released. If a \gls{MMU}
+is available and implemented, the architecture should also provide an
+implementation of \emph{kernel\_sbrk()}.  If the latter is not available, the
+operating system will fall back to use the boot memory manager for its
+high-level allocator subsystem \emph{kmem}.
+
+Other backends, such as for interrupt management must be provided if this
+functionality is used in the desired configuration of the OS.\\
+
+
+\section {Common Kernel Code}
+
+Common code components, which may be used across all architectures are
+organised into several subdirectories (\emph{init/}, \emph{kernel/} and
+\emph{lib/}). The categories are not strict, but typically group components by
+intended usage type. Sources in \emph{kernel/} usually concern single-instance,
+driver and driver-like elements used in the implementation of OS kernel
+functions, while sources in \emph{lib/} may be reused multiple times to
+implement functionality (e.g. paging in the processor architecture code) and
+are generally more modular or could even be used for completely differnet
+purposes.
+
+
+\section {Xentium Processing Kernels}
+
+The processing kernels used with the Xentium DSP and their support and interface
+library for interaction with the host processor are located in the \emph{dsp/}
+directory.
+
+
+\section {Example Code and Testing}
+
+Programming and usage examples of certain operating system features are found in
+the \emph{samples/} subdirectory. \\
+
+\noindent
+Automated test scripts and unit tests are found in the \emph{tools/testing/}
+subdirectory.
+
+
+
+
+
+
+
+
+
+
 
 
 \chapter{Processing Networks in LeanOS}
@@ -343,7 +411,7 @@ completed on the data, the operation step record is moved from the pending
 \end{center}
 \end{figure}
 
-In order to processs the tasks fed into the network, nodes must be created,
+In order to process the tasks fed into the network, nodes must be created,
 which execute the desired processing steps listed in the task.  These nodes are
 the \emph{processing trackers} (\fig{fig:task_network}). Each processing
 tracker is initialised with an op code and a function to execute the particular
