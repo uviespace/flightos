@@ -7,7 +7,8 @@
 #include <kselftest.h>
 
 #include <shared.h>
-#include <malloc_test_wrapper.h>
+#include <kmalloc_test_wrapper.h>
+#include <kcalloc_test_wrapper.h>
 
 /* include header + src file for static function testing */
 #include <kernel/sysctl.h>
@@ -159,12 +160,12 @@ static void sysobj_create_test(void)
 
 
 
-	malloc_test_wrapper(ENABLED);
+	kmalloc_test_wrapper(ENABLED);
 
 	sobj = sysobj_create();
 	KSFT_ASSERT_PTR_NULL(sobj);
 
-	malloc_test_wrapper(DISABLED);
+	kmalloc_test_wrapper(DISABLED);
 
 	sobj = sysobj_create();
 	KSFT_ASSERT(&sobj->entry == sobj->entry.prev);
@@ -231,11 +232,11 @@ static void sysobj_create_and_add_test(void)
 	struct sysobj *sobj = NULL;
 
 
-	malloc_test_wrapper(ENABLED);
+	kmalloc_test_wrapper(ENABLED);
 
 	KSFT_ASSERT_PTR_NULL(sysobj_create_and_add("test", NULL));
 
-	malloc_test_wrapper(DISABLED);
+	kmalloc_test_wrapper(DISABLED);
 
 
 	sobj = sysobj_create_and_add("test", NULL);
@@ -386,9 +387,9 @@ static void sysset_create_test(void)
 	struct sysset *sset;
 
 
-	malloc_test_wrapper(ENABLED);
+	kcalloc_test_wrapper(ENABLED);
 	KSFT_ASSERT_PTR_NULL(sysset_create("test", NULL, NULL));
-	malloc_test_wrapper(DISABLED);
+	kcalloc_test_wrapper(DISABLED);
 
 	sset = sysset_create("test", NULL, NULL);
 	KSFT_ASSERT_PTR_NOT_NULL(sset);
@@ -405,9 +406,9 @@ static void sysset_create_and_add_test(void)
 	struct sysset *sset;
 
 
-	malloc_test_wrapper(ENABLED);
+	kcalloc_test_wrapper(ENABLED);
 	KSFT_ASSERT_PTR_NULL(sysset_create_and_add("test", NULL, NULL));
-	malloc_test_wrapper(DISABLED);
+	kcalloc_test_wrapper(DISABLED);
 
 	sset = sysset_create_and_add("test", NULL, NULL);
 	KSFT_ASSERT_PTR_NOT_NULL(sset);
@@ -421,14 +422,20 @@ static void sysset_create_and_add_test(void)
  */
 static void sysset_find_obj_test(void)
 {
-	struct sysobj *sobj[2];
+	struct sysobj *sobj[3];
 
 	struct sysset *sset[3];
+
 
 
 	sset[0] = sysset_create_and_add("test", NULL, NULL);
 	sset[1] = sysset_create_and_add("test2", NULL, sset[0]);
 	sset[2] = sysset_create_and_add(NULL, NULL, sset[1]);
+
+	sysset_find_obj(NULL, "/somepath");
+	sysset_find_obj(sset[0], "");
+	sysset_find_obj(sset[0], NULL);
+
 
 	sobj[0] = sysobj_create();
 	sysobj_add(sobj[0], NULL, sset[0], "blah");
@@ -436,8 +443,11 @@ static void sysset_find_obj_test(void)
 	sobj[1] = sysobj_create();
 	sysobj_add(sobj[1], NULL, sset[1], "blah2");
 
+	sobj[2] = sysobj_create();
+	sysobj_add(sobj[2], NULL, sset[0], NULL);
+
+	sysset_find_obj(sset[0], "/test");
 	sysset_find_obj(sset[0], "/nonexistent");
-	sysset_find_obj(sset[0], "/test/nonexistent");
 	sysset_find_obj(sset[0], "/test/blah");
 	sysset_find_obj(sset[0], "/test/test2");
 	sysset_find_obj(sset[0], "/test/test2/faux");
@@ -493,7 +503,7 @@ static void sysctl_init_test(void)
 
 	/* TODO not fully covered, needs 3x failing malloc() */
 #if 0
-	malloc_test_wrapper(ENABLED);
+	kmalloc_test_wrapper(ENABLED);
 	KSFT_ASSERT(sysctl_init() == -1);
 	KSFT_ASSERT(sysctl_init() == -1);
 	KSFT_ASSERT(sysctl_init() == -1);

@@ -35,6 +35,7 @@ clean_coverage:
 	for TARGET in $(TARGETS); do \
 		make -C $$TARGET clean_coverage; \
 	done;
+	rm shared/*.gcno shared/*.gcda
 
 clean: clean_coverage
 	for TARGET in $(TARGETS); do \
