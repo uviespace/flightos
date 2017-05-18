@@ -473,10 +473,20 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 {
 	char str[256]; /* XXX */
 	char *token;
+	const char *root;
 
         struct sysobj *s;
         struct sysobj *ret = NULL;
 
+
+	if (!sysset)
+		return ret;
+
+	if (!path)
+		return ret;
+
+	if (!strlen(path))
+		return ret;
 
 
 	memcpy(str, path, strlen(path) + 1);
@@ -486,7 +496,8 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 	strsep(&token, "/");
 
 	/* root node */
-	if(strcmp(sysobj_name(&sysset->sobj), token))
+	root = sysobj_name(&sysset->sobj);
+	if(strncmp(root, token, strlen(root)))
 		return ret;
 
 	while (1) {
