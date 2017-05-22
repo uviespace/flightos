@@ -1,0 +1,263 @@
+\title{Test Plan}
+\def \documentid {LEANOS-UVIE-UM-001}
+\date{Issue 0.1, May 1, 2017}
+
+\newcommand\affil[1]{\textsuperscript#1}
+
+\def\preparedby {Armin Luntzer\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
+\def\approvedby {Franz Kerschbaum\affil{1}}
+
+\def\affiliations{
+	\affil{1} Department of Astrophysics, University of Vienna
+}
+
+
+
+
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+\input{../shared/glossary.tex}
+
+\usepackage{vhistory}
+
+\usepackage{biblatex}
+\addbibresource{../shared/bibliography.bib}
+
+%% use pageref instead of pageref*, the latter only works
+%% for cross-document referencing (architecture/requirements)
+%% need to find a more universial solution at some point
+\fancypagestyle{plain}{ % call style plain so it is used by chapter pages as well
+	\fancyhf{}
+	\fancyhead[R]{
+		\fontspec{MyriadPro}\docdatever \\
+		\vspace{2em}
+		Page \thepage\ of \pageref{LastPage} 
+	}
+
+	\fancyhead[C]{
+		{
+			\fontspec{MyriadPro}
+			\documentid \\
+			\vspace{.7em}
+			\doctitle
+			\vspace{.9em}
+		}
+	}
+	\fancyhead[L]{
+		\ifalogo%
+	}
+}
+
+\begin{document}
+\lstset{style=customc} 
+
+
+\setmainfont{MyriadPro-SemiCondensed}
+\uvietitlepage%
+{Lean OS --\\ An operating system for the SSDP}%
+{\doctitle}%
+{../shared/images/logo2.pdf}
+\setmainfont{MyriadPro}
+
+\approvalpage
+
+\tableofcontents
+\newpage
+
+
+
+\begin{versionhistory}
+  \vhEntry{0.1}{01.05.2017}{AL}{Initial version}
+\end{versionhistory}
+
+
+\chapter{Introduction}
+
+\begin{figure}[htb]
+\begin{center}
+	\includegraphics[width=\columnwidth]{../requirements/images/OS_logical}
+	\caption{The logical model of LeanOS. Here, the "hardware" layer
+	represents both the hardware and the hardware abstraction layer of
+	the software.}
+	\label{fig:logical_model}
+\end{center}
+\end{figure}
+
+\noindent
+LeanOS is an operating system specifically designed to support hardware devices
+with drivers and data processing on the \gls{Xentium} \glspl{DSP} of the
+\gls{SSDP}.\\
+
+In LeanOS, the \gls{SSDP} hardware is accessed in multiple layers of
+abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
+thread/task management and timer operation are used as part of the operating
+system kernel and are also accessible by user applications via a system call
+interface.  Other functional hardware components of the \gls{SSDP} such as the
+\gls{NoC} \gls{DMA} have their own driver modules. These are in turn used by
+the \gls{Xentium} scheduler and other higher level modules in the operating
+system.  Configuration of and access to the latter from user space is done via
+a system call interface. The system control interface serves as an intermediate
+between all layers of the operating system, where system or module states and
+hardware modes or usage statistics may be exported by individual components for
+external (user) access. \\
+
+\noindent
+The compliance of LeanOS with its requirements and its operational environment
+are partially verified by testing.
+
+
+\section{Purpose of the Document}
+
+This document defines test procedures for the for the LeanOS operating system.
+In particular, it defines the:
+\begin{itemize}
+	\item types of tests
+	\item environment in which the test are executed
+	\item coverage of the test
+	\item entity responsible for performing the test
+\end{itemize}
+
+
+\section{Incremental Testing}
+
+LeanOS is not envisaged to be implemented in one final form. Instead, it is
+marked with version numbers for each release. This means that testing is
+version-dependent and is be applied in increments by executing a sub-set of
+tests only as modifications are made.
+
+
+\section{Test Sequences}
+
+Test defined in this document are executed by automated test sequences in the
+form of software programs that control the execution of a test, check the
+correctnes of the results and generate a summary report.
+
+
+\section{Items Under Test}
+
+Components and software modules of the operating system are tested on an
+unit-level where applicable. System level tests are tailored to the
+various configuration options avaiable. and shall be accompanied by
+configuration files so the proper build may generated.
+
+
+\section{Operational Constraints}
+
+Each test shall specify the minimum hardware platform on which it must be
+performed. Unit-level test of platform-independent components may be executed
+on any compatible hardware. Platform-dependent tests may require specific
+hardware models (e.g. the \gls{SSDP} for testing of the \gls{NoC}) or just any
+compatible processor model (e.g. \gls{LEON3} for testing the operation of the
+\gls{MMU}).
+
+
+
+
+\chapter{Applicable and Reference Documents} % does not break automatically for some reason
+
+\printbibliography[heading=none]
+
+
+\chapter{Terms, Definitions and Abbreviated Items}
+\printglossary[type=acronym]
+\printglossary[type=main, style=altlist]
+
+
+\chapter{Types of Tests}
+
+In order to satisfy the verification and validation needs of the test campaign,
+the following types of tests are defined for LeanOS:
+\begin{itemize}
+	\item unit and integration tests
+	\item hardware-software tests
+\end{itemize}
+
+
+\section {Unit and Integration Tests}
+
+LeanOS is developed as a collection of individual, interacting components.
+A unit test verifies the behaviour of a single component, while an integration
+test verifies the behaviour of a number of interacting components. \\
+
+\noindent
+Unit and integration tests are white-box type test that executes a component
+with a series of input conditions and verify the output or action for the
+expected response. These type of test are typically independent from the
+hardware platform.
+
+
+\section {Hardware-Software Tests}
+
+These tests differ from unit and integration tests in that a particular hardware
+platform is required for testing. All system-level integration tests fall in
+this category.
+
+
+\chapter{Test Environments}
+
+Test beds for running LeanOS tests are:
+
+\begin{itemize}
+	\item general-purpose platform for regular unit and integration tests
+	\item \gls{LEON2} and/or \gls{LEON3} platforms for hardware-software tests
+	\item \gls{SSDP} and/or \gls{MPPB} for system-level hardware-software tests
+\end{itemize}
+
+
+\section{Unit and Integration Test Environment}
+
+The test environment for unit and integration tests are shown in
+\fig{fig:unittest}.
+
+The item under test is either one or a set of components of LeanOS. If needed,
+stub and mockup functions, which simulate the expected behaviour of external
+dependcies, are defined to create a representative environment in which the item
+under test is running.
+
+Tests are controlled by a test sequence, which generates inputs for the item
+under test and collects and evaluates the generated output.
+
+
+\begin{figure}[h]
+\begin{center}
+	\includegraphics[width=0.5\columnwidth]{images/unittest}
+	\caption{Unit and integration test environment. Stubs and Mockups%
+	are stand-ins for external dependencies with defined behaviour.%
+	A set of input data is fed into the item under test as specified
+	in the test procedure.}
+	\label{fig:unittest}
+\end{center}
+\end{figure}
+
+
+\section{Hardware-Software Test Environment}
+
+The hardware-software test environment is described on a per-test basis.
+
+
+\chapter{Test Coverage}
+
+This chapter defines the coverage of tests in the environments defined in the
+previously.
+
+
+\section{Source Code Coverage}
+
+Source code coverage must be achived in unit and integration tests.
+A component is considered covered if full statement, decision and condition
+coverage is achieved.
+
+If full coverage cannot be achieved, for example due to operational constraints,
+deviations are acceptable provided that they are justified.
+
+
+\section{Hardware Functions}
+
+
+
+
+
+
+
+\end{document}
