@@ -1,0 +1,217 @@
+
+
+\title{Test Specification}
+\def \documentid {LEANOS-UVIE-TS-001}
+\date{Issue 0.2, May 2, 2016}
+
+\newcommand\affil[1]{\textsuperscript#1}
+
+\def\preparedby {Armin Luntzer\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
+\def\approvedby {Franz Kerschbaum\affil{1}}
+
+\def\affiliations{
+	\affil{1} Department of Astrophysics, University of Vienna
+}
+
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
+\input{../shared/glossary.tex}
+
+\usepackage{vhistory}
+
+\usepackage{biblatex}
+\addbibresource{../shared/bibliography.bib}
+
+
+\externaldocument[REQ-]{../testplan/testplan}
+\input{../testplan/requirements.list}
+
+
+\rereadauxdesignlabels
+
+
+\begin{document}
+
+
+\setmainfont{MyriadPro-SemiCondensed}
+\uvietitlepage%
+{Lean OS --\\ An operating system for the SSDP}%
+{\doctitle}%
+{../shared/images/logo2.pdf}
+\setmainfont{MyriadPro}
+
+\approvalpage
+
+\tableofcontents
+\newpage
+
+
+\chapter*{List of Specified Tests}
+\label{listoftests}
+\the\designlist
+
+
+\begin{versionhistory}
+  \vhEntry{0.1}{01.05.2017}{AL}{Initial version}
+\end{versionhistory}
+
+
+\chapter{Introduction}
+
+
+\section{Purpose of the Document}
+
+The test plan for the the LeanOS operating system is defined in
+\cite{leanosTP}.\\
+\\
+
+\noindent
+This test plan includes acceptance tests where the integrated operating
+system is subjected to tests in its operational environment.\\
+
+\noindent
+This document specifies the acceptance tests for LeanOS.\\
+
+\noindent
+A test is specified by defining the:
+\begin{itemize}
+	\item pre-conditions for the test
+	\item hardware baseline
+	\item system configuration
+	\item checks to be performed
+	\item pass/fail criterea
+\end{itemize}
+
+
+
+\section{Test Overview}
+
+A list of tests specified in this document is available in chapter:
+\nameref{listoftests}
+
+
+\chapter{Applicable and Reference Documents} % does not break automatically for some reason
+
+\printbibliography[heading=none]
+
+
+\chapter{Terms, Definitions and Abbreviated Items}
+
+\printglossary[type=acronym]
+\printglossary[type=main, style=altlist]
+
+
+\chapter{Test Specification}
+
+\section{Unit and Integration Tests}
+
+\design{UIT-0001}
+{Test Implementation}{%
+For each software component or module, a corresponding unit or integration test
+program is implemented by means of an adapted version of the \emph{kselftest}
+framework. A shared collection of mockup and stub functions is maintained in
+order to facilitate testing.
+}%
+{\meetsreq{UIT-0001, UITE-0001}}{}
+
+{Test Coverage}{%
+All implemented unit tests deliver 100\% statement, decision and condition
+coverage. Any deviations are justified as part of the unit test implementation.
+}%
+{\meetsreq{SCC-0004}}{}
+
+\design{UIT-0002}
+{Test Suite}{%
+All unit and integration tests, along with stub and mockup functions are stored
+in the LeanOS source tree directory \mbox{\emph{tools/testing/unittest/}}.
+}%
+{\meetsreq{UIT-0002, UITE-0001}}{}
+
+\design{UIT-0003}
+{Test Exection}{%
+The collection of unit and integration tests is executable from the specified
+source directory via the \emph{make} command.
+}%
+{\meetsreq{UIT-0003}}{}
+
+
+\design{UIT-0004}
+{Test Results}{%
+The test executables generate human readable text output summarising the number,
+types and outcome of each test performed.
+}%
+{\meetsreq{UIT-0004}}{}
+
+
+\design{UIT-0005}
+{Automated Testing}{%
+The test executables report failed tests as shell exit codes, so the outcome
+can be detected by an external test program such as \emph{git bisect}.
+}%
+{\meetsreq{UIT-0005}}{}
+
+
+
+
+\section{Hardware-Software Tests}
+
+\design{HST-0001}
+{Test Implementation}{%
+For each software component or module that neeeds verification in a hardware
+environment, a test program is implemented.
+}%
+{\meetsreq{HST-0001}}{Since these tests typically involve more complex control %
+via other tools (such as \emph{grmon} or \gls{SpaceWire} interfaces), they are %
+implemented as shell scripts that set up the required configuration and %
+executes the test on the target hardware. %
+}
+
+
+\design{HST-0002}
+{Test Suite}{%
+All hardware-software tests are stored in the LeanOS source
+tree directory \mbox{\emph{tools/testing/hwtests/}}.%
+}%
+{\meetsreq{HST-0002}}{}
+
+
+\design{HST-0003}
+{Test Results}{%
+The test executables generate human readable text output summarising the number,
+types and outcome of each test performed.
+}%
+{\meetsreq{HST-0003}}{}
+
+
+\design{HST-0004}
+{Automated Testing}{%
+The test executables report failed tests as shell exit codes, so the outcome
+can be detected by an external test program such as \emph{git bisect}.
+}%
+{\meetsreq{HST-0004}}{}
+
+
+\design{SCC-0001}
+{Code Coverage}{%
+Statement, decision and condition coverage is determined via \emph{gcov}.
+A \emph{make} target \emph{coverage\_test} is available in the \emph{Makefile}
+of the unit test directory of the LeanOS source tree.
+Human-readable reports are placed in the respective subdirectories for each
+individual unit test.
+}%
+{\meetsreq{SCC-0001, SCC-0002, SCC-0003}}{}
+
+
+
+\chapter{Test Plan Requirements to Specification Traceability}
+
+\noindent
+Functional requirements are always reference to their specifications, others
+only as needed or for clarification. This is reflected in the traceability
+matrix.
+
+\traceabilitymatrix
+
+\end{document}
