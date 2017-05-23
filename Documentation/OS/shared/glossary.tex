@@ -4,12 +4,21 @@
 \setlength{\glsdescwidth}{0.8\textwidth}
 \renewcommand{\glsnamefont}[1]{\textbf{#1}}
 
-\DeclareDocumentCommand{\newdualentry}{ O{} O{} m m m m } {
-  \newglossaryentry{gls-#3}{name={#5},text={#5\glsadd{#3}},
-    description={#6},#1, nonumberlist
-  }
-  \makeglossaries
-  \newacronym[see={[ Glossary:]{gls-#3}},#2]{#3}{#4}{#5\glsadd{gls-#3}}
+% label, acronym, name, description
+\DeclareDocumentCommand{\newdualentry}{ m m m m } {
+	\newglossaryentry{gls-#1}{
+	name={#3 (\gls{#1})},
+	description={#4}, nonumberlist
+	}
+	\newglossaryentry{#1}{
+		type=\acronymtype,
+		name={#2},
+		first={#3 (#2)},
+		firstplural={#3s (#2s)},
+		see={[Glossary:]{\gls{gls-#1}}},
+		description=\glslink{gls-#1}{#3},
+		nonumberlist
+	}%
 }
 %%% \gls{ABBREV} to point at Acronym/Abbreviation index
 %%% \gls{gls-ABBREV} to point to glossary
@@ -284,3 +293,7 @@
   nonumberlist
   }
 
+
+% do not remove
+\glsresetall
+\makeglossaries

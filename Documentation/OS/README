@@ -11,7 +11,8 @@ makeglossaries <file>
 
 biber <file>
 
-then recompile
+and repeat this at least twice, or until all references
+have been resolved
 
 
 Usermanual

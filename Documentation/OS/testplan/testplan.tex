@@ -17,6 +17,7 @@
 
 \input{../shared/template/univie.tex}
 \input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
 \input{../shared/glossary.tex}
 
 \usepackage{vhistory}
@@ -134,12 +135,20 @@ form of software programs that control the execution of a test, check the
 correctnes of the results and generate a summary report.
 
 
+
 \section{Items Under Test}
 
 Components and software modules of the operating system are tested on an
 unit-level where applicable. System level tests are tailored to the
 various configuration options avaiable. and shall be accompanied by
-configuration files so the proper build may generated.
+configuration files so the proper build may generated.\\
+\\
+
+\requirement{IUT-0001} {Hardware constraints}{%
+The test plan specified by the present requirements shall apply to all parts %
+of LeanOS.
+}{}
+
 
 
 \section{Operational Constraints}
@@ -149,8 +158,13 @@ performed. Unit-level test of platform-independent components may be executed
 on any compatible hardware. Platform-dependent tests may require specific
 hardware models (e.g. the \gls{SSDP} for testing of the \gls{NoC}) or just any
 compatible processor model (e.g. \gls{LEON3} for testing the operation of the
-\gls{MMU}).
+\gls{MMU}).\\
+\\
 
+\requirement{OPC-0001} {Hardware constraints}{%
+The execution of the tests defined in this document shall comply with all %
+the operational constraints applicable to the hardware used in the tests.%
+}{}
 
 
 
@@ -184,19 +198,74 @@ test verifies the behaviour of a number of interacting components. \\
 Unit and integration tests are white-box type test that executes a component
 with a series of input conditions and verify the output or action for the
 expected response. These type of test are typically independent from the
-hardware platform.
+hardware platform.\\
+\\
+
+\requirement{UIT-0001} {Unit/Integ. Tests}{%
+Unit and Integration Tests shall be defined and executed for LeanOS components.
+}{Tests can make use of the modified \emph{kselftest} framework provided %
+in the LeanOS source tree.
+}%
+
+\requirement{UIT-0002} {Test Suite}{%
+A unit and integration test suite shall be provided as a set of applications.
+}{}%
+
+\requirement{UIT-0003} {Automatic Test Execution}{%
+A single mechanism shall be provided that automatically runs all unit and %
+integration tests in sequence.%
+}{The \emph{kselftest} framework in the LeanOS source tree provides a %
+\emph{Makefile} setup that can be used for this purpose.}%
+
+\requirement{UIT-0004} {Test Results}{%
+The test suite shall generate feedback a human-readable report describing the %
+outcome of each unit and integration test.%
+}{}
+
+\requirement{UIT-0005} {Automatic Testing}{%
+A feedback mechanism shall be provided that allows an external automated %
+testing mechanism to execute and detect the results of unit and integration %
+tests.%
+}{This is very useful for automated bisection of code versions, e.g. by %
+using the \emph{git bisect run \ldots} functionality.}%
 
 
 \section {Hardware-Software Tests}
 
 These tests differ from unit and integration tests in that a particular hardware
 platform is required for testing. All system-level integration tests fall in
-this category.
+this category.\\
+\\
+
+\requirement{HST-0001} {Hardware Tests}{%
+Hardware-software tests shall be defined and executed for LeanOS components %
+with the objective of verifying the behaviour of components which directly %
+interact with the relevant target hardware.%
+}{}
+
+\requirement{HST-0002} {Test Suite}{%
+A hardware-softwaree test suite shall be provided as a set of applications.
+}{}
+
+\requirement{HST-0003} {Test Results}{%
+The hardware-software tests shall generate feedback as a human-readable %
+report describing the outcome of test.%
+}{}
+
+
+\requirement{HST-0004} {Automatic Testing}{%
+A feedback mechanism shall be provided that allows an external automated %
+testing mechanism to execute and detect the results of hardware-software tests.%
+}{This is very useful for automated bisection of code versions, e.g. by %
+using the \emph{git bisect run \ldots} functionality.}%
+
+
+
 
 
 \chapter{Test Environments}
 
-Test beds for running LeanOS tests are:
+Test beds in which LeanOS tests are performed:
 
 \begin{itemize}
 	\item general-purpose platform for regular unit and integration tests
@@ -204,37 +273,53 @@ Test beds for running LeanOS tests are:
 	\item \gls{SSDP} and/or \gls{MPPB} for system-level hardware-software tests
 \end{itemize}
 
+\noindent
+The test environments required for each category of test are described in the
+following sections.
 
+\newpage
 \section{Unit and Integration Test Environment}
 
-The test environment for unit and integration tests are shown in
-\fig{fig:unittest}.
-
-The item under test is either one or a set of components of LeanOS. If needed,
-stub and mockup functions, which simulate the expected behaviour of external
-dependcies, are defined to create a representative environment in which the item
-under test is running.
-
-Tests are controlled by a test sequence, which generates inputs for the item
-under test and collects and evaluates the generated output.
-
-
-\begin{figure}[h]
+\begin{figure}[]
 \begin{center}
 	\includegraphics[width=0.5\columnwidth]{images/unittest}
-	\caption{Unit and integration test environment. Stubs and Mockups%
-	are stand-ins for external dependencies with defined behaviour.%
-	A set of input data is fed into the item under test as specified
+	\caption{Unit and integration test environment. Stubs and Mockups %
+	are stand-ins for external dependencies with defined behaviour. %
+	A set of input data is fed into the item under test as specified %
 	in the test procedure.}
 	\label{fig:unittest}
 \end{center}
 \end{figure}
 
+The test environment for unit and integration tests are shown in
+\fig{fig:unittest}.\\
+
+\noindent
+The item under test is either one or a set of components of LeanOS. If needed,
+stub and mockup functions, which simulate the expected behaviour of external
+dependcies, are defined to create a representative environment in which the item
+under test is running.\\
+
+\noindent
+Tests are controlled by a test sequence, which generates inputs for the item
+under test and collects and evaluates the generated output.\\
+\\
+
+\requirement{UITE-0001} {Unit Test Environment}{%
+Unit and integration tests shall be performed in an environment as defined in %
+\fig{fig:unittest}. %
+}{}%
+
 
 \section{Hardware-Software Test Environment}
 
-The hardware-software test environment is described on a per-test basis.
+The hardware-software test environments are detailed on a per-test basis.\\
+\\
 
+\requirement{HSTE-0001} {HW/SW Test Environment}{%
+The required hardware-software test environment shall be defined in the %
+specification of each individual test.%
+}{}%
 
 \chapter{Test Coverage}
 
@@ -246,10 +331,32 @@ previously.
 
 Source code coverage must be achived in unit and integration tests.
 A component is considered covered if full statement, decision and condition
-coverage is achieved.
+coverage is achieved. \\
 
+\noindent
 If full coverage cannot be achieved, for example due to operational constraints,
-deviations are acceptable provided that they are justified.
+deviations are acceptable provided that they are justified.\\
+\\
+
+\requirement{SCC-0001} {Statement Coverage}{%
+Unit and integration tests shall offer full statement coverage for LeanOS code.%
+}{}%
+
+\requirement{SCC-0002} {Decision Coverage}{%
+Unit and integration tests shall offer full decision coverage for LeanOS code.%
+}{}%
+
+\requirement{SCC-0003} {Condition Coverage}{%
+Unit and integration tests shall offer full condition coverage for LeanOS code.%
+}{}%
+
+\requirement{SCC-0004} {Reduced Coverage}{%
+If the coverage specififed in the previous requirements cannot be achieved %
+due to operational contraints, justifications for deviations shall be provided %
+for each of the individual conditions where the degree of coverage is below %
+the specified goal. %
+}{}%
+
 
 
 \section{Hardware Functions}
