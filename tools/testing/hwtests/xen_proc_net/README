@@ -1,0 +1,35 @@
+
+Description:
+============
+
+This test configures and executes the  Xentium Processing Network Demonstrator
+and evaluates success or failure.
+The supplied shell script can be used in conjunction with git bisect run <...>
+
+Pass/Fail Criterea:
+===================
+
+The demonstrator will print a line containing SUCCESS if the test passes
+successfully, all other conditions are considered a failure.
+
+The shell script will also fail the test if its execution lasts for more
+than 120 seconds. This is done to detect situations where the grmon or
+the hardware platform becomes stuck. In such a situation, the exit code
+returned will be 125, as to indicate to git bisect, that the current
+configuration can not be tested.
+
+
+Prerequisites:
+==============
+
+	* MPPB v2.x
+	* DEBUG UART connected to /dev/ttyS0
+	* grmon v1.1.x
+
+
+Notes:
+======
+
+The current .config of LeanOS will be overwritten and the image will
+be rebuilt.
+

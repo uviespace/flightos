@@ -1,6 +1,6 @@
 /**
  * @file init/xentium_demo.c
- * 
+ *
  * @ingroup xen_demo
  * @defgroup xen_demo Xentium Demonstrator
  *
@@ -19,6 +19,38 @@
 #include <kernel/xentium.h>
 #include <xentium_demo.h>
 
+
+/** we use this to detect when we're done with the demo */
+static int xen_active_tasks;
+
+
+/**
+ * @brief increment active task counter
+ */
+
+static void xen_tasks_inc(void)
+{
+	xen_active_tasks++;
+}
+
+/**
+ * @brief decrement active task counter if > 0
+ */
+static void xen_tasks_dec(void)
+{
+	if (xen_active_tasks)
+		xen_active_tasks--;
+}
+
+/**
+ * @brief get active task count
+ *
+ * @returns number of active tasks;
+ */
+static int xen_tasks_get(void)
+{
+	return xen_active_tasks;
+}
 
 
 /**
@@ -55,6 +87,9 @@ static int xen_op_output(unsigned long op_code, struct proc_task *t)
 
 	pt_destroy(t);
 
+	/* decrement task counter */
+	xen_tasks_dec();
+
 	return PN_TASK_SUCCESS;
 }
 
@@ -82,6 +117,8 @@ static void xen_new_input_task(size_t n)
 	struct stack_op_info *stack_nfo;
 	struct ramp_op_info *ramp_nfo;
 
+	/* increment task counter */
+	xen_tasks_inc();
 
 	/* Kernels may need information on how to process an item. We allocate
 	 * these structures below
@@ -149,7 +186,8 @@ static void xen_new_input_task(size_t n)
 
 	/* add task top processing network */
 	while (xentium_input_task(t) < 0)
-		printk("Xenitium input busy!\n");
+		printk("Xentium input busy!\n");
+
 }
 
 
@@ -186,13 +224,15 @@ void xen_demo(void)
 	xen_new_input_task(64);
 
 
-	/* Process the network outputs in an infinite loop. Since we have
+	/* Process the network outputs until all tasks are done. Since we have
 	 * 12 inputs, a stacking of 4 and a ramp length of 32, we will
 	 * get 1 data point output for inputs of 32 items and 2 for inputs
 	 * of 64 items, i.e. 5 in total.
 	 */
 
-	while (1)
+	while (xen_tasks_get())
 		xentium_output_tasks();
 
+
+	printk("Xentium demo SUCCESSFUL\n");
 }
