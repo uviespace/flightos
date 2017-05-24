@@ -2,7 +2,7 @@
 
 \title{Test Specification}
 \def \documentid {LEANOS-UVIE-TS-001}
-\date{Issue 0.2, May 2, 2016}
+\date{Issue 0.1, May 2, 2016}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -18,7 +18,9 @@
 \input{../shared/template/titlepage.tex}
 \input{../shared/template/traceability.tex}
 \input{../shared/glossary.tex}
+\input{../shared/template/tests.tex}
 
+\usepackage{enumitem}
 \usepackage{vhistory}
 
 \usepackage{biblatex}
@@ -202,6 +204,67 @@ Human-readable reports are placed in the respective subdirectories for each
 individual unit test.
 }%
 {\meetsreq{SCC-0001, SCC-0002, SCC-0003}}{}
+
+
+
+
+\chapter{Detailed Test Definition}
+
+The following tables list the tests specified in this document. Note that in
+the present version, this list is \emph{incomplete}.\\
+
+\noindent
+Procedural steps are presented in tabular form and numerical sequence where
+applicable. Column headings are \emph{TYPE}, \emph{SEQ}, \emph{Description}
+and \emph{VERIFY}.\\
+
+\noindent
+Procedural step \emph{types} are:
+\begin{description}[labelwidth=4em,leftmargin=\parindent,labelindent=\parindent]
+	\item[\textbf{CMT}]	Comment
+	\item[\textbf{PRE}]	Pre-condition
+	\item[\textbf{PST}]	Post-condition
+	\item[\textbf{STP}]	Step
+\end{description}
+
+
+\noindent
+\emph{SEQ} indicates the sequence number of a step.\\
+
+\noindent
+\emph{Description} details the purpose and procedure of a step. \\
+
+\noindent
+\emph{VERIFY} lists any requirements or specifications verified in a 
+step (if applicable).\\
+
+
+\section{Hardware-Software Test Procedures}
+
+
+\testbegin{Integrated System Test of \gls{Xentium} Processing Network}{%
+\testrow{CMT}{ }{This is a test to verify the function of the \gls{Xentium} %
+		 Processing Network implementation by generating a series
+	 	 of processing tasks and running them trough the processing
+		 network.}{}%
+\testrow{PRE}{ }{\gls{MPPB} ver. 2.x}{}%
+\testrow{PRE}{ }{\emph{grmon} ver. 1.x}{}%
+\testrow{PRE}{ }{Ensure connection of \gls{MPPB} to test control host via serial %
+		 cable on DEBUG UART to virtual device \emph{/dev/ttyS0}%
+	 	 on the host platform.}{}%
+\testrow{PRE}{ }{LeanOS source directory}{}%
+\testrow{PRE}{ }{\gls{MPPB}/\gls{Xentium} toolchain installed and configured}{}%
+\testrow{STP}{1}{Ensure that the \gls{MPPB} is powered and reset.}{}%
+\testrow{STP}{2}{Execute test script in the %
+		 \mbox{\emph{tools/testing/hwtests/xen\_proc\_net}} %
+		 subdirectory of the LeanOS source tree.}{}%
+\testrow{STP}{3}{Verify that the program image is built.}{}%
+\testrow{STP}{4}{Verify that the program image is uploaded to the \gls{MPPB} via%
+		 \emph{grmon}}{}%
+\testrow{STP}{5}{Verify that the program is started on the \gls{MPPB}.}{}%
+\testrow{STP}{6}{Verify that the program reports SUCCESS on termination.}{}%
+\testrow{CMT}{ }{Test completed.}
+}
 
 
 
