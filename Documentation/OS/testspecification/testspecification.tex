@@ -2,7 +2,7 @@
 
 \title{Test Specification}
 \def \documentid {LEANOS-UVIE-TS-001}
-\date{Issue 0.1, May 2, 2016}
+\date{Issue 0.1, May 1, 2016}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -226,6 +226,7 @@ acceptance test of an identified use case.
 \chapter{Detailed Test Definition}
 \label{detailedtestdefinitions}
 
+\section{Hardware-Software Test Procedures}
 The following tables list the tests specified in this document. Note that in
 the present version, this list is \emph{incomplete}.\\
 
@@ -254,8 +255,50 @@ Procedural step \emph{types} are:
 \emph{VERIFY} lists any requirements or specifications verified in a 
 step (if applicable).\\
 
-
+\newpage
 \section{Hardware-Software Test Procedures}
+
+\subsection{Xentium Processing Network}
+
+\begin{figure}%[htb]
+\begin{center}
+	\includegraphics[width=1.0\columnwidth]{../usermanual/images/task_network}
+	\caption{Tasks in the processing network propagate according to the
+		 operational code identifiers in their processing task list.
+	 	 For details, see \cite{leanosUM}.}
+	\label{fig:task_network}
+\end{center}
+\end{figure}
+
+This is an integrated test of the \gls{Xentium} Processing Network
+\fig{fig:task_network}. It loads a set of \gls{Xentium} program kernels in the
+Xentium driver of LeanOS, which are then used to apply processing operations on
+a series of input tasks to simulate a processing pipeline.\\
+
+\noindent
+The Xentium kernels used in this test are:
+
+\begin{description}[labelwidth=4em,leftmargin=\parindent,labelindent=\parindent]
+	\item[\textbf{deglitch}] applies a degliching operation
+	\item[\textbf{dummy}]	 a simulation dummy that just passes on a task
+	\item[\textbf{stack}]	 collects multiple tasks and stacks their data into a single task
+	\item[\textbf{rampfit}]	 fits a linear function to a given number of samples
+\end{description}
+
+\noindent
+The test generates a total of 12 tasks (data sets) as input in groups of 4 tasks
+of 32, 64 and 64 samples of incremental value, containing a single glitch per
+data set. The stacking parameter is set to 4 and the ramp length is set to 32
+samples.\\
+
+\noindent
+The network then processes the tasks. Given 12 inputs, a stacking of 4 and a
+ramp length of 32, the network outputs 1 data point output for the first 4 task
+inputs of 32 samples and 2 data points for inputs of 4x64 samples each,
+i.e. 5 data points in total. If this result is obtained, the test is considered
+a success.\\
+
+
 
 
 \testbegin{HWT-0001}{Integrated System Test of \gls{Xentium} Processing Network}{%

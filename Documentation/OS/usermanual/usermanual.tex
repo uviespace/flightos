@@ -17,6 +17,7 @@
 
 \input{../shared/template/univie.tex}
 \input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
 \input{../shared/glossary.tex}
 
 \usepackage{vhistory}
@@ -40,31 +41,6 @@
 }
 
 \usepackage{appendix}
-
-%% use pageref instead of pageref*, the latter only works
-%% for cross-document referencing (architecture/requirements)
-%% need to find a more universial solution at some point
-\fancypagestyle{plain}{ % call style plain so it is used by chapter pages as well
-	\fancyhf{}
-	\fancyhead[R]{
-		\fontspec{MyriadPro}\docdatever \\
-		\vspace{2em}
-		Page \thepage\ of \pageref{LastPage} 
-	}
-
-	\fancyhead[C]{
-		{
-			\fontspec{MyriadPro}
-			\documentid \\
-			\vspace{.7em}
-			\doctitle
-			\vspace{.9em}
-		}
-	}
-	\fancyhead[L]{
-		\ifalogo%
-	}
-}
 
 \begin{document}
 \lstset{style=customc} 
