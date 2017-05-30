@@ -2,7 +2,7 @@
 %% flexible that can do that in one command
 
 %arg: purpose, \testrow{}
-\newcommand{\testbegin}[2]{%
+\newcommand{\testbegin}[3]{%
 	\rowcolors{1}{white}{white}%
 	\begin{tcolorbox}[enhanced, notitle, clip upper,%
 			  sharp corners, colframe = white, colback = white,%
@@ -14,11 +14,15 @@
 			}%
 		]%
 	%
-
+	\vspace{-1em}%
+	\arrayrulecolor{uvie-blue!75}\renewcommand{\arraystretch}{1.2}
+	\color{uvie-blue!75}\textbf{ID} &%
+	\multicolumn{3}{|>{\arraybackslash\raggedright}X}{\textbf{#1}}%
+	\\%
 	\vspace{-1em}%
 	\arrayrulecolor{uvie-blue!75}\renewcommand{\arraystretch}{1.2}
 	\color{uvie-blue!75}\textbf{Purpose} &%
-	\multicolumn{3}{|>{\arraybackslash\raggedright}X}{#1}%
+	\multicolumn{3}{|>{\arraybackslash\raggedright}X}{#2}%
 	\\%
 
 	\vspace{-.65\baselineskip}	% uuuaaahhh..why? :(
@@ -30,7 +34,7 @@
 	\vspace{-.65\baselineskip}%
 	\cellcolor{uvie-blue!50}\color{white}\textbf{VERIFY} \\%
 	
-	#2 %
+	#3 %
 
 	\end{tcolorbox}%
 }

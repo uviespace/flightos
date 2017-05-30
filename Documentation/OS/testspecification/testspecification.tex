@@ -70,7 +70,7 @@ The test plan for the the LeanOS operating system is defined in
 \\
 
 \noindent
-This test plan includes acceptance tests where the integrated operating
+This test plan includes tests where the integrated operating
 system is subjected to tests in its operational environment.\\
 
 \noindent
@@ -206,9 +206,25 @@ individual unit test.
 {\meetsreq{SCC-0001, SCC-0002, SCC-0003}}{}
 
 
+\section{Acceptance Tests}
+
+\design{ACT-0001}
+{Acceptance Test Definition}{%
+Any acceptance test procedures are defined in chapter
+\mbox{\nameref{detailedtestdefinitions}} of this document.
+}%
+{\meetsreq{ACT-0001}}{}
+
+\design{ACT-0002}
+{Acceptance Test Use Cases}{%
+The configuration and and operational environment of LeanOS is defined for each
+acceptance test of an identified use case.
+}%
+{\meetsreq{ACT-0002}}{}
 
 
 \chapter{Detailed Test Definition}
+\label{detailedtestdefinitions}
 
 The following tables list the tests specified in this document. Note that in
 the present version, this list is \emph{incomplete}.\\
@@ -242,25 +258,25 @@ step (if applicable).\\
 \section{Hardware-Software Test Procedures}
 
 
-\testbegin{Integrated System Test of \gls{Xentium} Processing Network}{%
+\testbegin{HWT-0001}{Integrated System Test of \gls{Xentium} Processing Network}{%
 \testrow{CMT}{ }{This is a test to verify the function of the \gls{Xentium} %
 		 Processing Network implementation by generating a series
 	 	 of processing tasks and running them trough the processing
 		 network.}{}%
-\testrow{PRE}{ }{\gls{MPPB} ver. 2.x}{}%
+\testrow{PRE}{ }{a \gls{MPPB} ver. 2.x hardware model}{}%
 \testrow{PRE}{ }{\emph{grmon} ver. 1.x}{}%
 \testrow{PRE}{ }{Ensure connection of \gls{MPPB} to test control host via serial %
-		 cable on DEBUG UART to virtual device \emph{/dev/ttyS0}%
+		 cable on DEBUG UART to virtual device \emph{/dev/ttyS0} %
 	 	 on the host platform.}{}%
-\testrow{PRE}{ }{LeanOS source directory}{}%
+\testrow{PRE}{ }{A checkout of the LeanOS source directory.}{}%
 \testrow{PRE}{ }{\gls{MPPB}/\gls{Xentium} toolchain installed and configured}{}%
 \testrow{STP}{1}{Ensure that the \gls{MPPB} is powered and reset.}{}%
 \testrow{STP}{2}{Execute test script in the %
 		 \mbox{\emph{tools/testing/hwtests/xen\_proc\_net}} %
 		 subdirectory of the LeanOS source tree.}{}%
 \testrow{STP}{3}{Verify that the program image is built.}{}%
-\testrow{STP}{4}{Verify that the program image is uploaded to the \gls{MPPB} via%
-		 \emph{grmon}}{}%
+\testrow{STP}{4}{Verify that the program image is uploaded to the \gls{MPPB} %
+		 via \emph{grmon}}{}%
 \testrow{STP}{5}{Verify that the program is started on the \gls{MPPB}.}{}%
 \testrow{STP}{6}{Verify that the program reports SUCCESS on termination.}{}%
 \testrow{CMT}{ }{Test completed.}

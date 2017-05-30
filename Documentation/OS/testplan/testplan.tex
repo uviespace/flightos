@@ -70,9 +70,9 @@
 \end{figure}
 
 \noindent
-LeanOS is an operating system specifically designed to support hardware devices
-with drivers and data processing on the \gls{Xentium} \glspl{DSP} of the
-\gls{SSDP}.\\
+LeanOS\cite{ssdpOS}\cite{leanosADD}\cite{leanosSRS} is an operating system specifically
+designed to support hardware devices with drivers and data processing on the
+\gls{Xentium} \glspl{DSP} of the \gls{SSDP}.\\
 
 In LeanOS, the \gls{SSDP} hardware is accessed in multiple layers of
 abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
@@ -228,7 +228,7 @@ interact with the relevant target hardware.%
 }{}
 
 \requirement{HST-0002} {Test Suite}{%
-A hardware-softwaree test suite shall be provided as a set of applications.
+A hardware-software test suite shall be provided as a set of applications.
 }{}
 
 \requirement{HST-0003} {Test Results}{%
@@ -243,6 +243,24 @@ testing mechanism to execute and detect the results of hardware-software tests.%
 }{This is very useful for automated bisection of code versions, e.g. by %
 using the \emph{git bisect run \ldots} functionality.}%
 
+
+\section {Acceptance Tests}
+
+Acceptance tests are performed by the user on the integrated processing unit.
+Their objective is to exercise the selected LeanOS configuration while running
+in its operational environment. The operational environment for LeanOS is
+defined by the user according to their use case.\\
+
+
+
+\requirement{ACT-0001} {Acceptance Tests}{%
+Acceptance tests and their procedures shall be defined and executed for LeanOS.
+}{}
+
+\requirement{ACT-0002} {Use Cases}{%
+The configuration and operational environment for an acceptance test of LeanOS
+shall be defined by the user according to their use case.
+}{}
 
 
 

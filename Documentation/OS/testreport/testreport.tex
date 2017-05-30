@@ -1,0 +1,287 @@
+
+
+\title{Test Report}
+\def \documentid {LEANOS-UVIE-TR-001}
+\date{Issue 0.1, May 25, 2017}
+
+\newcommand\affil[1]{\textsuperscript#1}
+
+\def\preparedby {Armin Luntzer\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
+\def\approvedby {Franz Kerschbaum\affil{1}}
+
+\def\affiliations{
+	\affil{1} Department of Astrophysics, University of Vienna
+}
+
+
+
+
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
+\input{../shared/glossary.tex}
+
+\usepackage{fancyvrb}
+\usepackage{enumitem}
+\usepackage{vhistory}
+
+\usepackage{biblatex}
+\addbibresource{../shared/bibliography.bib}
+
+
+
+
+\begin{document}
+
+
+\setmainfont{MyriadPro-SemiCondensed}
+\uvietitlepage%
+{Lean OS --\\ An operating system for the SSDP}%
+{\doctitle}%
+{../shared/images/logo2.pdf}
+\setmainfont{MyriadPro}
+
+\approvalpage
+
+\tableofcontents
+\newpage
+
+
+
+\begin{versionhistory}
+  \vhEntry{0.1}{25.05.2017}{AL}{Initial version}
+\end{versionhistory}
+
+
+\chapter{Introduction}
+
+\section{Purpose of the Document}
+
+In this document, results of test specified in \cite{leanosTS} are recorded.
+
+
+\section{Incremental Testing}
+
+LeanOS is not envisaged to be implemented in one final form. Instead, it is
+marked with version numbers for each release. This means that testing is
+version-dependent and is be applied in increments by executing a sub-set of
+tests only as modifications are made. This is reflected in the dates, version
+numbers and cryptographic hash values of the \emph{git} repository's {HEAD}
+listed in each individual test report.
+
+\chapter{Applicable and Reference Documents} % does not break automatically for some reason
+
+\printbibliography[heading=none]
+
+
+\chapter{Terms, Definitions and Abbreviated Items}
+\printglossary[type=acronym]
+\printglossary[type=main, style=altlist]
+
+
+\chapter{Test Results}
+
+\section{HWT-0001}
+
+\begin{description}[labelwidth=4em,leftmargin=\parindent,labelindent=\parindent]
+	\item[\textbf{Date}]	May 24th, 2017
+	\item[\textbf{Version}]	0.1
+	\item[\textbf{Hash}]	1077b932fd894ec212aa45741aacacf8ce808ab3
+\end{description}
+
+\subsection*{Test Description}
+
+This test verifies the implementation of the \gls{Xentium} Processing Network
+implementation on the \gls{MPPB} by generating a series of processing tasks and
+running them through the network. This test also represents an integrated test
+of LeanOS.
+
+\subsection*{Overview of the Procedure}
+
+This test is executed on a \gls{MPPB} v2.x hardware model. Once the test
+environment is set up, the build configuration is prepared and the test itself
+is executed and evaluated automatically by starting the \emph{bash} script
+\emph{run\_test.sh}. It is found in the 
+\mbox{\emph{tools/testing/hwtests/xen\_proc\_net}} subdirectory of the LeanOS
+source tree.
+
+
+\subsection*{Test Setup}
+
+The following preparations must be made in order to carry out the test:
+
+\begin{itemize}
+	\item checkout of the LeanOS source tree
+	\item \gls{MPPB}/\gls{Xentium} toolchain location in shell \emph{PATH}
+	\item \emph{grmon} ver. 1.x configured and in shell \emph{PATH}
+	\item \gls{MPPB} v2.x connected to PC via DEBUG UART and powered on
+\end{itemize}
+
+
+\subsection*{Test Log}
+
+
+
+
+\begin{Verbatim}[frame=single, rulecolor=\color{uvie-blue!75}]
+./run_test.sh 
+  CLEAN   .tmp_versions
+  HOSTCC  scripts/basic/fixdep
+  HOSTCC  scripts/kconfig/conf.o
+  HOSTCC  scripts/kconfig/zconf.tab.o
+  HOSTLD  scripts/kconfig/conf
+scripts/kconfig/conf  --silentoldconfig Kconfig
+  CHK     include/generated/version.h
+  CC      scripts/mod/empty.o
+  HOSTCC  scripts/mod/mk_elfconfig
+  MKELF   scripts/mod/elfconfig.h
+  HOSTCC  scripts/mod/modpost.o
+  HOSTLD  scripts/mod/modpost
+  CC      init/main.o
+  CC      init/xentium_demo.o
+  CC      init/modules-image.o
+  LD      init/built-in.o
+  CC      arch/sparc/kernel/setup.o
+  CC      arch/sparc/kernel/init.o
+  CC      arch/sparc/kernel/page.o
+  CC      arch/sparc/kernel/bootmem.o
+  CC      arch/sparc/kernel/mm.o
+  CC      arch/sparc/kernel/elf.o
+  CC      arch/sparc/kernel/module.o
+  CC      arch/sparc/kernel/traps.o
+  CC      arch/sparc/kernel/stacktrace.o
+  CC      arch/sparc/kernel/stack.o
+  AS      arch/sparc/kernel/traps/data_access_exception_trap.o
+  CC      arch/sparc/kernel/traps/data_access_exception.o
+  CC      arch/sparc/kernel/irq.o
+  LD      arch/sparc/kernel/built-in.o
+  LD      arch/sparc/mm/built-in.o
+  LD      arch/sparc/built-in.o
+  CC      kernel/kmem.o
+  CC      kernel/ksym.o
+  CC      kernel/printk.o
+  CC      kernel/bitmap.o
+  CC      kernel/module.o
+  CC      kernel/noc_dma.o
+  CC      kernel/irq.o
+  CC      kernel/xentium.o
+  LD      kernel/built-in.o
+  LD      lib/built-in.o
+  CC      lib/ar.o
+  CC      lib/chunk.o
+  CC      lib/data_proc_net.o
+  CC      lib/data_proc_task.o
+  CC      lib/data_proc_tracker.o
+  CC      lib/elf.o
+  CC      lib/mm.o
+  CC      lib/page.o
+  CC      lib/string.o
+  AR      lib/lib.a
+  LD      dsp/xentium/built-in.o
+  HOSTCC  dsp/xentium/kernel/dummy/xen_dummy.o
+  HOSTCC  dsp/xentium/lib/xen_printf.o
+  HOSTCC  dsp/xentium/lib/xen.o
+  HOSTCC  dsp/xentium/lib/dma.o
+  HOSTCC  dsp/xentium/lib/kmem.o
+  HOSTCC  dsp/xentium/../../lib/data_proc_task.o
+  HOSTLD  dsp/xentium/xen_dummy.xen
+  HOSTCC  dsp/xentium/kernel/rampfit/xen_rampfit.o
+  HOSTLD  dsp/xentium/xen_rampfit.xen
+  HOSTCC  dsp/xentium/kernel/deglitch/xen_deglitch.o
+  HOSTLD  dsp/xentium/xen_deglitch.xen
+  HOSTCC  dsp/xentium/kernel/stack/xen_stack.o
+  HOSTLD  dsp/xentium/xen_stack.xen
+  LD      dsp/built-in.o
+  LD      samples/noc_dma/built-in.o
+  HOSTCC  samples/noc_dma/noc_dma_demo.o
+  HOSTLD  samples/noc_dma/noc_dma_demo
+  LD      samples/proc_chain/built-in.o
+  HOSTCC  samples/proc_chain/proc_chain_demo.o
+  HOSTLD  samples/proc_chain/proc_chain_demo
+  LD      samples/built-in.o
+  LD      leanos.o
+make[1]: Nothing to be done for 'leanos.o'.
+  GEN     .version
+  KSYM    .tmp_kallsyms1.o
+  KSYM    .tmp_kallsyms2.o
+  LD      leanos
+  SYSMAP  System.map
+  Building modules, stage 2.
+  MODPOST 0 modules
+  Embedding module image, stage 3.
+  LD      leanos.o
+make[1]: Nothing to be done for 'leanos.o'.
+  GEN     .version
+  KSYM    .tmp_kallsyms1.o
+  KSYM    .tmp_kallsyms2.o
+  LD      leanos
+  SYSMAP  System.map
+
+ GRMON LEON debug monitor v1.1.61 professional version
+
+ Copyright (C) 2004-2011 Aeroflex Gaisler - all rights reserved.
+ For latest updates, go to http://www.gaisler.com/
+ Comments or bug-reports to support@gaisler.com
+
+ using port /dev/ttyS0 @ 115200 baud
+
+ initialising ............
+ detected frequency:  50 MHz
+
+ Component                            Vendor
+ LEON2 Memory Controller              European Space Agency
+ LEON2 AHB Status & Failing Addr      European Space Agency
+ LEON2 SPARC V8 processor             European Space Agency
+ LEON2 Write Protection               European Space Agency
+ LEON2 Configuration register         European Space Agency
+ LEON2 Timer Unit                     European Space Agency
+ LEON2 UART                           European Space Agency
+ LEON2 UART                           European Space Agency
+ LEON2 Interrupt Ctrl                 European Space Agency
+ LEON2 I/O port                       European Space Agency
+ AHB Debug UART                       Gaisler Research
+ LEON2 Debug Support Unit             Gaisler Research
+
+ Use command 'info sys' to print a detailed report of attached cores
+
+grlib> load leanos
+section: .text at 0x40000000, size 96592 bytes
+downloading: 96592
+section: .data at 0x40017950, size 81572 bytes
+downloading: 81572
+total size: 178164 bytes (88.9 kbit/s)
+read 394 symbols
+entry point: 0x40000000
+grlib> run
+MAIN: Loading module image
+MAIN: Looked up symbol printk at 0x400032e0
+MAIN: Looked up file noc_dma.ko at 0x0
+XEN_OUT: releasing empty task
+XEN_OUT: releasing empty task
+XEN_OUT: releasing empty task
+XEN_OUT: 	19740352
+XEN_OUT: releasing empty task
+XEN_OUT: releasing empty task
+XEN_OUT: releasing empty task
+XEN_OUT: 	19996224
+XEN_OUT: 	349184
+XEN_OUT: releasing empty task
+XEN_OUT: releasing empty task
+XEN_OUT: releasing empty task
+XEN_OUT: 	19996224
+XEN_OUT: 	349184
+Xentium demo SUCCESSFUL
+
+Program exited normally.
+grlib> quit
+./run_test.sh  9.92s user 0.41s system 35% cpu 28.921 total
+
+\end{Verbatim}
+
+\subsection*{Test Results}
+
+The test procedure was executed \textbf{successfully}.
+
+
+\end{document}
