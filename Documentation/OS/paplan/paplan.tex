@@ -1,0 +1,336 @@
+
+
+\title{Product Quality Assurance Plan}
+\def \documentid {LEANOS-UVIE-PAQ-001}
+\date{Issue 0.1, April 20, 2016}
+
+\newcommand\affil[1]{\textsuperscript#1}
+
+\def\preparedby {Armin Luntzer\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
+\def\approvedby {Franz Kerschbaum\affil{1}}
+
+\def\affiliations{
+	\affil{1} Department of Astrophysics, University of Vienna
+}
+
+
+
+
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+\input{../shared/template/traceability.tex}
+\input{../shared/glossary.tex}
+
+\usepackage{enumitem}
+\usepackage{vhistory}
+
+\usepackage{biblatex}
+\addbibresource{../shared/bibliography.bib}
+
+
+
+
+\begin{document}
+
+
+\setmainfont{MyriadPro-SemiCondensed}
+\uvietitlepage%
+{Lean OS --\\ An operating system for the SSDP}%
+{\doctitle}%
+{../shared/images/logo2.pdf}
+\setmainfont{MyriadPro}
+
+\approvalpage
+
+\tableofcontents
+\newpage
+
+
+
+\begin{versionhistory}
+  \vhEntry{0.1}{20.04.2016}{AL}{Initial version}
+\end{versionhistory}
+
+
+\chapter{Introduction}
+
+\section{Purpose of the Document}
+
+
+This document describes the \gls{SQA} activities that will be
+performed in the development of the the operating system kernel LeanOS.
+The document is applicable for all versions of LeanOS and and shall be updated
+as needed.\\
+
+\noindent
+LeanOS targets the \gls{SSDP}, and to a lesser extent, its
+compatible predecessor, the \gls{MPPB} v2.x \cite{MPPB}.
+It is intended to be used in unmanned space applications of at least
+Software Criticality Level C. \\
+
+\noindent
+This document follows the document structure for software product assurance
+plans found in Annex B of ECSS-Q-ST-80C \cite{ECSS80C}.
+
+
+\chapter{Applicable and Reference Documents} % does not break automatically for some reason
+
+\printbibliography[heading=none]
+
+
+\chapter{Terms, Definitions and Abbreviated Items}
+\printglossary[type=acronym]
+\printglossary[type=main, style=altlist]
+
+
+\chapter{System Overview}
+
+In the course of the \gls{NGAPP} activities, an evaluation of the \gls{MPPB}
+was performed in a joint effort of \gls{RSA} and the Department of Astrophysics
+of the \gls{UVIE}. While the original intent of the work of \gls{UVIE} was to
+quantify the performance of the \gls{Xentium} \glspl{DSP} and the \gls{MPPB} as a
+whole with regard to on-board data treatment and reduction in an astronomical
+mission setting, it was found that, given the highly innovative nature of this new
+processing platform, a novel approach was needed concerning the management of
+system resources, \gls{DMA} mechanics and \gls{DSP} program design for best
+efficiency and turnover rates. Consequently, \gls{UVIE} developed an experimental
+operating system to stably drive the \gls{DSP} cores and the \gls{MPPB} close
+to its performance limit. LeanOS is a development based on this operating system
+concept.\\
+
+\noindent
+Further details on LeanOS may be found in \cite{ssdpOS}.
+
+
+\chapter{Software product assurance programme implementation}
+
+\section{Organization}
+
+\begin{figure}[htb]
+\begin{center}
+	\includegraphics[width=0.7\columnwidth]{images/software_dev_structure}
+	\caption{A typical organisational structure in a software development
+		 group.}
+	\label{fig:sw_dev_org}
+\end{center}
+\end{figure}
+
+\noindent
+The \gls{SQA} organisation (\fig{fig:sw_dev_org}) for the development of LeanOS
+is commensurate to the scope and size of the working group dedicated to
+\gls{FSW} Development at the Department of Astrophysics of the University of
+Vienna.\\
+
+\noindent
+As projects are typically carried out by a small group of people, several of
+the project tasks may be executed by one and the same person.\\
+
+\noindent
+There is no formal \gls{PA} section at the Department of Astrophysics.
+Instead, the \gls{PAM}, together with the other team leaders, forms a \gls{PA}
+group for the specific project. In particular, the \gls{PAM} also takes over the
+role of the \gls{SQAM} and nominates people as \gls{SQ} personnel as needed
+and if applicable.\\
+
+\noindent
+\gls{PAM} and (internal) \gls{SQ} personnel maintain a level of independence
+from the project and the software development.
+
+
+
+\section{Responsibilities}
+
+Formal responsibilities of the \gls{PAM} and \gls{SQ} personnel include process
+and product assessments:
+
+\begin{itemize}
+	\item System and System Design Reviews
+	\item Requirements Management
+	\item Test Management
+	\item \gls{NCR} Manangement
+	\item \gls{SPR} Manangement
+	\item Document Reviews and Review Packages
+	\item Software Development Records
+	\item Software Configuration Management
+\end{itemize}
+
+\noindent
+Given the organisational and personnel constraints described in the previous
+sections, activities of the \gls{SQ} personnel shall be conducted in an informal
+way between the members. The \gls{PAM} shall assess and give assistance as to
+the formal aspects of the product and process assurance. Examples of this
+are configuration management or the state of completeness of review packages.\\
+
+\noindent
+The \gls{PAM} ensures the compliance with the software development processes
+described in the corresponding software development plan if applicable.\\
+
+\noindent
+The main responsibilities of \gls{SQA} shall remain with the project team, in
+particular the relevant software developer. In particular, this concerns
+the documentation of any findings from software related activities, e.g. bug
+tracking and repeated software testing during the development cycle.
+
+
+
+\section{Resources}
+
+Staffing to support software assurance activities must be balanced against the
+other activities that are to be carried out within the project at any given time
+period and against underlying availability of personnel.
+
+The required resource levels shall be discussed, adjusted and managed in
+conjunction with project management to ensure maintainance of adequate support
+within the life cycle of the project.
+
+
+\section{Reporting}
+
+Since the project is not concerned with external partners, reporting done
+informal informally, rather than via \glspl{SPAMR}.\\
+
+\noindent
+Still, these informal reports shall cover:
+
+\begin{itemize}
+	\item \gls{SSS} coverage
+	\item \gls{SRS} coverage
+	\item \gls{SDD} coverage
+	\item Testing activities
+	\item Verification activities
+	\item \gls{NCR} and action status
+	\item \gls{SPR} and action status
+	\item Product metrics
+	\item Compliance and adherance to design and coding standards
+	\item Methods and tooling
+\end{itemize}
+
+\noindent
+No minutes of meeting or other record has to be made of meetings regarding
+these informal reports.
+
+
+\section{Quality models}
+
+In ECSS-Q-ST-80C\cite{ECSS80C}, these potential quality characteristics of a
+software application are identified:
+
+\begin{itemize}
+	\item functionality
+	\item reliability
+	\item maintainability
+	\item reusability
+	\item suitability for safety
+	\item security
+	\item usability
+	\item efficiency
+	\item portability
+	\item software development effectiveness
+\end{itemize}
+
+\noindent
+Functionality is explicitly covered in the \gls{SRS}\cite{leanosSRS}. Similarly,
+the \gls{SRS} also covers maintainability, safety and security requirements, as
+well as efficiency.
+
+\noindent
+Reliability is covered implicitly through the requirements formulated in the
+\gls{TP}\cite{leanosTP} and \gls{TS}\cite{leanosTS}. which are designed to
+to demonstrate the ability of the software to satisfy its requirements within
+its operational domain.\\
+
+\noindent
+Usability is not formally relevant for LeanOS, but rather implied by software
+design and its intended application.\\
+
+\noindent
+Portability and reusability are implicity by the type of software product
+(an embedded operating system).\\
+
+\noindent
+Software development effectiveness is not covered explicitly, but is implicitly
+covered by the definition of the development process.
+
+
+\section{Risk Management}
+
+If software-specific risks are identified during development, they shall be
+incorporated into a risk portfolio by the \gls{PAM}. The status of corrective
+and/or preventive actions shall be tracked, including a a general action plan
+and progress per identified risk.
+
+Given the small group of involved personnel, communication is straightforward
+and ensures an efficient flow of information on an informal level.
+
+
+\section{Supplier selection and control}
+
+\emph{Not applicable.}
+
+
+\section{Methods and tools}
+
+The following tools are used for the management process:
+
+\begin{description}[labelwidth=4em,leftmargin=\parindent,labelindent=\parindent]
+	\item[\textbf{git}]		source code and document version control
+	\item[\textbf{TeX Live}]	document preparation
+\end{description}
+
+
+\noindent
+The following tools are used for the software development and testing process:
+
+\begin{description}[labelwidth=4em,leftmargin=\parindent,labelindent=\parindent]
+	\item[\textbf{sparc-gcc}]	C language compiler for \gls{SPARC}
+	\item[\textbf{xentium-clang}]	C language compiler for the \gls{Xentium}
+	\item[\textbf{gcov}]		code coverage testing
+	\item[\textbf{doxygen}]		in-line software and \gls{API} documentation
+\end{description}
+
+\noindent
+All of the listed tools are well established and are at a high level of maturity.
+
+
+\section{Process assessment and improvement}
+
+Assessment and possible improvement of the development process shall be done 
+internally on an informal basis.
+
+
+\section{Operations and maintenance}
+
+No special quality measures are defined for operations or maintenance.
+
+
+
+\chapter{Software process assurance}
+
+
+\section{Software development cycle}
+
+The software development life cycle will be defined in the \gls{SDP}
+
+
+\section{Project plans}
+
+A test plan is given in \cite{leanosTP}. The \gls{SDP} will be written.
+
+
+\section{Software dependability and safety}
+
+LeanOS is intended to be used is intended to be used in unmanned space
+applications of at least Software Criticality Level C. However, \gls{FDIR}
+analyses and derived measures, as well as the particular configuration of
+the operating system to be used is highly dependent on the use case and must
+be defined at a different stage. Fundamental dependability on a software
+component level is ensured by verification and validation testing as part of the
+software development process.
+
+
+\section{Software documentation and configuration management}
+
+
+
+\end{document}
