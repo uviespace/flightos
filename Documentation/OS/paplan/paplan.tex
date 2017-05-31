@@ -21,7 +21,8 @@
 \input{../shared/template/titlepage.tex}
 \input{../shared/template/traceability.tex}
 \input{../shared/glossary.tex}
-
+ 
+\usepackage{multicol}
 \usepackage{enumitem}
 \usepackage{vhistory}
 
@@ -103,9 +104,9 @@ concept.\\
 Further details on LeanOS may be found in \cite{ssdpOS}.
 
 
-\chapter{Software product assurance programme implementation}
+\chapter{Software Product Assurance Programme Implementation}
 
-\section{Organization}
+\section{Organisation}
 
 \begin{figure}[htb]
 \begin{center}
@@ -119,7 +120,7 @@ Further details on LeanOS may be found in \cite{ssdpOS}.
 \noindent
 The \gls{SQA} organisation (\fig{fig:sw_dev_org}) for the development of LeanOS
 is commensurate to the scope and size of the working group dedicated to
-\gls{FSW} Development at the Department of Astrophysics of the University of
+\gls{FSW} development at the Department of Astrophysics of the University of
 Vienna.\\
 
 \noindent
@@ -187,8 +188,8 @@ within the life cycle of the project.
 
 \section{Reporting}
 
-Since the project is not concerned with external partners, reporting done
-informal informally, rather than via \glspl{SPAMR}.\\
+Since the project is not concerned with external partners, reporting is done
+informally, rather than via \glspl{SPAMR}.\\
 
 \noindent
 Still, these informal reports shall cover:
@@ -216,6 +217,7 @@ these informal reports.
 In ECSS-Q-ST-80C\cite{ECSS80C}, these potential quality characteristics of a
 software application are identified:
 
+\begin{multicols}{2}
 \begin{itemize}
 	\item functionality
 	\item reliability
@@ -228,11 +230,12 @@ software application are identified:
 	\item portability
 	\item software development effectiveness
 \end{itemize}
+\end{multicols}
 
 \noindent
 Functionality is explicitly covered in the \gls{SRS}\cite{leanosSRS}. Similarly,
 the \gls{SRS} also covers maintainability, safety and security requirements, as
-well as efficiency.
+well as efficiency.\\
 
 \noindent
 Reliability is covered implicitly through the requirements formulated in the
@@ -258,7 +261,7 @@ covered by the definition of the development process.
 If software-specific risks are identified during development, they shall be
 incorporated into a risk portfolio by the \gls{PAM}. The status of corrective
 and/or preventive actions shall be tracked, including a a general action plan
-and progress per identified risk.
+and progress per identified risk.\\
 
 Given the small group of involved personnel, communication is straightforward
 and ensures an efficient flow of information on an informal level.
@@ -305,17 +308,35 @@ No special quality measures are defined for operations or maintenance.
 
 
 
-\chapter{Software process assurance}
+\chapter{Software Process Assurance}
 
 
 \section{Software development cycle}
 
-The software development life cycle will be defined in the \gls{SDP}
+For the software development life cycle, the \emph{Agile} model is selected to
+be used for the development of LeanOS.
+This model keeps the initial planning and analysis is to a very high level, that
+is just detailed enough to outline the scope of the project. The development
+process is a series of iterations, in which a feature is taken from start to
+finish during a single iteration and released intermediately during or at the
+end of an iteration. There are no distinct stages during a cycle, but activities
+such as analyzing, designing, developing and testing of a feature are executed
+in turn within each iteration.
+The benefit of this approach is the freedom to quickly and flexibly react to
+changing circumstances such as changes to hardware features of the underlying
+platform, or evolving use cases for the software product. Changes can be
+discussed and new features can be implemented or those with shortcomings removed
+or replaced, based on feedback of the user base. However, since this type of
+work requiress experienced developers that are capable of independent decision
+making and a wide skill set that covers efficient design and implementation, as
+well as thorough test conception, adequate personnel must be carefully selected
+for staffing.
+
 
 
 \section{Project plans}
 
-A test plan is given in \cite{leanosTP}. The \gls{SDP} will be written.
+A \glsdesc{TP} is given in \cite{leanosTP}.
 
 
 \section{Software dependability and safety}
@@ -330,6 +351,117 @@ software development process.
 
 
 \section{Software documentation and configuration management}
+
+Documents are written and typeset in \LaTeX\ and compiled with the \textbf{TeX Live}
+distribution of tools. For configuration management of both documents and source
+code, \textbf{git} is used, which provides implicit protection of software and
+document versions by cryptographic means.\\
+
+\noindent
+Document identification, content, change records and issue/revision handling
+shall be oriented along the applicable \gls{DRD} of the corresponding ECSS
+standards.\\
+
+\noindent
+The \gls{PAM} shall verify any documentation before release as to formal
+standards, such as document identifier, completeness of information, date,
+issue and revision.\\
+
+\noindent
+As part of the preparation of a documentation package for external review, both
+the project manager and the \gls{PAM} shall perform a full review of the
+contained documentation.\\
+
+\noindent
+All released documents, unless otherwise marked, can be considered signed, even
+without the inclusion of an actual signature.\\
+
+\noindent
+Nonconformance management and closure processes shall follow the procedures
+outlined in \cite{ECSS80C} and \cite{ECSSQ1009C} if needed when dealing with
+external partners. Internally, \glspl{NCR} are handled informally, no \gls{NRB}
+is foreseen to be instated.
+
+
+\section{Process metrics}
+
+Actions, \glspl{NCR}, \glspl{SPR}, resulting deviations and waivers, as
+well as \gls{SQA} statistics shall be managed by the \gls{SQAM} as applicable.
+No formal method of how records are kept is specified.\\
+
+\noindent
+Any recorded metrics shall be made available on demand.\\
+
+\noindent
+Metrics regarding the actual program code shall be managed by lead software
+developer. These metrics shall be part of test reports if applicable.
+
+
+\section{Reuse of software}
+
+If software is reused from other projects, a full qualification package shall
+be included to the same level of any newly developed code.
+
+
+
+\section{Product assurance planning for individual processes and activities}
+
+The \gls{SQA} shall assure that all activities concur with the planning and the
+definitions given in this plan.\\
+
+\noindent
+Compliance will be monitored informally and internally, accompanying the
+development of the software.
+
+\begin{minipage}{\linewidth}
+\noindent
+This shall include:
+
+\begin{itemize}
+	\item review of data packages as to adequacy and completeness
+	\item \gls{RID} management
+	\item \gls{NCR} management
+	\item \gls{SPR} management
+	\item action magement
+	\item provision of a \gls{SPAMR} (optional, only if needed)
+\end{itemize}
+\end{minipage}
+
+
+\section{Procedures and standards}
+
+Procedures and standards are described in the preceeding sections of this
+document.
+
+
+
+
+\chapter{Software Product Quality Assurance}
+
+
+Product metrics of the software code include:
+
+\begin{itemize}
+	\item number of source lines of code
+	\item number of comments
+	\item functional complexity (cyclomatic complexity, lines per function, \ldots)
+	\item code coverage (via unit tests)
+	\item completeness of code commentary/design description
+	\item test coverage
+	\item number of test failures
+\end{itemize}
+
+\noindent
+These metrics are collected via automated analysis scripts or manually and
+reported in the corresponding test report.
+
+
+
+\chapter{Compliance Matrix to Software Product Assurance Requirements}
+
+The compliance matrix is made available as a separate document.
+
+
 
 
 
