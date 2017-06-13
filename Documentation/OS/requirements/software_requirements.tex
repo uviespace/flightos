@@ -2,7 +2,7 @@
 
 \title{Software Requirements Specification}
 \def \documentid {LEANOS-UVIE-SRS-001}
-\date{Issue 0.3, June 1, 2017}
+\date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -56,7 +56,7 @@
   \vhEntry{0.0}{24.07.2015}{AL}{draft requirements created based on \gls{NGAPP}}
   \vhEntry{0.1}{30.03.2016}{AL}{initial version with specifications from \gls{MPPB}v2}
   \vhEntry{0.2}{11.04.2016}{AL}{revised after internal design review}
-  \vhEntry{0.3}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.0}{01.06.2017}{FK}{document approved}
 \end{versionhistory}
 
 
@@ -67,7 +67,7 @@
 This document specifies the software requirements for the operating system
 kernel LeanOS. LeanOS targets the \gls{SSDP}, and to a lesser extent, its
 compatible predecessor, the \gls{MPPB} v2.x \cite{MPPB}.
-It is intended to be used in unmanned space applications of at least
+It is intended to be used in unmanned space applications of (at least)
 Software Criticality Level C. Readers must be familiar with the basic concepts
 of event driven real time operating systems and the target hardware. \\
 
@@ -114,10 +114,10 @@ of the software.
 
 \section{Environmental considerations}
 
-LeanOS is only required to support the \gls{SSDP}, but will also support the
+LeanOS is will support the \gls{SSDP} and also support the
 \gls{MPPB} v2.x. Ultimately, this does allow reuse of the operating system core
 for \gls{LEON2} and \gls{LEON3} based platforms with minor adaptations.
-Even though the \gls{SSDP} does not contain multi-core \gls{LEON3} processor,
+Even though the \gls{SSDP} does not contain a multi-core \gls{LEON3} processor,
 \gls{SMP} support will be prepared in LeanOS, as this will likely change with
 newer versions of the \gls{SSDP}.
 LeanOS is released under an open source license, so compatible development tools should
@@ -134,10 +134,10 @@ LeanOS is a stand-alone software product.
 \section{Constraints}
 
 LeanOS primarily targets the \gls{SSDP}, which effectively limits the hardware
-support the the characteristics of this platform. \\
+support to the characteristics of this platform. \\
 \noindent
 The source code is written in C and if required, \gls{SPARC} v8 compatible
-assembly. This is necessary as hardware interaction of a machine level requires
+assembly. This is necessary as hardware interaction at a machine level requires
 programming languages designed for that purpose.
 
 
@@ -154,8 +154,8 @@ programming languages designed for that purpose.
 %\end{center}
 %\end{figure}
 
-\requirement{GEN-0001} {No external dependecies}{%
-LeanOS shall not make use of external libraries, including C-Runtime libraries.
+\requirement{GEN-0001} {No external dependencies}{%
+LeanOS shall not make use of external libraries, including C-runtime libraries.
 }{}%
 
 \requirement{GEN-0002} {Custom libc functionality}{%
@@ -164,12 +164,12 @@ implementations of typical C-libary functions with an \gls{API} conforming to
 their \gls{POSIX} definitions.
 }{%
 The collection of these functions can also form the base or a subset of a
-C-Libary to be used by applications.}%
+C libary to be used by applications.}%
 
 \requirement{GEN-0003} {Application libc usage}{%
-LeanOS shall optionally call a function that initialises a C-Library on startup.
+LeanOS shall optionally call a function that initialises a C-library on startup.
 It is up to the user to define and link the implementation of this function and
-the according C library.
+the according C-library.
 }{%
 The function \_\_libc\_start\_main() is declared as a weak symbol and tested
 before execution.
@@ -228,11 +228,11 @@ its coding style is hence arguably well-suited for use in successful software.
 
 \section{Functional Requirements}
 
-\requirement{FUN-0007} {SMP support}{%
+\requirement{FUN-0007} {SMP Support}{%
 LeanOS shall be able to run on a multi-core configuration of a LEON3 processor.
 }{}%
 
-\requirement{FUN-0803} {MMU support}{%
+\requirement{FUN-0803} {MMU Support}{%
 LeanOS shall support the use of the MMU of the LEON3 processor.
 }{}%
 
@@ -251,7 +251,7 @@ timing functionality expected by an operating system.
 LeanOS shall provide means to create new tasks.
 }{}%
 
-\requirement{FUN-0013} {Task priorites and deadlines}{%
+\requirement{FUN-0013} {Task priorities and deadlines}{%
 LeanOS shall support the assignment of a priority and a deadline to a task.
 }{}%
 
@@ -262,6 +262,7 @@ LeanOS shall offer a fixed priority scheduler with priority inversion handling.
 \goal{FUN-0015} {Other schedulers}{%
 LeanOS should offer an Earliest Deadline First scheduler supporting priority
 execution in overload conditions.
+
 }{%
 Along with dynamic ticking, this is an option to optimise thread CPU utilisation
 with the added benefit of predictable execution for certain high-priority
@@ -306,12 +307,16 @@ LeanOS shall offer loadable module support infrastructure.
 
 \requirement{FUN-0804} {Kernel-Userspace Initialisation}{%
 LeanOS shall offer a configurable initialisation point that executes a
-user-space setup procedure.
-}{This is the point where the application software is loaded.}%
+user-space setup procedure.\\
+
+
+}{%
+This is the point where the application software is loaded.%
+}%
 
 \requirement{FUN-0023} {System Control Interface}{%
 LeanOS shall offer a way for drivers or other functional modules to export
-configuration or state variables into an logical tree maintained by
+configuration or state variables into a logical tree maintained by
 the operating system. This logical tree shall be accessible by other modules and
 the user as a character-based interface.
 }{%
@@ -359,7 +364,9 @@ service routine.
 
 \requirement{GEN-0018} {Deferred saving of \gls{FPU} registers}{%
 In trap mode, LeanOS shall defer saving of \gls{FPU} registers until it is
-accessed.
+accessed.\\
+
+
 }{%
 This approach saves many clock cycles, as the \gls{FPU} is not typically used
 as part of an \gls{ISR}.
@@ -388,7 +395,8 @@ operating system code must be preemptible to guarantee a timely response.
 
 \requirement{GEN-2001} {Interface Documentation}{%
 The internal and external interfaces of LeanOS shall be described as part
-of its source code in Doxygen markup.
+of its source code in Doxygen markup.\\
+
 }{
 The interfaces of a complex piece of software such as an operating system
 often change over time, as it is adapted to new circumstances or improved
@@ -425,7 +433,7 @@ another software project.
 
 \requirement{GEN-0802}{Software Hierarchy}{%
 All components shall make use and rely only on functionality that is lower
-in hierarchy. The use of functionality that is hierarchially equal or higher
+in hierarchy. The use of functionality that is hierarchically equal or higher
 shall be explicitly forbidden.
 }{
 Note that hierarchy refers to the abstraction level of a component. An \gls{ISR}
@@ -548,7 +556,7 @@ LeanOS.
 
 The requirements in this document are both user and system requirements.
 Traces from design and test to the software requirements are given in the
-respective documents.
+respective documents. \cite{leanosADD} \cite{leanosTS}
 
 
 \chapter{Logical Model Description}
