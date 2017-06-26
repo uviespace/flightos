@@ -2,7 +2,7 @@
 
 \title{Test Specification}
 \def \documentid {LEANOS-UVIE-TS-001}
-\date{Issue 0.1, May 1, 2016}
+\date{Issue 1.0, May 1, 2016}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -57,6 +57,7 @@
 
 \begin{versionhistory}
   \vhEntry{0.1}{01.05.2017}{AL}{Initial version}
+  \vhEntry{1.0}{01.06.2017}{FK}{Document approved}
 \end{versionhistory}
 
 
@@ -83,7 +84,7 @@ A test is specified by defining the:
 	\item hardware baseline
 	\item system configuration
 	\item checks to be performed
-	\item pass/fail criterea
+	\item pass/fail criteria
 \end{itemize}
 
 
@@ -118,21 +119,15 @@ order to facilitate testing.
 }%
 {\meetsreq{UIT-0001, UITE-0001}}{}
 
+\design{UIT-0002}
 {Test Coverage}{%
 All implemented unit tests deliver 100\% statement, decision and condition
 coverage. Any deviations are justified as part of the unit test implementation.
 }%
 {\meetsreq{SCC-0004}}{}
 
-\design{UIT-0002}
-{Test Suite}{%
-All unit and integration tests, along with stub and mockup functions are stored
-in the LeanOS source tree directory \mbox{\emph{tools/testing/unittest/}}.
-}%
-{\meetsreq{UIT-0002, UITE-0001}}{}
-
 \design{UIT-0003}
-{Test Exection}{%
+{Test Execution}{%
 The collection of unit and integration tests is executable from the specified
 source directory via the \emph{make} command.
 }%
@@ -147,13 +142,19 @@ types and outcome of each test performed.
 {\meetsreq{UIT-0004}}{}
 
 
-\design{UIT-0005}
-{Automated Testing}{%
+\design{UIT-0005} % 0pt hspace fixes hyphenation
+{\hspace{0pt} Automated  Testing}{%
 The test executables report failed tests as shell exit codes, so the outcome
 can be detected by an external test program such as \emph{git bisect}.
 }%
 {\meetsreq{UIT-0005}}{}
 
+\design{UIT-0006}
+{Test Suite}{%
+All unit and integration tests, along with stub and mockup functions are stored
+in the LeanOS source tree directory \mbox{\emph{tools/testing/unittest/}}.
+}%
+{\meetsreq{UIT-0002, UITE-0001}}{}
 
 
 
@@ -161,7 +162,7 @@ can be detected by an external test program such as \emph{git bisect}.
 
 \design{HST-0001}
 {Test Implementation}{%
-For each software component or module that neeeds verification in a hardware
+For each software component or module that needs verification in a hardware
 environment, a test program is implemented.
 }%
 {\meetsreq{HST-0001}}{Since these tests typically involve more complex control %
@@ -188,7 +189,7 @@ types and outcome of each test performed.
 
 
 \design{HST-0004}
-{Automated Testing}{%
+{\hspace{0pt} Automated Testing}{%
 The test executables report failed tests as shell exit codes, so the outcome
 can be detected by an external test program such as \emph{git bisect}.
 }%
@@ -209,15 +210,15 @@ individual unit test.
 \section{Acceptance Tests}
 
 \design{ACT-0001}
-{Acceptance Test Definition}{%
+{\hspace{0pt} Acceptance Test Definition}{%
 Any acceptance test procedures are defined in chapter
 \mbox{\nameref{detailedtestdefinitions}} of this document.
 }%
 {\meetsreq{ACT-0001}}{}
 
 \design{ACT-0002}
-{Acceptance Test Use Cases}{%
-The configuration and and operational environment of LeanOS is defined for each
+{\hspace{0pt} Acceptance Test Use Cases}{%
+The configuration and operational environment of LeanOS is defined for each
 acceptance test of an identified use case.
 }%
 {\meetsreq{ACT-0002}}{}
@@ -272,7 +273,7 @@ step (if applicable).\\
 \end{figure}
 
 This is an integrated test of the \gls{Xentium} Processing Network
-\fig{fig:task_network}. It loads a set of \gls{Xentium} program kernels in the
+(see \fig{fig:task_network}). It loads a set of \gls{Xentium} program kernels in the
 Xentium driver of LeanOS, which are then used to apply processing operations on
 a series of input tasks to simulate a processing pipeline.\\
 
