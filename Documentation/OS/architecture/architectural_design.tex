@@ -2,7 +2,7 @@
 
 \title{Architectural Design Document}
 \def \documentid {LEANOS-UVIE-ADD-001}
-\date{Issue 0.3, June 1, 2017}
+\date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -56,7 +56,7 @@
   \vhEntry{0.0}{30.09.2015}{AL}{draft architecture created based on \gls{NGAPP}}
   \vhEntry{0.1}{16.03.2016}{AL}{initial version with updated specifications from \gls{MPPB}v2}
   \vhEntry{0.2}{02.05.2016}{AL}{revised after internal design review}
-  \vhEntry{0.3}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.0}{01.06.2017}{FK}{document approved}
 \end{versionhistory}
 
 
@@ -185,7 +185,7 @@ quickly and efficiently, since it is foremost a tool to the user with the
 purpose of creating a run-time, not a product implementing a well constrained
 task.\\
 
-The Linux kernel coding style is applied to all C code in LeanOS. Its used is
+The Linux kernel coding style is applied to all C code in LeanOS. Its use is
 enforced by the \emph{checkpatch.pl} utility found in the Linux kernel source
 tree.\\
 
@@ -214,7 +214,7 @@ purpose processor and operating system features, the term \emph{kernel} refers
 to the operating system core program. \\
 
 \noindent
-Functional requirements are always reference to their design components, others
+Functional requirements are always referenced to their design components, others
 only as needed or for clarification. This is reflected in the traceability
 matrix.
 
@@ -307,12 +307,12 @@ is supported.
 \design{GEN-0005}%
 {Kernel Mode}{%
 The operating system protects access to privileged registers by disabling
-supervisor mode when switching to userspace. On the \gls{SPARC}v8, traps enable
+supervisor mode when switching to user space. On the \gls{SPARC}v8, traps enable
 supervisor mode, so the privileged mode is automatically entered when the kernel
-is executing after a trap/interrupt or a system call from userspace, which is
+is executing after a trap/interrupt or a system call from user space, which is
 also implemented via the trap table.\newline
 
-Kernel and unmapped memory access from userspace is protected by the \gls{MMU}.
+Kernel and unmapped memory access from user space is protected by the \gls{MMU}.
 }%
 {\meetsreq{FUN-0803, FUN-0008}}{}
 
@@ -320,7 +320,7 @@ Kernel and unmapped memory access from userspace is protected by the \gls{MMU}.
 \design{GEN-0006}%
 {\gls{MMU}}{%
 The kernel uses the \gls{MMU} to map pages of the system memory into a virtual
-address space for most of its own processes and for userspace.
+address space for most of its own processes and for user space.
 
 If needed, physical memory is directly accessible by driver components or
 mapped accordingly.
@@ -353,7 +353,7 @@ needed, so lower priority threads do not block higher priority threads and vice
 versa when locks are employed.\newline
 
 Unless strict \gls{FIFO} mode is configured, threads of all scheduling
-priorities are regularly assigned an execution time slice. The lenght of this
+priorities are regularly assigned an execution time slice. The length of this
 time slice decreases with priority. If \gls{gls-RR} scheduling is to be used,
 time slices are set to be equal for all threads regardless of priority.
 The latter is then only used to control re-ordering of the thread schedule to
@@ -390,7 +390,7 @@ Message queues are a facility for tasks/processes to communicate arbitrary
 data to each other. A named queue is created by one thread and opened by at
 least one other thread. The threads can then send and receive messages
 of arbitrary length. If a thread wants to actively wait for a message, it can
-request to be notified is subsequently woken by the scheduler once a message
+request to be notified and is subsequently woken by the scheduler once a message
 arrives.
 }%
 {\meetsreq{FUN-0021}}{The implementation follows the \gls{POSIX} message
@@ -421,7 +421,7 @@ interface.
 \design{GEN-0011}%
 {System Control Interface}{%
 The system control interface is a generic parseable interface that is accessible
-from user- and kernel-space. It is modeled on a logical tree that holds nodes
+from user and kernel space. It is modeled on a logical tree that holds nodes
 representing entries of kernel components and can be viewed as a file/directory
 structure. The input/output of each entry and how it may be parsed is defined
 by its creator and may be used for run-time configuration or statistics keeping.
@@ -492,7 +492,7 @@ control the dynamic processing priority during run-time. \newline
 
 The first threshold defines the \emph{minimum} fill level above which the
 processing kernel may be scheduled. This is relevant in situations where more
-than input packets are needed to perform a task.
+than input packets are needed to perform a task. \newline
 
 The second threshold is the \emph{low} threshold.
 As long as the buffer fill level is below this threshold, it is only scheduled
@@ -514,7 +514,7 @@ frames that passed through preprocessing stages earlier.
 The scheduling queues are ordered by buffer fill level. The queue is updated
 as packets move between metadata buffers. The update mechanism is part of the
 metadata buffers and triggers a message to the driver whenever a level threshold
-is either over- or underrun and the most recent critical (\emph{high}) buffer is
+is either over- or under-run and the most recent critical (\emph{high}) buffer is
 moved to the head of the queue. If all buffers are above the \emph{high}
 threshold, they are processed in an \gls{gls-RR} pattern. \newline
 
@@ -522,7 +522,7 @@ The driver maintains a separate \emph{bonded} queue for each \gls{DSP} that
 holds program kernels that are allowed to run only on a particular \gls{DSP} and
 one shared queue that holds all other kernels. The scheduling priority of
 equal-level buffer states of bonded queues is higher than the shared queue,
-i.e. buffers above the \emph{high} threshold in a bonded queue are processed
+i.e.\ buffers above the \emph{high} threshold in a bonded queue are processed
 first, followed by the \emph{high} buffers in the shared queue, followed by the
 \emph{medium} level buffers in the bonded queue etc.
 }%
@@ -554,7 +554,7 @@ limit.
 Typically, the input buffer is the input for a special \gls{DSP} kernel
 that processes and interprets the incoming data stream (of e.g. \gls{PUS} 
 packets) and prepares and/or distributes metadata packets to the inputs of the
-processing kernels accoring to the desired application.
+processing kernels according to the desired application.
 }
 
 
@@ -563,7 +563,7 @@ processing kernels accoring to the desired application.
 {Xentium Data Buffers}{%
 The metadata buffers track metadata packets as they move through the processing
 network. With the exception of the input buffers to the network, they are
-the input of one and the output of an arbitrary number \gls{Xentium} program
+the input of one and the output of an arbitrary number of \gls{Xentium} program
 kernels. Each item in a buffer corresponds to one metadata packet descriptor.
 \newline
 
