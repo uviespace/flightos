@@ -2,7 +2,7 @@
 
 \title{Test Plan}
 \def \documentid {LEANOS-UVIE-TP-001}
-\date{Issue 0.3, June 1, 2017}
+\date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -24,8 +24,16 @@
 
 \usepackage{vhistory}
 
-\usepackage{biblatex}
+\usepackage[backend=biber]{biblatex}
 \addbibresource{../shared/bibliography.bib}
+% URL to new line %
+\DeclareFieldFormat{url}{URL: \url{#1}}%
+
+\DeclareFieldFormat{formaturl}{\newline #1}
+\newbibmacro*{url+urldate}{%
+\printtext[formaturl]{%
+  \quad \printfield{url}}%
+    }
 
 \rereadauxrequirementlabels
 
@@ -55,7 +63,7 @@
 \begin{versionhistory}
   \vhEntry{0.1}{23.07.2017}{AL}{initial version}
   \vhEntry{0.2}{01.07.2016}{AL}{incorporate changes from review items}
-  \vhEntry{0.3}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.0}{01.06.2017}{FK}{document approved}
 \end{versionhistory}
 
 
@@ -96,11 +104,11 @@ are partially verified by testing.
 
 \section{Purpose of the Document}
 
-This document defines test procedures for the for the LeanOS operating system.
+This document defines test procedures for the LeanOS operating system.
 In particular, it defines the:
 \begin{itemize}
 	\item types of tests
-	\item environment in which the test are executed
+	\item environment in which a test is executed
 	\item coverage of the test
 	\item entity responsible for performing the test
 \end{itemize}
@@ -116,9 +124,9 @@ tests only as modifications are made.
 
 \section{Test Sequences}
 
-Test defined in this document are executed by automated test sequences in the
+Tests defined in this document are executed by automated test sequences in the
 form of software programs that control the execution of a test, check the
-correctnes of the results and generate a summary report.
+correctness of the results and generate a summary report of the test case.
 
 
 
@@ -126,7 +134,7 @@ correctnes of the results and generate a summary report.
 
 Components and software modules of the operating system are tested on an
 unit-level where applicable. System level tests are tailored to the
-various configuration options avaiable. and shall be accompanied by
+various configuration options available. and shall be accompanied by
 configuration files so the proper build may generated.\\
 \\
 
@@ -181,9 +189,9 @@ A unit test verifies the behaviour of a single component, while an integration
 test verifies the behaviour of a number of interacting components. \\
 
 \noindent
-Unit and integration tests are white-box type test that executes a component
+Unit and integration tests are white-box type tests that executes a component
 with a series of input conditions and verify the output or action for the
-expected response. These type of test are typically independent from the
+expected response. These type of tests are typically independent from the
 hardware platform.\\
 \\
 
@@ -199,12 +207,13 @@ A unit and integration test suite shall be provided as a set of applications.
 
 \requirement{UIT-0003} {Automatic Test Execution}{%
 A single mechanism shall be provided that automatically runs all unit and %
-integration tests in sequence.%
-}{The \emph{kselftest} framework in the LeanOS source tree provides a %
+integration tests in sequence.\\
+}{
+The \emph{kselftest} framework in the LeanOS source tree provides a %
 \emph{Makefile} setup that can be used for this purpose.}%
 
 \requirement{UIT-0004} {Test Results}{%
-The test suite shall generate feedback a human-readable report describing the %
+The test suite shall generate feedback as a human-readable report describing the %
 outcome of each unit and integration test.%
 }{}
 
@@ -219,7 +228,7 @@ using the \emph{git bisect run \ldots} functionality.}%
 \section {Hardware-Software Tests}
 
 These tests differ from unit and integration tests in that a particular hardware
-platform is required for testing. All system-level integration tests fall in
+platform is required for testing. All system-level integration tests fall into
 this category.\\
 \\
 
@@ -295,7 +304,7 @@ following sections.
 \end{center}
 \end{figure}
 
-The test environment for unit and integration tests are shown in
+The test environment for unit and integration tests is shown in
 \fig{fig:unittest}.\\
 
 \noindent
@@ -327,19 +336,19 @@ specification of each individual test.%
 
 \chapter{Test Coverage}
 
-This chapter defines the coverage of tests in the environments defined in the
+This chapter defines the coverage of tests in the environments defined
 previously.
 
 
 \section{Source Code Coverage}
 
-Source code coverage must be achived in unit and integration tests.
+Source code coverage must be achieved in unit and integration tests.
 A component is considered covered if full statement, decision and condition
 coverage is achieved. \\
 
 \noindent
 If full coverage cannot be achieved, for example due to operational constraints,
-deviations are acceptable provided that they are justified.\\
+deviations are acceptable, provided a justification is given.\\
 \\
 
 \requirement{SCC-0001} {Statement Coverage}{%
@@ -355,7 +364,7 @@ Unit and integration tests shall offer full condition coverage for LeanOS code.%
 }{}%
 
 \requirement{SCC-0004} {Reduced Coverage}{%
-If the coverage specififed in the previous requirements cannot be achieved %
+If the coverage specified in the previous requirements cannot be achieved %
 due to operational contraints, justifications for deviations shall be provided %
 for each of the individual conditions where the degree of coverage is below %
 the specified goal. %
