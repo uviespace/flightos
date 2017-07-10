@@ -2,7 +2,7 @@
 
 \title{Test Report}
 \def \documentid {LEANOS-UVIE-TR-001}
-\date{Issue 0.2, June 1, 2017}
+\date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -51,7 +51,7 @@
 
 \begin{versionhistory}
   \vhEntry{0.1}{06.03.2017}{AL}{initial version}
-  \vhEntry{0.2}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.0}{01.06.2017}{FK}{document approved}
 \end{versionhistory}
 
 
@@ -59,15 +59,15 @@
 
 \section{Purpose of the Document}
 
-In this document, results of test specified in \cite{leanosTS} are recorded.
+In this document, results of tests specified in \cite{leanosTS} are recorded.
 
 
 \section{Incremental Testing}
 
 LeanOS is not envisaged to be implemented in one final form. Instead, it is
 marked with version numbers for each release. This means that testing is
-version-dependent and is be applied in increments by executing a sub-set of
-tests only as modifications are made. This is reflected in the dates, version
+version-dependent and is applied in increments by executing all available tests
+as modifications are made. This is reflected in the dates, version
 numbers and cryptographic hash values of the \emph{git} repository's {HEAD}
 listed in each individual test report.
 
@@ -103,7 +103,7 @@ of LeanOS.
 This test is executed on a \gls{MPPB} v2.x hardware model. Once the test
 environment is set up, the build configuration is prepared and the test itself
 is executed and evaluated automatically by starting the \emph{bash} script
-\emph{run\_test.sh}. It is found in the 
+\emph{run\_test.sh}. It may be found in the 
 \mbox{\emph{tools/testing/hwtests/xen\_proc\_net}} subdirectory of the LeanOS
 source tree.
 
