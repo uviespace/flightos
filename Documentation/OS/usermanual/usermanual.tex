@@ -1,6 +1,6 @@
 \title{User Manual}
 \def \documentid {LEANOS-UVIE-UM-001}
-\date{Issue 0.2, June 1, 2017}
+\date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
@@ -22,7 +22,7 @@
 
 \usepackage{vhistory}
 
-\usepackage{biblatex}
+\usepackage[giveninits=true]{biblatex}
 \addbibresource{../shared/bibliography.bib}
 
 \usepackage{listings}
@@ -62,7 +62,7 @@
 
 \begin{versionhistory}
   \vhEntry{0.1}{03.03.2017}{AL}{Initial version}
-  \vhEntry{0.2}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.0}{01.06.2017}{FK}{document approved}
 \end{versionhistory}
 
 
@@ -97,7 +97,7 @@ Xentium DSPs found in \glspl{SoC} like the \gls{SSDP} or \gls{MPPB}.
 The source code components are split into architecture-specific and generic
 sources that depend on the implementation of certain interfaces by the former.
 While this means that any architecture could be supported, the only
-currently implemented hardware architecture is SPARC/LEON.
+currently implemented hardware architecture is \gls{SPARC} v8.
 
 %%\section {How to get LeanOS}
 
@@ -106,7 +106,7 @@ currently implemented hardware architecture is SPARC/LEON.
 In order to build LeanOS, make sure you have set up your environment variables
 to point to the compilers to be used. You will need at least a cross-compiler
 for the \gls{SPARC} platform (i.e. BCC from Gaisler or SPARC GCC from RECORE)
-and a \gls{GCC} compiler for your host platform. In addition, you will need
+and a \gls{GCC} compiler for your host platform. In addition, you will 
 also need GNU make, appropriate versions of binutils and a bash shell, i.e.
 what you would typically find in a Linux distribution with a basic set of
 development and system tools installed. If you want to generate source code
@@ -161,8 +161,9 @@ preferred method, e.g. via grmon.
 \section {Source and Support Documentation}
 
 To generate source code documentation in HTML, go to \emph{Documentation/doxygen}
-and run \emph{make}.
+and run \emph{make}.\\
 
+\noindent
 To render support documents such as this one from their LaTeX sources, go
 to \emph{Documentation/doxygen} and follow the instructions in the README file.
 
@@ -229,7 +230,8 @@ software configuration uses physical memory above a critical threshold.
 
 The operating system is able to dynamically load/unload modules to extend
 or patch its capabilities at run time. Modules are unlinked ELF object files.
-Relocations are computed during load. Modules may also compiled into the kernel.
+Relocations are computed during load. Modules may also be compiled into the
+kernel.
 
 \subsection {Payload Images}
 
@@ -393,7 +395,7 @@ which execute the desired processing steps listed in the task.  These nodes are
 the \emph{processing trackers} (\fig{fig:task_network}). Each processing
 tracker is initialised with an op code and a function to execute the particular
 operation. Trackers have a property called the \emph{critical level}, which is
-the treshold of pending input tasks above which a tracker should be processed
+the threshold of pending input tasks above which a tracker should be processed
 with priority.
 
 
@@ -441,7 +443,7 @@ care of any further treatment of the task, e.g. to move it to mass memory.
 Processing functions may arbitrarily manipulate a task. This includes deletion
 or addition of steps, change of data buffers and so on. A processing function
 may even collect a number of tasks, merge their data (e.g. by performing an
-image stacking operation), then re-add the newly shaped task to back to the
+image stacking operation), then re-add the newly shaped task back to the
 network and destroy the remaining, now empty tasks.
 \\
 
@@ -466,7 +468,7 @@ programs.
 
 \noindent
 A processing network consists of a number of processing trackers, each having
-an \emph{op code} and an a corresponding function assigned. The trackers define
+an \emph{op code} and a corresponding function assigned. The trackers define
 a critical level of pending tasks, which is used for priority scheduling.
 
 Pending items are tracked as doubly-linked lists, where each item provides the
@@ -587,8 +589,7 @@ int op_output(unsigned long op_code, struct proc_task *t)
 The output node is special in that its \emph{op code} is zero and it should 
 be used to deallocate the data buffer, which is not automatically done by
 \emph{pt\_destroy()}, as the management of this buffer is solely the
-responsibility of the user.
-
+responsibility of the user. The node is then added by calling:
 
 \begin{lstlisting}
 	pn_create_output_node(pn, op_output);
@@ -598,7 +599,7 @@ responsibility of the user.
 create a task and assign it  a data buffer that holds \emph{32} bytes and at
 most \emph{4} processing steps. The type and sequence number fields are not
 used and simply set to zero. The number of elements in the buffer is then set
-to \emph{5}, assuming it has been prepared accordingly.
+to \emph{5}, assuming it has been prepared accordingly:
 
 \begin{lstlisting}
 	struct proc_task *t = pt_create(data, 32, 4, 0, 0);
@@ -637,7 +638,7 @@ arbitrarily, this can also be used to easily create state machines.
 \noindent
 Note that steps with invalid \emph{op codes}, i.e. those for which no tracker
 node has been registered will result in the destruction of the task as if
-an \emph{op function} had returned \emph{PN\_TASK\_DESTROY}
+an \emph{op function} had returned \emph{PN\_TASK\_DESTROY}.
 \\
 
 \noindent
@@ -689,7 +690,7 @@ Note that in case of the Xentium processing network, the call to
 the driver and user control is only needed to execute a processing cycle on the
 output node.
 
-\section{Building a Xenitum Processing Network}
+\section{Building a Xentium Processing Network}
 
 
 The specific implementation of the Processing Network on the Xentium DSPs maps
@@ -896,18 +897,18 @@ still most effective in designing efficient implementations. \\
 
 While assembly is usually a subject that tends to intimidate many programmers,
 the simplicity and straightforwardness of the Xentium assembly
-language\cite{XenUsrGuide} along with the architectural concept of the DSP
+language \cite{XenUsrGuide} along with the architectural concept of the DSP
 registers and functional units, makes it easy to grasp and use once a certain
 level of familiarity has been established. \\
 
 Still, the design of what are mostly functionally sequential, but very often
-data parallel algorithms, such as in AlgoLib, requires a certain level of
-twisted thinking, as this is usually not how our minds work.  To help oneself,
-one must conceive a method to facilitate the development of such tasks, one
-which will presented here. \\
+data parallel algorithms, such as in BASKET \cite{BASKET}, requires a
+certain level of twisted thinking, as this is usually not how our minds work.
+To help oneself, one must conceive a method to facilitate the development of
+such tasks, one which will presented here. \\
 
 Please note, that this chapter \emph{does not} intend to teach how to write
-Xentium assembly, but merely demonstrates a method that can be very useful
+Xentium assembly, but merely demonstrates a method that can be a very useful
 approach in development.
 
 
@@ -955,7 +956,7 @@ int FastIntFixedRampFitBuffer(long *data, unsigned int n_samples,
 \end{minipage}
 
 \noindent
-Let us consider the the above example of a fast ramp fitting routine. Looking
+Let us consider the above example of a fast ramp fitting routine. Looking
 at the inner loop, we can immediately spot one load operation, three additions,
 and one multiplication.  We can put pos++ anywhere after the load, but the
 operations
@@ -1012,7 +1013,7 @@ Let's try to rewrite this:
 \noindent
 We managed to process 4 samples in 7 cycles instead of 2 in 5 (second try) or 1
 in 5 (first try), so we're down to 1.75 cycles per sample instead of 5, that's
-a speed-up of \approx 2.85x. \\
+a speed-up of about 2.85x. \\
 
 \noindent
 Not bad. But there are still many unused units per cycle. And we're still
