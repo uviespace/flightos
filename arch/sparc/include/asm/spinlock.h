@@ -17,6 +17,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
+ *
+ * XXX Since RDPSR and WRPSR are in principle interruptible, none of these
+ *     functions should be used to actually modify the PSR/PIL
+ *     rather, we'll need a software trap that raises the PIL for use,
+ *     i.e. call it up via a ticc instruction, so that ET=0 when raising the
+ *     PIL. This should however only be done in supervisor mode for obvious
+ *     reasons, otherwise the trap must have no effect.
  */
 
 #ifndef _ARCH_SPARC_ASM_SPINLOCK_H_
