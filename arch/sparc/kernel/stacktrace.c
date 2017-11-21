@@ -51,10 +51,7 @@ void save_stack_trace(struct stack_trace *trace, uint32_t sp, uint32_t pc)
 	/* flush register windows to memory*/
 	leon_reg_win_flush();
 
-	do {
-		if (!stack_valid(sp))
-			break;
-
+	while (trace->nr_entries < trace->max_entries) {
 
 		sf   = (struct sparc_stackf *) sp;
 		regs = (struct pt_regs *) (sf + 1);
@@ -67,7 +64,9 @@ void save_stack_trace(struct stack_trace *trace, uint32_t sp, uint32_t pc)
 		pc = sf->callers_pc;
 		sp = (uint32_t) sf->fp;
 
-	} while (trace->nr_entries < trace->max_entries);
+		if (!stack_valid(sp))
+			break;
+	}
 }
 
 
@@ -92,18 +91,20 @@ void die(void)
  * @param pc a program counter
  *
  * @note this is called by the trap handler
+ *
  */
 
 void trace(uint32_t fp, uint32_t pc)
 {
-	uint32_t entries[30];
-
+#define MAX_ENTRIES 30
 	struct stack_trace x;
+        struct sparc_stackf *frames[MAX_ENTRIES];
+        struct pt_regs      *regs[MAX_ENTRIES];
 
-
-	x.max_entries = 30;
+	x.max_entries = MAX_ENTRIES;
 	x.nr_entries  = 0;
-	x.entries     = entries;
+	x.frames      = frames;
+	x.regs        = regs;
 
 	save_stack_trace(&x, fp, pc);
 }
