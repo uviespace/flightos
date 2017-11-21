@@ -66,7 +66,7 @@ void *module_read_embedded(char *mod_name)
 	return ptr;
 }
 
-
+#if defined(CONFIG_XENTIUM)
 /**
  * @brief try to load all xentium kernels found in the embedded image
  *
@@ -109,3 +109,4 @@ void module_load_xen_kernels(void)
 
 	kfree(list);
 }
+#endif /* CONFIG_XENTIUM */
