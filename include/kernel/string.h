@@ -12,6 +12,7 @@
 
 int sprintf(char *str, const char *format, ...);
 int strcmp(const char *s1, const char *s2);
+int strncmp(const char *s1, const char *s2, size_t n);
 char *strpbrk(const char *s, const char *accept);
 char *strsep(char **stringp, const char *delim);
 char *strdup(const char *s);
