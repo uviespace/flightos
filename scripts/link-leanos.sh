@@ -80,26 +80,20 @@ modpost_link()
 leanos_link()
 {
 	local lds="${objtree}/${KBUILD_LDS}"
-	local objects
 
 
-	# since we link against the BCC libc at this time, we'll just
+	# if we link against the (BCC) libc, we'll just
 	# call $CC instead of LD
-	${CC} ${LDFLAGS} ${LDFLAGS_leanos} ${3} -o ${2}		\
-		${KBUILD_LEANOS_INIT} ${KBUILD_LEANOS_MAIN} ${1}
+	if [ -n "${CONFIG_TARGET_COMPILER_BOOT_CODE}" ]; then
+		${CC} ${LDFLAGS} ${LDFLAGS_leanos} ${3} -o ${2}		\
+			${KBUILD_LEANOS_INIT} ${KBUILD_LEANOS_MAIN} ${1}
+	fi
 
-#	if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
-#		objects="--whole-archive built-in.o ${1}"
-#	else
-#		objects="${KBUILD_LEANOS_INIT}			\
-#			--start-group				\
-#			${KBUILD_LEANOS_MAIN}			\
-#			--end-group				\
-#			${1}"
-#	fi
-#
-#	${LD} ${LDFLAGS} ${LDFLAGS_leanos} -o ${2}		\
-#		-T ${lds} ${objects}
+	if [ -n "${CONFIG_ARCH_CUSTOM_BOOT_CODE}" ]; then
+		${LD} ${LDFLAGS} ${LDFLAGS_leanos} ${3} -o ${2}		\
+			-T ${lds} ${KBUILD_LEANOS_INIT} ${KBUILD_LEANOS_MAIN} \
+			${1}
+	fi
 
 }
 
@@ -303,7 +297,15 @@ if [ "$1" = "embed" ]; then
 #		exit
 #	fi
 
-	embedflags="-Wl,--format=binary -Wl,modules.image -Wl,--format=default"
+	if [ -n "${CONFIG_TARGET_COMPILER_BOOT_CODE}" ]; then
+		embedflags="-Wl,--format=binary -Wl,modules.image -Wl,--format=default"
+	fi
+
+	if [ -n "${CONFIG_ARCH_CUSTOM_BOOT_CODE}" ]; then
+		embedflags="--format=binary modules.image --format=default"
+	fi
+
+
 	rm -f modules.image
 	${AR} rcs ${srctree}/modules.image \
 		$(tr '\n' ' ' < ${srctree}/modules.order) \

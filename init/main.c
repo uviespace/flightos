@@ -40,7 +40,6 @@
 
 
 
-#ifdef CONFIG_TARGET_COMPILER_BOOT_CODE
 
 /**
  * @brief kernel initialisation routines
@@ -54,20 +53,25 @@ static int kernel_init(void)
 
 	setup_arch();
 
+	/* free_bootmem() */
+	/* run_init_process() */
+
 	return 0;
 }
 arch_initcall(kernel_init);
+
 
 
 /**
  * @brief kernel main function
  */
 
-int main(void)
+int kernel_main(void)
 {
+#if 0
 	void *addr;
 	struct elf_module m;
-
+#endif
 
 	printk(MSG "Loading module image\n");
 
@@ -118,4 +122,30 @@ int main(void)
 	return 0;
 }
 
-#endif /* CONFIG_TARGET_COMPILER_BOOT_CODE */
+#ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+
+extern initcall_t __initcall_start;
+extern initcall_t __initcall_end;
+
+static void do_initcalls(void)
+{
+    initcall_t *p = &__initcall_start;
+
+    while(p < &__initcall_end) {
+        if (*p)
+            (*p)();
+	p++;
+    }
+
+}
+
+void do_basic_setup(void)
+{
+	do_initcalls();
+}
+
+
+#endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
+
+
+

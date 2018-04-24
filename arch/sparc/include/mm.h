@@ -32,9 +32,9 @@ extern struct sparc_physical_banks sp_banks[SPARC_PHYS_BANKS + 1];
 
 
 /* linker symbol marking the the start of the program (image) */
-extern char start[];
+extern char _start[];
 /* linker symbol marking the the end of the program */
-extern char end[];
+extern char _end[];
 
 
 /* The default configuration allows for at most 32 MiB sized blocks

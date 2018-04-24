@@ -48,6 +48,27 @@ config EXTRA_SPARC_PHYS_BANKS
 	 Set number of additional physical memory banks if the machine has more
 	 than one.
 
+config SPARC_CPU_REG_WINDOWS
+	int "Number of implemented SPARC register windows"
+	default 8
+	range 1 32
+	help
+	 Set the number of register windows implemented in the CPU.
+
+config SPARC_TEXT_START
+	hex "Address of .text section"
+	default 0x40000000
+	help
+	 Set the start address of the .text section. The address of the
+	 built-in SRAM might be a good choice.
+
+config SPARC_FP_START
+	hex "Initial address of the frame pointer"
+	default 0x40100000
+	help
+	 Set the initial frame pointer address. The start of the .text
+	 section plus 1 MiB is usually a safe bet.
+
 menu "Memory Management Settings"
 	depends on MM
 	depends on CHUNK

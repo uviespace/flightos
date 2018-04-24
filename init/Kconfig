@@ -36,11 +36,22 @@ config CROSS_COMPILE
 	  need to set this unless you want the configured kernel build
 	  directory to select the cross-compiler automatically.
 
+choice
+	prompt "Boot/Startup code"
+	default TARGET_COMPILER_BOOT_CODE
+
 config TARGET_COMPILER_BOOT_CODE
 	bool "Use target compiler's boot/startup code"
-	default y if CROSS_PLATFORM_TARGET
 	help
-	  Use the compiler-provided boot code (e.g. BCC target)
+	  Use the compiler-provided boot code (e.g. with BCC)
+
+config ARCH_CUSTOM_BOOT_CODE
+	bool "Use architecture's boot/startup code"
+	help
+	  Use the architecture-provided boot code
+
+endchoice # "Boot/Startup code
+
 
 endmenu # "General Setup"
 

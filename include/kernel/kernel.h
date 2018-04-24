@@ -2,6 +2,7 @@
 #define _KERNEL_H_
 
 #include <compiler.h>
+#include <kernel/printk.h>
 
 #define ALIGN_MASK(x, mask)    (((x) + (mask)) & ~(mask))
 #define ALIGN(x, a)            ALIGN_MASK(x, (typeof(x))(a) - 1)
@@ -12,9 +13,8 @@
 #define panic(x) {} while(1);
 
 /* the BUG() macros may be repurposed to log an error and boot to safe mode! */
-#include <stdio.h>
 #define BUG() do { \
-        printf("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
+        printk("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
         panic("BUG!"); \
 } while (0)
 

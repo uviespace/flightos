@@ -145,20 +145,20 @@ void bootmem_init(void)
 	struct page_map_node **pg_node;
 
 
-	pr_info("BOOTMEM: start of program image at %p\n", start);
-	pr_info("BOOTMEM:   end of program image at %p\n", end);
+	pr_info("BOOTMEM: start of program image at %p\n", _start);
+	pr_info("BOOTMEM:   end of program image at %p\n", _end);
 
 
 	/* lowest page frame number coincides with page aligned address
 	 * start symbol in image, which hopefully coincides with the start
 	 * of the RAM we are running from.
 	 */
-	start_img_pfn = PAGE_ALIGN((unsigned long) &start);
+	start_img_pfn = PAGE_ALIGN((unsigned long) &_start);
 
 	/* start allocatable memory with page aligned address of last symbol in
 	 * image, everything before will be reserved
 	 */
-	start_pfn = PAGE_ALIGN((unsigned long) &end);
+	start_pfn = PAGE_ALIGN((unsigned long) &_end);
 
 	/* locate the memory bank we're in
 	 */

@@ -1,6 +1,8 @@
-
 CHECKFLAGS     += -D__sparc__
 
+extra-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += kernel.lds
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += ttable.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE)  += head.o
 
 obj-y += setup.o
 obj-y += init.o
@@ -18,3 +20,4 @@ obj-y += traps/data_access_exception.o
 obj-y += irq.o
 
 #libs-y                 += lib/
+

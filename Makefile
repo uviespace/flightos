@@ -12,7 +12,10 @@ NAME = Zombeaver
 #
 # set default ARCH
 
-SRCARCH = sparc
+ifndef SRCARCH
+	SRCARCH = sparc
+endif
+ARCH = $(SRCARCH)
 export SRCARCH
 
 # o Do not use make's built-in rules and variables
@@ -614,7 +617,7 @@ leanos-libs	:= $(patsubst %/, %/lib.a, $(libs-y))
 # Externally visible symbols (used by link-leanos.sh)
 export KBUILD_LEANOS_INIT := $(leanos-init)
 export KBUILD_LEANOS_MAIN := $(leanos-core) $(leanos-kernel) $(leanos-libs)
-export KBUILD_LDS          := arch/$(SRCARCH)/kernel/leanos.lds
+export KBUILD_LDS          := arch/$(SRCARCH)/kernel/kernel.lds
 export LDFLAGS_leanos
 
 
