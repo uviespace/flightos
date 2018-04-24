@@ -12,7 +12,11 @@
 #include <kernel/ar.h>
 #include <kernel/kmem.h>
 #include <kernel/string.h>
+
+#if defined(CONFIG_XENTIUM)
 #include <kernel/xentium.h>
+#endif /* CONFIG_XENTIUM */
+
 
 #define MSG "MODIMG: "
 
