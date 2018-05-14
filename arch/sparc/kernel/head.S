@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 
 #ifndef CONFIG_SPARC_CPU_REG_WINDOWS
 #define NWINDOWS 8

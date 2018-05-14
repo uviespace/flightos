@@ -2,24 +2,7 @@
 #define _SPARC_STACK_H_
 
 #include <kernel/types.h>
-
-/* reg window offset */
-#define RW_L0     0x00
-#define RW_L1     0x04
-#define RW_L2     0x08
-#define RW_L3     0x0c
-#define RW_L4     0x10
-#define RW_L5     0x14
-#define RW_L6     0x18
-#define RW_L7     0x1c
-#define RW_I0     0x20
-#define RW_I1     0x24
-#define RW_I2     0x28
-#define RW_I3     0x2c
-#define RW_I4     0x30
-#define RW_I5     0x34
-#define RW_I6     0x38
-#define RW_I7     0x3c
+#include <asm/win.h>
 
 /* stack frame offsets */
 #define SF_L0     0x00

@@ -1,8 +1,11 @@
 CHECKFLAGS     += -D__sparc__
 
 extra-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += kernel.lds
+
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += ttable.o
-obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE)  += head.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += head.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += win_uflow.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += win_oflow.o
 
 obj-y += setup.o
 obj-y += init.o

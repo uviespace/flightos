@@ -131,10 +131,6 @@ priv_instruction_trap_handler:
 leonbare_trapreturn:
 	.global fpdis_trap_handler
 fpdis_trap_handler:
-	.global __wim_overflow
-__wim_overflow:
-	.global __wim_underflow
-__wim_underflow:
 	.global mna_trap_handler
 mna_trap_handler:
 	.global fpe_trap_handler
