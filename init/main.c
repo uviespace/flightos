@@ -144,6 +144,12 @@ void do_basic_setup(void)
 	do_initcalls();
 }
 
+#else
+
+int main(void)
+{
+	return kernel_main();
+}
 
 #endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
 
