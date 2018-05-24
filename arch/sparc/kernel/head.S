@@ -34,6 +34,25 @@ kernel_entry:
 	 */
 
 
+	/* Clear the .bss section or we'll be in trouble later. This section
+	 * is supposed to be double-word aligned (see kernel.lds.S), so we
+	 * perform double-word stores. If this fails because the memory is not
+	 * actually there, we're boned anyways.
+	 */
+	sethi	%hi(__bss_start),	%l0
+	or	%l0, %lo(__bss_start),	%l0
+	sethi	%hi(__bss_stop),	%l1
+	or	%l1, %lo(__bss_stop),	%l1
+
+	mov	%g0, %g1		!allow std to store two zeros
+	sub	%l1, %l0, %l1
+
+zero_bss:
+	subcc	%l1, 8, %l1
+	bge,a	zero_bss
+	 std	%g0, [%l0 + %l1]	! anulled if bss clearing is complete
+
+
 	/* Now we initialise the window invalid mask to detect under/overflows.
 	 * We set the highest-value window to be invalid.
 	 */
