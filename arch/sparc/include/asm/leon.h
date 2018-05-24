@@ -192,11 +192,18 @@ static inline unsigned long leon_get_fp(void)
 }
 
 
-/* XXX need to make sure this trap is installed */ 
 __attribute__((unused))
+#ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+#include <kernel/printk.h>
+#endif
 static inline void leon_reg_win_flush(void)
 {
+#ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+	pr_warn("NOT IMPLEMENTED: leon_reg_win_flush() %s:%d\n", __FILE__, __LINE__);
+#else
+	/* BCC/libgloss provide such functionality via SW trap 3 */
 	__asm__ __volatile__("ta 3");
+#endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
 }
 
 

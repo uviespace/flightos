@@ -263,8 +263,10 @@ static struct sobj_attribute *eirl_attributes[] = {
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
 
-/* XXX we use BCC's libgloss implementation for now */
+#ifndef CONFIG_ARCH_CUSTOM_BOOT_CODE
+/* provided by BCC's libgloss  */
 extern int catch_interrupt (int func, int irq);
+#endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
 
 
 /**
@@ -470,7 +472,7 @@ void leon_irq_queue_execute(void)
  *
  * XXX maybe we want to keep acking IRQs as in eirq_dispatch...
  */
-
+__attribute__((unused))
 static int leon_irq_dispatch(unsigned int irq)
 {
 	struct irl_vector_elem *p_elem;
@@ -501,7 +503,7 @@ static int leon_irq_dispatch(unsigned int irq)
  *
  * @note handler return codes ignored for now
  */
-
+__attribute__((unused))
 static int leon_eirq_dispatch(unsigned int irq)
 {
 	unsigned int eirq;
@@ -626,8 +628,15 @@ int irl_register_handler(unsigned int irq,
 	leon_enable_irq(irq, 0);
 #endif /* CONFIG_LEON2 */
 
-	/* XXX this is the call to whatever the low level handler is */
+
+	/* here goes the call to whatever the low level handler is */
+#ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+	pr_warn("NOT IMPLEMENTED: catch_interrupt() %s:%d\n", __FILE__, __LINE__);
+	return -1;
+#else
+	/* provided by BCC/libgloss */
 	return catch_interrupt(((int) leon_irq_dispatch), irq);
+#endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
 }
 
 
@@ -908,8 +917,12 @@ static void leon_setup_eirq(void)
 	}
 
 	leon_eirq = eirq;
-
+#ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+	pr_warn("NOT IMPLEMENTED: catch_interrupt() %s:%d\n", __FILE__, __LINE__);
+#else
+	/* provided by BCC/libgloss */
 	BUG_ON(catch_interrupt((int) leon_eirq_dispatch, leon_eirq));
+#endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
 
 #ifdef CONFIG_LEON3
 	/* XXX for now, just register to the current CPU */
