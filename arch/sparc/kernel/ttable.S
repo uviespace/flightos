@@ -173,9 +173,6 @@ tag_overflow_trap_handler:
 .umul:
 	.global unimpl_flush_trap_handler
 unimpl_flush_trap_handler:
-	.global vprintf
-vprintf:
-	.global vsnprintf
-vsnprintf:
 	.global watchpoint_det_trap_handler
 watchpoint_det_trap_handler:
+	ta 0
