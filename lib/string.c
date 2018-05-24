@@ -17,6 +17,7 @@
 #include <kernel/export.h>
 #include <kernel/types.h>
 #include <kernel/string.h>
+#include <kernel/printk.h>
 
 
 /**
@@ -25,7 +26,6 @@
  * @returns <0, 0 or > 0 if s1 is less than, matches or greater than s2
  */
 
-#include <kernel/printk.h>
 int strcmp(const char *s1, const char *s2)
 {
 	unsigned char c1, c2;
@@ -350,11 +350,6 @@ EXPORT_SYMBOL(bzero);
 
 
 
-#include <stdarg.h>
-#include <limits.h>
-
-int vsnprintf(char *str, size_t size, const char *format, va_list ap);
-
 /**
  * @brief print a string into a buffer
  *
@@ -378,6 +373,66 @@ int sprintf(char *str, const char *format, ...)
 	return n;
 }
 EXPORT_SYMBOL(sprintf);
+
+
+/**
+ * @brief print a string into a buffer of a given maximum size
+ *
+ * @param str    the destination buffer
+ * @param size	 the size of the destination buffer
+ * @param format the format string buffer
+ * @param ...    arguments to the format string
+ *
+ * @return the number of characters written to buf
+ */
+
+int snprintf(char *str, size_t size, const char *format, ...)
+{
+	int n;
+	va_list ap;
+
+
+	va_start(ap, format);
+	n = vsnprintf(str, size, format, ap);
+	va_end(ap);
+
+	return n;
+}
+EXPORT_SYMBOL(snprintf);
+
+
+/**
+ * @brief format a string and print it into a buffer
+ *
+ * @param str    the destination buffer
+ * @param format the format string buffer
+ * @param ...    arguments to the format string
+ *
+ * @return the number of characters written to buf
+  */
+
+int vsprintf(char *str, const char *format, va_list ap)
+{
+	return vsnprintf(str, INT_MAX, format, ap);
+}
+EXPORT_SYMBOL(vsprintf);
+
+
+
+/**
+ * @brief format a string and print it to the standard output
+ *
+ * @param format the format string buffer
+ * @param ...    arguments to the format string
+ *
+ * @return the number of characters written to stdout
+  */
+
+int vprintf(const char *format, va_list ap)
+{
+	return vsnprintf(NULL, INT_MAX, format, ap);
+}
+EXPORT_SYMBOL(vprintf);
 
 
 /**
@@ -415,6 +470,21 @@ int isspace(int c)
 	return 0;
 }
 EXPORT_SYMBOL(isspace);
+
+
+/**
+ * @brief check if a character is a digit
+ *
+ * @param c the character to test
+ *
+ * @returns 0 if not a digit
+ */
+
+int isdigit(int c)
+{
+        return '0' <= c && c <= '9';
+}
+EXPORT_SYMBOL(isdigit);
 
 /**
  * @brief convert a string to an integer

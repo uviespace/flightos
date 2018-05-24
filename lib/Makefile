@@ -4,6 +4,7 @@ lib-$(CONFIG_PAGE_MAP)	+= page.o
 lib-$(CONFIG_AR)	+= ar.o
 lib-$(CONFIG_CHUNK)	+= chunk.o
 lib-y			+= string.o
+lib-y			+= vsnprintf.o
 lib-y			+= elf.o
 lib-y			+= data_proc_tracker.o
 lib-y			+= data_proc_task.o

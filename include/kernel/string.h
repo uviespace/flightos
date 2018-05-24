@@ -8,9 +8,12 @@
 #define _KERNEL_STRING_H_
 
 #include <kernel/types.h>
+#include <stdarg.h>
+#include <limits.h>
 
 
 int sprintf(char *str, const char *format, ...);
+int snprintf(char *str, size_t size, const char *format, ...);
 int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, size_t n);
 char *strpbrk(const char *s, const char *accept);
@@ -25,8 +28,14 @@ void *memcpy(void *dest, const void *src, size_t n);
 char *strcpy(char *dest, const char *src);
 void bzero(void *s, size_t n);
 
+int isdigit(int c);
 int isspace(int c);
 int atoi(const char *nptr);
+
+
+int vprintf(const char *format, va_list ap);
+int vsprintf(char *str, const char *format, va_list ap);
+int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 
 
 #endif /* _KERNEL_STRING_H_ */
