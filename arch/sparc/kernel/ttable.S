@@ -149,10 +149,9 @@ fpe_trap_handler:
 hw_div0_trap_handler:
 	.global __interrupt_entry
 __interrupt_entry:
-	.global __clzsi2
-__clzsi2:
 	.global memset
 memset:
+	ta 1
 	.global nmi_entry
 nmi_entry:
 	.global reg_access_trap_handler
@@ -165,8 +164,6 @@ strtol:
 syscall_tbl:
 	.global syscall_trap
 syscall_trap:
-	.global tag_overflow_trap_handler
-tag_overflow_trap_handler:
 	.global .udiv
 .udiv:
 	.global .umul
