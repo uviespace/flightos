@@ -527,3 +527,25 @@ int atoi(const char *nptr)
 	return res;
 }
 EXPORT_SYMBOL(atoi);
+
+
+/**
+ * @brief fills a memory area with  with the constant byte c
+ *
+ * @param s a pointer to the memory area
+ * @param c the byte to set
+ * @param n the number of bytes to fill
+ *
+ * @returns a pointer to the memory area s
+ */
+
+void *memset(void *s, int c, size_t n)
+{
+	char *p = s;
+
+	while (n--)
+		*p++ = c;
+
+	return s;
+}
+EXPORT_SYMBOL(memset);

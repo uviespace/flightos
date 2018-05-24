@@ -149,9 +149,6 @@ fpe_trap_handler:
 hw_div0_trap_handler:
 	.global __interrupt_entry
 __interrupt_entry:
-	.global memset
-memset:
-	ta 1
 	.global nmi_entry
 nmi_entry:
 	.global reg_access_trap_handler
