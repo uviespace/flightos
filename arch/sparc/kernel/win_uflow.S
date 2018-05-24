@@ -32,9 +32,7 @@ __wim_underflow:
 	 *
 	 * First, we rotate the window invalid mask to the left by one and
 	 * to the right by (NWINDOWS - 1), then OR the results (which is done
-	 *	.text
-	.align	4
-	.global	__wim_overflow implicitly in the WRPSR instruction), so our WIM rotates modulo
+	 * implicitly in the WRPSR instruction), so our WIM rotates modulo
 	 * NWINDOWS just like the CWP in the PSR
 	 */
 
