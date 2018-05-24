@@ -58,7 +58,7 @@ kernel_entry:
         sethi   %hi(0x00001fc0), %g1
         or      %g1, %lo(0x00001fc0 | (NWINDOWS - 2)), %g1
         mov     %g1, %psr	! delayed-write instruction
-
+	nop
 
 	/* Prepare a C call-stack. Minimum size is 96 bytes, however older
 	 * compilers may reserve 104. We want make sure to support the MPPB's
