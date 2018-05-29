@@ -555,7 +555,7 @@ static size_t render_xlong_to_ascii(bool usign, long value, char *str,
 		}
 	}
 
-	while (value && (n < STACK_BUF_SIZE)) {
+	do {
 
 		digit = (char) (value % spec->base);
 
@@ -572,7 +572,7 @@ static size_t render_xlong_to_ascii(bool usign, long value, char *str,
 
 		n++;
 		value /= spec->base;
-	}
+	} while (value && (n < STACK_BUF_SIZE));
 
 	return render_final(str, end, sign, buf, n, spec);
 }
