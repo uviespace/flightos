@@ -18,6 +18,8 @@
 #include <kernel/types.h>
 #include <kernel/string.h>
 #include <kernel/printk.h>
+#include <kernel/log2.h>
+#include <kernel/bitops.h>
 
 
 /**
@@ -486,6 +488,57 @@ int isdigit(int c)
 }
 EXPORT_SYMBOL(isdigit);
 
+
+/**
+ * @brief check if a character is from the alphabet
+ *
+ * @param c the character to test
+ *
+ * @returns 0 if not in the alphabet
+ *
+ * @note in ASCII, 'a-z' are 'A-Z' + 32
+ */
+
+int isalpha(int c)
+{
+	return ((unsigned char) c | 0x20) - 'a' < 26;
+}
+EXPORT_SYMBOL(isalpha);
+
+
+/**
+ * @brief check if an alphabetic character is in uppercase
+ *
+ * @param c the character to test
+ *
+ * @returns 0 if lowercase or out of range
+ *
+ */
+
+int isupper(int c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+EXPORT_SYMBOL(isupper);
+
+
+/**
+ * @brief check if an alphabetic character is in lowercase
+ *
+ * @param c the character to test
+ *
+ * @returns 0 if uppercase or out of range
+ *
+ */
+
+int islower(int c)
+{
+    return c >= 'a' && c <= 'z';
+}
+EXPORT_SYMBOL(islower);
+
+
+
 /**
  * @brief convert a string to an integer
  *
@@ -549,3 +602,122 @@ void *memset(void *s, int c, size_t n)
 	return s;
 }
 EXPORT_SYMBOL(memset);
+
+
+
+/**
+ * @brief convert a string to a long integer
+ *
+ * @param nptr	the pointer to a string (possibly) representing a number
+ * @param endptr if not NULL, stores the pointer to the first character not part
+ *		 of the number
+ * @param base  the base of the number string
+ *
+ * @return the converted number
+ *
+ * @note A base of 0 defaults to 10 unless the first character after
+ *	 ' ', '+' or '-' is a '0', which will default it to base 8, unless
+ *	 it is followed by 'x' or 'X'  which defaults to base 16.
+ *	 If a number is not preceeded by a sign, it is assumed to be a unsigned
+ *	 type and may therefore assume the size of ULONG_MAX.
+ *	 If no number has been found, the function will return 0 and
+ *	 nptr == endptr
+ *
+ * @note if the value would over-/underflow, LONG_MAX/MIN is returned
+ */
+
+long int strtol(const char *nptr, char **endptr, int base)
+{
+	int neg = 0;
+
+	unsigned long res = 0;
+	unsigned long clamp = (unsigned long) ULONG_MAX;
+
+
+
+	if (endptr)
+		(*endptr) = (char *) nptr;
+
+	for (; isspace(*nptr); nptr++);
+
+
+	if ((*nptr) == '-') {
+		nptr++;
+		neg = 1;
+		clamp = -(unsigned long) LONG_MIN;
+	} else if ((*nptr) == '+') {
+		clamp =  (unsigned long) LONG_MAX;
+		nptr++;
+	}
+
+	if (!base || base == 16) {
+		if ((*nptr) == '0') {
+			switch (nptr[1]) {
+			case 'x':
+			case 'X':
+				nptr += 2;
+				base = 16;
+				break;
+			default:
+				nptr++;
+				base = 8;
+				break;
+			}
+		} else {
+			/* default */
+			base = 10;
+		}
+	}
+
+
+	/* Now iterate over the string and add up the digits. We convert
+	 * any A-Z to a-z (offset == 32 in ASCII) to check if the string
+	 * contains letters representing values (A=10...Z=35). We abort if
+	 * the computed digit value exceeds the given base or on overflow.
+	 */
+
+	while (1) {
+		unsigned int c = (*nptr);
+		unsigned int l = c | 0x20;
+		unsigned int val;
+
+		if (isdigit(c))
+			val = c - '0';
+		else if (islower(l))
+		       val = l - 'a' + 10;
+		else
+			break;
+
+		if (val >= base)
+			break;
+
+		/* Check for overflow only if result is approximately within
+		 * range of it, given the base. If we overflow, set result
+		 * to clamp (LONG_MAX or LONG_MIN)
+		 */
+
+		if (res & (~0UL << (BITS_PER_LONG - fls(base)))) {
+	               if (res > (clamp - val) / base) {
+			       res = clamp;
+			       break;
+		       }
+		}
+
+		res = res * base + val;
+		nptr++;
+	}
+
+
+	/* update endptr if a value was found */
+	if (res)
+		if (endptr)
+			(*endptr) = (char *) nptr;
+
+
+	if (neg)
+		return - (long int) res;
+
+	return (long int) res;
+}
+
+

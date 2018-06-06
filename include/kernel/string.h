@@ -31,7 +31,12 @@ void bzero(void *s, size_t n);
 
 int isdigit(int c);
 int isspace(int c);
+int isalpha(int c);
+int isupper(int c);
+int islower(int c);
+
 int atoi(const char *nptr);
+long int strtol(const char *nptr, char **endptr, int base);
 
 
 int vprintf(const char *format, va_list ap);
