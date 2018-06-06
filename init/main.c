@@ -18,9 +18,7 @@
 #include <kernel/printk.h>
 #include <modules-image.h>
 
-#ifdef CONFIG_MPPB
 #include <asm/processor.h>
-#endif
 
 /* for our demo */
 #include "xentium_demo.h"
@@ -39,6 +37,27 @@
 #endif /* GCC_VERSION */
 
 
+#include <kernel/irq.h>
+
+irqreturn_t dummy(unsigned int irq, void *userdata)
+{
+	return 0;
+}
+
+
+/**
+ * @brief do something useless
+ */
+
+static void twiddle(void)
+{
+	static int i;
+	const char cursor[] = {'/', '-', '\\', '|'};
+
+	printk("%c\b\b ", cursor[i]);
+
+	i = (i + 1) % ARRAY_SIZE(cursor);
+}
 
 
 /**
@@ -118,6 +137,32 @@ int kernel_main(void)
 	/* run the demo */
 	xen_demo();
 #endif
+	printk(MSG "Boot complete, spinning idly.\n");
+
+	{
+#define GR712_IRL1_GPTIMER_2    10
+
+#define LEON3_TIMER_EN 0x00000001       /* enable counting */
+#define LEON3_TIMER_RL 0x00000002       /* reload at 0     */
+#define LEON3_TIMER_LD 0x00000004       /* load counter    */
+#define LEON3_TIMER_IE 0x00000008       /* irq enable      */
+
+	struct gptimer_unit *mtu = (struct gptimer_unit *) 0x80000300;
+
+	irq_request(8,  ISR_PRIORITY_NOW, dummy, NULL);
+
+        mtu->scaler_reload = 5;
+
+        mtu->timer[0].reload = 10000000 / (mtu->scaler_reload + 1);
+        mtu->timer[0].value = mtu->timer[0].reload;
+        mtu->timer[0].ctrl = LEON3_TIMER_LD | LEON3_TIMER_EN
+                             | LEON3_TIMER_RL | LEON3_TIMER_IE;
+	}
+
+	while(1) {
+		twiddle();
+		cpu_relax();
+	}
 
 	return 0;
 }
