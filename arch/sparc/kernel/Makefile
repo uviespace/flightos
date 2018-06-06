@@ -6,6 +6,10 @@ obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += ttable.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += head.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += win_uflow.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += win_oflow.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += flush_windows.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += etrap.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += rtrap.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += irqtrap.o
 
 obj-y += setup.o
 obj-y += init.o

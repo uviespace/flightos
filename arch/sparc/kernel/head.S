@@ -1,5 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+#include <asm/ttable.h>
+
+
+/* It's actually possible to detect windows at runtime, but we don't
+ * care (yet), because this will probably never run on any !8-window SPARC
+ */
+
 #ifndef CONFIG_SPARC_CPU_REG_WINDOWS
 #define NWINDOWS 8
 #else
@@ -74,8 +81,7 @@ zero_bss:
 	 * See the SPARCv8 User Manual pp.28 for the other set bits
 	 */
 
-        sethi   %hi(0x00001fc0), %g1
-        or      %g1, %lo(0x00001fc0 | (NWINDOWS - 2)), %g1
+	set	(PSR_PS | PSR_S | PSR_PIL | PSR_EF) | (NWINDOWS - 2), %g1
         mov     %g1, %psr	! delayed-write instruction
 	nop
 
@@ -90,8 +96,11 @@ zero_bss:
         sub     %fp, 104, %sp	! create a new frame
 
         /* We have a stack now, so we can start handling traps. */
-	or	%g1, 0x00000020, %g1
+	or	%g1, PSR_ET, %g1
         mov     %g1, %psr ! delayed-write instruction
+	nop
+	nop
+	nop
 
 	call do_basic_setup
 	 nop

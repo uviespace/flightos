@@ -53,7 +53,6 @@ __wim_overflow:
         srl     %l3, 1, %l4
         sll     %l3, (NWINDOWS - 1), %g5
 	or	%l4, %g5, %g5	! store new WIM globally
-	!and	%g5, ((1 << NWINDOWS) - 1), %g5
 
 	/* At this point, we proceed depending on the state of the previous
 	 * supervisor (PS) bit. The condition code has been set by the trap

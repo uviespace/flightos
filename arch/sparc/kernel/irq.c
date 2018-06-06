@@ -264,9 +264,34 @@ static struct sobj_attribute *eirl_attributes[] = {
 
 
 #ifndef CONFIG_ARCH_CUSTOM_BOOT_CODE
+
 /* provided by BCC's libgloss  */
 extern int catch_interrupt (int func, int irq);
+extern unsigned int nestedirq;
+
 #endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
+
+
+
+/**
+ * @brief enable all interrupts by clearing the PSR PIL field
+ */
+
+static void leon_irq_enable(void)
+{
+        unsigned long tmp;
+
+	__asm__ __volatile__(
+	     "rd     %%psr,%0    \n\t"
+	     "andn   %0, %1,%0   \n\t"
+	     "wr     %0, 0, %%psr\n\t"
+	     "nop\n"
+	     "nop\n"
+	     "nop\n"
+	     : "=&r" (tmp)
+	     : "i" (PSR_PIL)
+	     : "memory");
+}
 
 
 /**
@@ -462,7 +487,7 @@ void leon_irq_queue_execute(void)
 
 
 /**
- * @brief he central interrupt handling routine
+ * @brief the central interrupt handling routine
  *
  * @param irq an interrupt number
  *
@@ -470,10 +495,9 @@ void leon_irq_queue_execute(void)
  *
  * @note handler return codes ignored for now
  *
- * XXX maybe we want to keep acking IRQs as in eirq_dispatch...
  */
-__attribute__((unused))
-static int leon_irq_dispatch(unsigned int irq)
+
+int leon_irq_dispatch(unsigned int irq)
 {
 	struct irl_vector_elem *p_elem;
 
@@ -631,8 +655,8 @@ int irl_register_handler(unsigned int irq,
 
 	/* here goes the call to whatever the low level handler is */
 #ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
-	pr_warn("NOT IMPLEMENTED: catch_interrupt() %s:%d\n", __FILE__, __LINE__);
-	return -1;
+	/* call is part of IRQ trap entry in irqtrap.S */
+	return 0;
 #else
 	/* provided by BCC/libgloss */
 	return catch_interrupt(((int) leon_irq_dispatch), irq);
@@ -918,7 +942,8 @@ static void leon_setup_eirq(void)
 
 	leon_eirq = eirq;
 #ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
-	pr_warn("NOT IMPLEMENTED: catch_interrupt() %s:%d\n", __FILE__, __LINE__);
+	BUG_ON(irl_register_handler(leon_eirq, ISR_PRIORITY_NOW,
+				    (irq_handler_t) leon_eirq_dispatch, NULL));
 #else
 	/* provided by BCC/libgloss */
 	BUG_ON(catch_interrupt((int) leon_eirq_dispatch, leon_eirq));
@@ -1076,6 +1101,22 @@ void leon_irq_init(void)
 
 	BUG_ON(irq_dispatch_init());
 
+#ifndef CONFIG_ARCH_CUSTOM_BOOT_CODE
+
+#ifdef CONFIG_SPARC_NESTED_IRQ
+	nestedirq = 1;
+#else /* !(CONFIG_SPARC_NESTED_IRQ) */
+	nestedirq = 0;
+#endif /* CONFIG_SPARC_NESTED_IRQ */
+
+#endif /* !(CONFIG_ARCH_CUSTOM_BOOT_CODE) */
+
+
+
+
 	/* set up extended interrupt controller if found */
 	leon_setup_eirq();
+
+	/* now set the PIL field to zero to enable all IRLs */
+	leon_irq_enable();
 }

@@ -130,6 +130,12 @@ config SPARC_BOOTMEM_REQUEST_NEW_ON_DEMAND
 	 If unsure, say Y.
 endmenu
 
+config SPARC_NESTED_IRQ
+	bool "Allow nested IRQs"
+	default y
+	help
+	 Allow higher-priority interrupts to preempt interrupt service routines
+	 of lower priority interrupts. If unsure, say Y.
 
 
 endmenu

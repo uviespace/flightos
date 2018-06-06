@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef _SPARC_HEAD_H
-#define _SPARC_HEAD_H
+#ifndef _SPARC_TTABLE_H
+#define _SPARC_TTABLE_H
 
 #define SPARC_TRAP_TFLT    0x1          /* Text fault */
 #define SPARC_TRAP_II      0x2          /* Illegal Instruction */
@@ -41,6 +41,13 @@
 
 
 #define PSR_PS	0x00000040         /* previous privilege level */
+#define PSR_S	0x00000080         /* enable supervisor */
+
+#define PSR_ET	0x00000020	   /* enable traps */
+#define PSR_EF	0x00001000         /* enable FPU */
+
+#define PSR_PIL	0x00000f00	/* processor interrupt level */
+#define PSR_PIL_SHIFT	 8	/* PIL field shift */
 
 
 #define TTBL_MASK	0xff0	/* trap type mask from tbr */
@@ -79,4 +86,20 @@
         rd %psr, %l0;
 
 
-#endif /* _SPARC_HEAD_H */
+/* This is the same convention as in leonbare and linux */
+/* All trap entry points _must_ begin with this macro or else you
+ * lose.  It makes sure the kernel has a proper window so that
+ * c-code can be called.
+ */
+#define SAVE_ALL_HEAD \
+	sethi	%hi(trap_setup), %l4; \
+	jmpl	%l4 + %lo(trap_setup), %l6;
+#define SAVE_ALL \
+	SAVE_ALL_HEAD \
+	 nop;
+
+/* All traps low-level code here must end with this macro. */
+#define RESTORE_ALL b ret_trap_entry; clr %l6;
+
+
+#endif /* _SPARC_TTABLE_H */

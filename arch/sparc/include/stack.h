@@ -1,8 +1,12 @@
 #ifndef _SPARC_STACK_H_
 #define _SPARC_STACK_H_
 
+#ifndef __ASSEMBLY__
 #include <kernel/types.h>
+#endif /* !(__ASSEMBLY__) */
+
 #include <asm/win.h>
+
 
 /* stack frame offsets */
 #define SF_L0     0x00
@@ -75,15 +79,25 @@
 
 
 
+#define STACK_ALIGN 8
+#define STACKFRAME_SZ	96
+#define PTREG_SZ	80
 
+#ifndef __ASSEMBLY__
 
+/* SPARC v8 cpu registers not part of a regular stack frame that we need in
+ * a trap frame to store the state of the CPU at the time of the trap.
+ */
 struct pt_regs {
         uint32_t psr;
         uint32_t pc;
         uint32_t npc;
         uint32_t y;
-        uint32_t u_regs[16]; /* globals and ins */
+        uint32_t u_regs[16]; /* globals and outs */
 };
+
+compile_time_assert(sizeof(struct pt_regs) == PTREG_SZ,
+		    SPARC__CPU_REG_SIZE_INVALID);
 
 struct leon_reg_win {
         uint32_t locals[8];
@@ -102,13 +116,13 @@ struct sparc_stackf {
 	/* everyting allocated on the stack follows here */
 };
 
-
-#define STACKFRAME_SZ	sizeof(struct sparc_stackf)
-
-#define STACK_ALIGN 8
+compile_time_assert(sizeof(struct sparc_stackf) == STACKFRAME_SZ,
+		    SPARC__STACK_FRAME_SIZE_INVALID);
 
 
 int stack_migrate(void *sp, void *stack_top_new);
+
+#endif /* !(__ASSEMBLY__) */
 
 
 #endif /* _SPARC_STACK_H_ */

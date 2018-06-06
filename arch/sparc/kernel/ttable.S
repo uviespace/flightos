@@ -87,7 +87,7 @@ trapbase_cpu0:
 	SYSCALL_TRAP		! 0x80 = SunOS syscall()
 	TRAP_EXCEPTION		! 0x81
 	TRAP_EXCEPTION		! 0x82
-	TRAP_EXCEPTION		! 0x83
+	TRAP_ENTRY(0x83, flush_windows) ! 0x83
 	TRAP_EXCEPTION		! 0x84
 	TRAP_EXCEPTION		! 0x85
 
@@ -113,10 +113,6 @@ trapbase_cpu1:
 
         .global  leonbare_trapsetup
 leonbare_trapsetup:
-	.global catch_interrupt
-catch_interrupt:
-	.global coldboot_reset
-coldboot_reset:
 	.global __exception_entry
 __exception_entry:
 	.global srmmu_fault
@@ -125,8 +121,6 @@ srmmu_fault:
 ill_instruction_trap_handler:
 	.global priv_instruction_trap_handler
 priv_instruction_trap_handler:
-
-
 	.global leonbare_trapreturn
 leonbare_trapreturn:
 	.global fpdis_trap_handler
@@ -147,16 +141,12 @@ cpex_trap_handler:
 fpe_trap_handler:
 	.global hw_div0_trap_handler
 hw_div0_trap_handler:
-	.global __interrupt_entry
-__interrupt_entry:
 	.global nmi_entry
 nmi_entry:
 	.global reg_access_trap_handler
 reg_access_trap_handler:
 	.global strchr
 strchr:
-	.global strtol
-strtol:
 	.global syscall_tbl
 syscall_tbl:
 	.global syscall_trap
