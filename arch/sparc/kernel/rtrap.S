@@ -34,6 +34,7 @@ ret_trap_entry:
 
 
 ret_trap_kernel:
+
 	/* Will the rett land us in the invalid window? */
 	mov	2, %g1
 	sll	%g1, %t_psr, %g1

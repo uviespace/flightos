@@ -51,6 +51,8 @@ __interrupt_entry:
 #else /* CONFIG_SPARC_NESTED_IRQ */
 	 or %t_psr, PSR_PIL, %t_tmp
 
+	call schedule
+	 nop
 	wr	%t_tmp, PSR_ET, %psr	! we can't be preemted here, so set PIL
 					! to max and xor ET to enable
 					! delayed-write; nops not needed if

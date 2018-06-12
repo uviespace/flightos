@@ -16,6 +16,8 @@
 #include <kernel/module.h>
 #include <kernel/ksym.h>
 #include <kernel/printk.h>
+#include <kernel/kernel.h>
+#include <kernel/kthread.h>
 #include <modules-image.h>
 
 #include <asm/processor.h>
@@ -41,6 +43,8 @@
 
 irqreturn_t dummy(unsigned int irq, void *userdata)
 {
+	//printk("IRQ!\n");
+	//schedule();
 	return 0;
 }
 
@@ -48,7 +52,7 @@ irqreturn_t dummy(unsigned int irq, void *userdata)
 /**
  * @brief do something useless
  */
-
+__attribute__((unused))
 static void twiddle(void)
 {
 	static int i;
@@ -59,6 +63,51 @@ static void twiddle(void)
 	i = (i + 1) % ARRAY_SIZE(cursor);
 }
 
+
+
+#define TREADY 4
+
+static volatile int *console = (int *)0x80000100;
+
+static int putchar(int c)
+{
+	while (!(console[1] & TREADY));
+
+	console[0] = 0x0ff & c;
+
+	if (c == '\n') {
+		while (!(console[1] & TREADY));
+		console[0] = (int) '\r';
+	}
+
+	return c;
+}
+
+
+extern struct task_struct *kernel;
+struct task_struct *tsk1;
+struct task_struct *tsk2;
+
+int thread1(void *data)
+{
+
+	while(1) {
+		//printk(".");
+		putchar('.');
+		//twiddle();
+		cpu_relax();
+	}
+}
+
+int thread2(void *data)
+{
+
+	while(1) {
+		//printk("o");
+		putchar('o');
+		cpu_relax();
+	}
+}
 
 /**
  * @brief kernel initialisation routines
@@ -126,7 +175,7 @@ int kernel_main(void)
 #ifdef CONFIG_MPPB
 	/* The mppbv2 LEON's cache would really benefit from cache sniffing...
 	 * Interactions with DMA or Xentiums are a pain when using the lower
-	 * half of the AHB SDRAM memory bank and since we don't create
+	 * half of the AHB SDRAM memory schedulebank and since we don't create
 	 * a complete memory configuration for this demonstrator, we'll
 	 * to just disable the dcache entirely >:(
 	 */
@@ -139,30 +188,43 @@ int kernel_main(void)
 #endif
 	printk(MSG "Boot complete, spinning idly.\n");
 
-	{
+
 #define GR712_IRL1_GPTIMER_2    10
 
 #define LEON3_TIMER_EN 0x00000001       /* enable counting */
 #define LEON3_TIMER_RL 0x00000002       /* reload at 0     */
 #define LEON3_TIMER_LD 0x00000004       /* load counter    */
 #define LEON3_TIMER_IE 0x00000008       /* irq enable      */
-
+	{
 	struct gptimer_unit *mtu = (struct gptimer_unit *) 0x80000300;
+
+	printk("%s() entered\n", __func__);
 
 	irq_request(8,  ISR_PRIORITY_NOW, dummy, NULL);
 
-        mtu->scaler_reload = 5;
+	mtu->scaler_reload = 5;
 
-        mtu->timer[0].reload = 10000000 / (mtu->scaler_reload + 1);
-        mtu->timer[0].value = mtu->timer[0].reload;
-        mtu->timer[0].ctrl = LEON3_TIMER_LD | LEON3_TIMER_EN
-                             | LEON3_TIMER_RL | LEON3_TIMER_IE;
+	mtu->timer[0].reload = 800 / (mtu->scaler_reload + 1);
+	mtu->timer[0].value = mtu->timer[0].reload;
+	mtu->timer[0].ctrl = LEON3_TIMER_LD | LEON3_TIMER_EN
+		| LEON3_TIMER_RL | LEON3_TIMER_IE;
 	}
 
+
+
+	tsk1 = kthread_create(thread1, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread1");
+	tsk2 = kthread_create(thread2, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread2");
+	//kthread_wake_up(tsk2);
+	//	kthread_wake_up(tsk2);
+
+	kernel = kthread_init_main();
 	while(1) {
-		twiddle();
+		//printk("-");
+		putchar('-');
 		cpu_relax();
 	}
+	/* never reached */
+	BUG();
 
 	return 0;
 }
