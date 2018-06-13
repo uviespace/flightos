@@ -51,8 +51,10 @@ __interrupt_entry:
 #else /* CONFIG_SPARC_NESTED_IRQ */
 	 or %t_psr, PSR_PIL, %t_tmp
 
+#ifndef CONFIG_TASK_PREEMPTION_DISABLE
 	call schedule
 	 nop
+#endif
 	wr	%t_tmp, PSR_ET, %psr	! we can't be preemted here, so set PIL
 					! to max and xor ET to enable
 					! delayed-write; nops not needed if

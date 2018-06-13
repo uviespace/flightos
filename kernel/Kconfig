@@ -26,6 +26,19 @@ config IRQ_STATS_COLLECT
 	 Collect interrupt statistics and expose them in the
 	 systl tree.
 
+config TASK_PREEMPTION_DISABLE
+	bool "Disable forced preemption of tasks"
+	default n
+	help
+	 Say Y here to change the task system to be collaborative, i.e.
+	 for voluntary yields and run-to-completion. Note that this does not
+	 mean that tasks can not be preempted at all, just that there will
+	 be no supervisor to instigate such an event. Any IRQs will still
+	 preempt a running task, as will blocked I/O and locking operations.
+	 The latter may result in a rescheduling events to prevent priority
+	 inversion etc.
+	 WARNING: Currently unstable. Use for development only. You have been warned.
+
 config SOC
 	bool "Enable System-On-Chip configurations"
 	default n
