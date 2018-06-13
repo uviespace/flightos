@@ -37,8 +37,8 @@ trap_setup:
 	/* Calculate mask of trap window.  See if from user
 	 * or kernel and branch conditionally.
 	 */
-	mov	1, %t_twinmask
 	andcc	%t_psr, PSR_PS, %g0		 ! fromsupv_p = (psr & PSR_PS)
+	mov	1, %t_twinmask
 	be	trap_setup_from_user		 ! nope, from user mode
 	 sll	%t_twinmask, %t_psr, %t_twinmask ! t_twinmask = (1 << psr)
 
