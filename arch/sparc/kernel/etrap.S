@@ -29,6 +29,8 @@
 #define t_systable   l7 /* Never touch this, could be the syscall table ptr. */
 #define curptr       g6 /* Set after pt_regs frame is built */
 
+/* at this time, trap_setup should take 43(+33 worst case) cycles */
+
 	.text
 	.align 4
 

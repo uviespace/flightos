@@ -12,6 +12,7 @@
 #include <init.h>
 #include <mm.h>
 #include <asm/irq.h>
+#include <asm/time.h>
 #include <compiler.h>
 
 #include <page.h>
@@ -101,4 +102,6 @@ void setup_arch(void)
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
 
 	leon_irq_init();
+
+	leon_uptime_init();
 }

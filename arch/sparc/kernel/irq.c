@@ -46,6 +46,7 @@
 #include <kernel/kmem.h>
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
+#include <kernel/export.h>
 
 #include <errno.h>
 #include <list.h>
@@ -55,6 +56,7 @@
 #include <asm/leon_reg.h>
 #include <asm/spinlock.h>
 #include <asm/irq.h>
+#include <asm/irqflags.h>
 
 
 struct irl_vector_elem {
@@ -292,6 +294,69 @@ static void leon_irq_enable(void)
 	     : "i" (PSR_PIL)
 	     : "memory");
 }
+
+/**
+ * @brief get interrupt status and disable interrupts
+ */
+
+static inline unsigned long leon_irq_save(void)
+{
+	unsigned long retval;
+	unsigned long tmp;
+
+	__asm__ __volatile__(
+		"rd	%%psr, %0\n\t"
+		"or	%0, %2, %1\n\t"
+		"wr	%1, 0, %%psr\n\t"
+		"nop; nop; nop\n"
+		: "=&r" (retval), "=r" (tmp)
+		: "i" (PSR_PIL)
+		: "memory");
+
+	return retval;
+}
+
+/**
+ * @brief restore interrupts
+ */
+
+static inline void leon_irq_restore(unsigned long old_psr)
+{
+	unsigned long tmp;
+
+	__asm__ __volatile__(
+		"rd	%%psr, %0\n\t"
+		"and	%2, %1, %2\n\t"
+		"andn	%0, %1, %0\n\t"
+		"wr	%0, %2, %%psr\n\t"
+		"nop; nop; nop\n"
+		: "=&r" (tmp)
+		: "i" (PSR_PIL), "r" (old_psr)
+		: "memory");
+}
+
+
+
+void arch_local_irq_enable(void)
+{
+	leon_irq_enable();
+}
+EXPORT_SYMBOL(arch_local_irq_enable);
+
+
+unsigned long arch_local_irq_save(void)
+{
+	return leon_irq_save();
+}
+EXPORT_SYMBOL(arch_local_irq_save);
+
+
+void arch_local_irq_restore(unsigned long flags)
+{
+	leon_irq_restore(flags);
+}
+EXPORT_SYMBOL(arch_local_irq_restore);
+
 
 
 /**

@@ -201,6 +201,64 @@ static inline void leon_reg_win_flush(void)
 	__asm__ __volatile__("ta 3");
 }
 
+__attribute__((unused))
+static inline unsigned int get_wim(void)
+{
+	unsigned int wim;
+	__asm__ __volatile__(
+		"rd	%%wim, %0\n\t"
+		"nop\n\t"
+		"nop\n\t"
+		"nop\n\t"
+	: "=r" (wim)
+	: /* no inputs */
+	: "memory");
+
+	return wim;
+}
+
+__attribute__((unused))
+static inline void put_wim(unsigned int new_wim)
+{
+	__asm__ __volatile__(
+		"wr	%0, 0x0, %%wim\n\t"
+		"nop\n\t"
+		"nop\n\t"
+		"nop\n\t"
+	: /* no outputs */
+	: "r" (new_wim)
+	: "memory", "cc");
+}
+
+__attribute__((unused))
+static inline unsigned int get_psr(void)
+{
+	unsigned int psr;
+	__asm__ __volatile__(
+		"rd	%%psr, %0\n\t"
+		"nop\n\t"
+		"nop\n\t"
+		"nop\n\t"
+	: "=r" (psr)
+	: /* no inputs */
+	: "memory");
+
+	return psr;
+}
+
+__attribute__((unused))
+static inline void put_psr(unsigned int new_psr)
+{
+	__asm__ __volatile__(
+		"wr	%0, 0x0, %%psr\n\t"
+		"nop\n\t"
+		"nop\n\t"
+		"nop\n\t"
+	: /* no outputs */
+	: "r" (new_psr)
+	: "memory", "cc");
+}
+
 
 
 

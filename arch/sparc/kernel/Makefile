@@ -10,6 +10,8 @@ obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += flush_windows.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += etrap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += rtrap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += irqtrap.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += thread.o
+
 
 obj-y += setup.o
 obj-y += init.o
@@ -25,6 +27,7 @@ obj-y += stack.o
 obj-y += traps/data_access_exception_trap.o
 obj-y += traps/data_access_exception.o
 obj-y += irq.o
+obj-y += time.o
 
 #libs-y                 += lib/
 

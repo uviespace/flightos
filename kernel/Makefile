@@ -7,3 +7,4 @@ obj-$(CONFIG_NOC_DMA) += noc_dma.o
 obj-y += irq.o
 obj-$(CONFIG_XENTIUM) += xentium.o
 obj-y += kthread.o
+obj-y += time.o

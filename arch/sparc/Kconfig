@@ -40,6 +40,13 @@ config PAGE_OFFSET
 	  addresses. This can not work unless the kernel is bootstrapped.
 	  If unsure, say N.
 
+config CPU_CLOCK_FREQ
+	int "Set the CPU clock frequency (Hz)"
+	default 80000000
+	help
+	  At least LEON CPUs lack a feature to detect the system clock
+	  frequency. If you set this incorrectly, your timing will be off.
+
 config EXTRA_SPARC_PHYS_BANKS
 	int "Number of extra physical memory banks"
 	default 0

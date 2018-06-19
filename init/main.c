@@ -43,7 +43,7 @@
 
 irqreturn_t dummy(unsigned int irq, void *userdata)
 {
-	//printk("IRQ!\n");
+	// printk("IRQ!\n");
 	//schedule();
 	return 0;
 }
@@ -88,25 +88,72 @@ extern struct task_struct *kernel;
 struct task_struct *tsk1;
 struct task_struct *tsk2;
 
-int thread1(void *data)
+int threadx(void *data)
 {
+
+	char c = (char) (* (char *)data);
+	int b = 0;
 
 	while(1) {
 		//printk(".");
-		putchar('.');
+		int i;
+		for (i = 0; i < (int) c; i++) {
+			putchar(c);
+			b++;
+		}
+		putchar('\n');
+
+		if (b > 3 * (int)c)
+			break;
+	//	schedule();
+		//twiddle();
+		//cpu_relax();
+	}
+	return 0;
+}
+
+int thread1(void *data)
+{
+	int b = 0;
+
+	while(1) {
+		//printk(".");
+		int i;
+		for (i = 0; i < 20; i++)
+			putchar('.');
+		putchar('\n');
+
+		if (b++ > 20)
+			break;
+
+		schedule();
 		//twiddle();
 		cpu_relax();
 	}
+	return 0;
 }
 
 int thread2(void *data)
 {
+	int b = 0;
 
-	while(1) {
-		//printk("o");
-		putchar('o');
-		cpu_relax();
+	while (1) {
+		int i;
+		for (i = 0; i < 20; i++) {
+			putchar('o');
+			b++;
+		}
+
+		putchar('\n');
+		if (b > 200)
+			break;
+		schedule();
+
 	}
+		//schedule();
+		//cpu_relax();
+		printk("Actually, I left...\n");
+		return 0xdeadbeef;
 }
 
 /**
@@ -203,24 +250,38 @@ int kernel_main(void)
 	irq_request(8,  ISR_PRIORITY_NOW, dummy, NULL);
 
 	mtu->scaler_reload = 5;
-
-	mtu->timer[0].reload = 800 / (mtu->scaler_reload + 1);
+	/* abs min: 270 / (5+1) (sched printing) */
+	/* abs min: 800 / (5+1) (threads printing) */
+	mtu->timer[0].reload = 2000 / (mtu->scaler_reload + 1);
 	mtu->timer[0].value = mtu->timer[0].reload;
 	mtu->timer[0].ctrl = LEON3_TIMER_LD | LEON3_TIMER_EN
 		| LEON3_TIMER_RL | LEON3_TIMER_IE;
 	}
 
 
+	kernel = kthread_init_main();
 
 	tsk1 = kthread_create(thread1, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread1");
 	tsk2 = kthread_create(thread2, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread2");
 	//kthread_wake_up(tsk2);
 	//	kthread_wake_up(tsk2);
+	//
+	{
+	static char zzz[] = {':', '/', '\\', '~', '|'};
+	int i;
 
-	kernel = kthread_init_main();
+	for (i = 0; i < ARRAY_SIZE(zzz); i++) 
+		kthread_create(threadx, &zzz[i], KTHREAD_CPU_AFFINITY_NONE, "Thread2");
+	}
+
 	while(1) {
 		//printk("-");
-		putchar('-');
+#if 0
+		int i;
+		for (i = 0; i < 20; i++)
+			putchar('-');
+		putchar('\n');
+#endif
 		cpu_relax();
 	}
 	/* never reached */

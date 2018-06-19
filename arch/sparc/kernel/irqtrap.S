@@ -13,6 +13,27 @@
 #define t_irqlvl     l7 /* set by trap entry */
 
 
+/* at this time with nested IRQs, it takes trap + jump + save_all up to call:
+ * 4 + 3 + 43(+33 worst case) + 7 = 57 (90 worst) cycles
+ * the call is pc-relative, hence 2 cycles total
+ * considering only the primary IRL and no statistics, leon_irq_dispatch will
+ * take 24 cycles to enter the assigned ISR, i.e. 83 (116) cycles until the
+ * IRQ can be serviced.
+ *
+ * only considering the time it takes to return from the ISR and assuming only
+ * a single ISR is assigned to the IRL, leon_irq_dispatch will return
+ * after 12 cycles and arrive at the call to schedule after a total of 13 cycles
+ *
+ * Assuming there is no scheduling event and not considering the internals of
+ * the function, the overhead for call to and return from schedule() will take
+ * a total of 4 cycles
+ *
+ * the psr is updated in 1 cycle, the call to restore_all will take
+ * 39 (61 worst case) cycles
+ *
+ * The total time to service an IRQ is hence 150 cycles (195 worst case),
+ * not considering an actual scheduling event or the run time of the ISR
+ */
 
 
 	.align	4
@@ -51,7 +72,7 @@ __interrupt_entry:
 #else /* CONFIG_SPARC_NESTED_IRQ */
 	 or %t_psr, PSR_PIL, %t_tmp
 
-#ifndef CONFIG_TASK_PREEMPTION_DISABLE
+#ifndef CONFIG_DISABLE_TASK_PREEMPTION
 	call schedule
 	 nop
 #endif

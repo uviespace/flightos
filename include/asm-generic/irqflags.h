@@ -1,5 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /**
- * @file    include/asm-generic/thread.h
+ * @file    include/asm-generic/irqflags.h
  *
  * @copyright GPLv2
  *
@@ -11,19 +12,14 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
- *
  */
 
-#ifndef _ASM_GENERIC_THREAD_H_
-#define _ASM_GENERIC_THREAD_H_
+#ifndef _ASM_GENERIC_IRQFLAGS_H_
+#define _ASM_GENERIC_IRQFLAGS_H_
 
-#include <asm/thread.h>
 
-void arch_init_task(struct task_struct *task,
-		    int (*thread_fn)(void *data),
-		    void *data);
+void arch_local_irq_enable(void);
+unsigned long arch_local_irq_save(void);
+void arch_local_irq_restore(unsigned long flags);
 
-void arch_promote_to_task(struct task_struct *task);
-
-#endif /* _ASM_GENERIC_THREAD_H_ */
-
+#endif /* _ASM_GENERIC_IRQFLAGS_H_ */

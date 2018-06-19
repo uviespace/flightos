@@ -7,256 +7,137 @@
 #include <kernel/export.h>
 #include <kernel/kmem.h>
 #include <kernel/err.h>
+#include <kernel/printk.h>
+
+#include <asm/spinlock.h>
+#include <asm/switch_to.h>
+#include <asm/irqflags.h>
+
+#include <string.h>
 
 
-static inline unsigned int get_psr(void)
-{
-	unsigned int psr;
-	__asm__ __volatile__(
-		"rd	%%psr, %0\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"nop\n\t"
-	: "=r" (psr)
-	: /* no inputs */
-	: "memory");
-
-	return psr;
-}
-
-static inline void put_psr(unsigned int new_psr)
-{
-	__asm__ __volatile__(
-		"wr	%0, 0x0, %%psr\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"nop\n\t"
-	: /* no outputs */
-	: "r" (new_psr)
-	: "memory", "cc");
-}
+#define MSG "KTHREAD: "
 
 
+static struct {
+	struct list_head new;
+	struct list_head run;
+	struct list_head dead;
+} _kthreads = {
+	.new  = LIST_HEAD_INIT(_kthreads.new),
+	.run  = LIST_HEAD_INIT(_kthreads.run),
+	.dead = LIST_HEAD_INIT(_kthreads.dead)
+};
 
+static struct spinlock kthread_spinlock;
+
+
+/** XXX dummy **/
 struct task_struct *kernel;
 
 
-struct {
-	struct task_struct *current;
-	struct task_struct *second;
-	struct task_struct *third;
-} tasks;
+struct thread_info *current_set[1];
 
 
-struct thread_info *current_set[1]; // = {kernel->thread_info};
+/**
+ * @brief lock critical kthread section
+ */
+
+static inline void kthread_lock(void)
+{
+	spin_lock(&kthread_spinlock);
+}
 
 
-#define prepare_arch_switch(next) do { \
-	__asm__ __volatile__( \
-	"save %sp, -0x40, %sp; save %sp, -0x40, %sp; save %sp, -0x40, %sp\n\t" \
-	"save %sp, -0x40, %sp; save %sp, -0x40, %sp; save %sp, -0x40, %sp\n\t" \
-	"save %sp, -0x40, %sp\n\t" \
-	"restore; restore; restore; restore; restore; restore; restore"); \
-} while(0)
+/**
+ * @brief unlock critical kthread section
+ */
+
+static inline void kthread_unlock(void)
+{
+	spin_unlock(&kthread_spinlock);
+}
+
+
+/* this should be a thread with a semaphore
+ * that is unlocked by schedule() if dead tasks
+ * were added
+ * (need to irq_disable/kthread_lock)
+ */
+
+void kthread_cleanup_dead(void)
+{
+	struct task_struct *p_elem;
+	struct task_struct *p_tmp;
+
+	list_for_each_entry_safe(p_elem, p_tmp, &_kthreads.dead, node) {
+		list_del(&p_elem->node);
+		kfree(p_elem->stack);
+		kfree(p_elem);
+	}
+}
+
 
 
 
 void schedule(void)
 {
-	struct task_struct *tmp;
-
-	if (tasks.current && tasks.second && tasks.third)
-		(void) 0;
-	else
-		return;
+	struct task_struct *next;
 
 
-	tmp = tasks.current;
-	if (tasks.second) {
-		tasks.current = tasks.second;
-		if (tasks.third) {
-			tasks.second = tasks.third;
-			tasks.third = tmp;
-		} else {
-			tasks.second = tmp;
+	if (list_empty(&_kthreads.run))
+	    return;
+
+
+
+
+	arch_local_irq_disable();
+
+	kthread_lock();
+	kthread_cleanup_dead();
+
+
+
+	/* round robin */
+	do {
+		next = list_entry(_kthreads.run.next, struct task_struct, node);
+		if (!next)
+			BUG();
+
+		if (next->state == TASK_RUNNING) {
+			list_move_tail(&next->node, &_kthreads.run);
+			break;
 		}
-	} else {
-		return;
-	}
 
-//	printk("new task: %p\n", tasks.current);
+		list_move_tail(&next->node, &_kthreads.dead);
+
+	} while (!list_empty(&_kthreads.run));
+
+	kthread_unlock();
+
+
 
 
 	prepare_arch_switch(1);
-#if 0
-	__asm__ __volatile__("/*#define curptr    g6*/"
-			   "sethi	%%hi(here - 0x8), %%o7\n\t"	/* save the program counter just at the jump below as calĺed return address*/
-			    "or	%%o7, %%lo(here - 0x8), %%o7\n\t"       /* so the old thread will hop over this section when it returns */
-			   "rd	%%psr, %%g4\n\t"
-			   "std %%sp, [%%g6 + %2]\n\t" //store %sp and skip %pc to current thread's KSP
-			   "rd	%%wim, %%g5\n\t"	// read wim
-			   "wr	%%g4, 0x00000020, %%psr\n\t" // toggle ET bit (should be off at this point!
-			   "nop\n\t"
-			   "nop\n\t"
-			   "nop\n\t"
-			   //? pause
-			   "std	%%g4, [%%g6 + %4]\n\t"	// store %psr to KPSR and %wim to KWIM
+	switch_to(next);
 
-			   "ldd	[%1 + %4], %%g4\n\t"	// load KPSR + KWIM into %g4, %g5 from new thread
-			   "mov	%1, %%g6\n\t"		// and set the new thread as current
-			   "st	%1, [%0]\n\t"		// and to current_set[]
-			   "wr	%%g4, 0x20, %%psr\n\t"	// set new PSR and toggle ET (should be off)
-			   "nop; nop; nop\n\t"		// wait for bits to settle, so we are in the proper window
-			   "ldd	[%%g6 + %2], %%sp\n\t"	// and and load KSP to %sp (%o6) and KPC to %o7 (all of these MUST be aligned to dbl)
-			   "wr	%%g5, 0x0, %%wim\n\t"	//set the new KWIM (from double load above)
-
-			   "ldd	[%%sp + 0x00], %%l0\n\t" //load  %l0 (%t_psr and %pc
-			   "ldd	[%%sp + 0x38], %%i6\n\t"	// load %fp and %i7 (return address)
-			   "wr	%%g4, 0x0, %%psr\n\t"		// set the original PSR (without traps)
-			   "jmpl %%o7 + 0x8, %%g0\n\t"		// as the thread is switched in, it will jump to the "here" marker and continue
-				"nop\n"
-			   "here:\n"
-			   :
-			   : "r" (&(current_set[0])),
-			     "r" (&(tasks.next->thread_info)),
-				"i" (TI_KSP),
-				"i" (TI_KPC),
-				"i" (TI_KPSR)
-					:       "g1", "g2", "g3", "g4", "g5",       "g7",
-				"l0", "l1",       "l3", "l4", "l5", "l6", "l7",
-				"i0", "i1", "i2", "i3", "i4", "i5",
-				"o0", "o1", "o2", "o3",                   "o7");
-#else
-	__asm__ __volatile__("/*#define curptr    g6*/"
-			   "sethi	%%hi(here - 0x8), %%o7\n\t"	/* save the program counter just at the jump below as calĺed return address*/
-			    "or	%%o7, %%lo(here - 0x8), %%o7\n\t"       /* so the old thread will hop over this section when it returns */
-			   "rd	%%psr, %%g4\n\t"
-			   "std %%sp, [%%g6 + %2]\n\t" //store %sp and skip %pc to current thread's KSP
-			   "rd	%%wim, %%g5\n\t"	// read wim
-			   "wr	%%g4, 0x00000020, %%psr\n\t" // toggle ET bit (should be off at this point!
-			   "nop\n\t"
-			   "nop\n\t"
-			   "nop\n\t"
-			   "std	%%g4, [%%g6 + %4]\n\t"	// store %psr to KPSR and %wim to KWIM
-			   "ldd	[%1 + %4], %%g4\n\t"	// load KPSR + KWIM into %g4, %g5 from new thread
-			   "mov	%1, %%g6\n\t"		// and set the new thread as current
-			   "st	%1, [%0]\n\t"		// and to current_set[]
-			   "wr	%%g4, 0x20, %%psr\n\t"	// set new PSR and toggle ET (should be off)
-			   "nop; nop; nop\n\t"		// wait for bits to settle, so we are in the proper window
-			   "ldd	[%%g6 + %2], %%sp\n\t"	// and and load KSP to %sp (%o6) and KPC to %o7 (all of these MUST be aligned to dbl)
-			   "wr	%%g5, 0x0, %%wim\n\t"	//set the new KWIM (from double load above)
-
-			   "ldd	[%%sp + 0x00], %%l0\n\t" //load  %l0 (%t_psr and %pc
-			   "ldd	[%%sp + 0x38], %%i6\n\t"	// load %fp and %i7 (return address)
-			   "wr	%%g4, 0x0, %%psr\n\t"		// set the original PSR (without traps)
-			   "jmpl %%o7 + 0x8, %%g0\n\t"		// as the thread is switched in, it will jump to the "here" marker and continue
-				"nop\n"
-			   "here:\n"
-			   :
-			   : "r" (&(current_set[0])),
-			     "r" (&(tasks.current->thread_info)),
-				"i" (TI_KSP),
-				"i" (TI_KPC),
-				"i" (TI_KPSR)
-					:       "g1", "g2", "g3", "g4", "g5",       "g7",
-				"l0", "l1",       "l3", "l4", "l5", "l6", "l7",
-				"i0", "i1", "i2", "i3", "i4", "i5",
-				"o0", "o1", "o2", "o3",                   "o7");
-#endif
-
-
+	arch_local_irq_enable();
 }
 
 
-#define curptr g6
-
-/* this is executed from an interrupt exit  */
-void __attribute__((always_inline)) switch_to(struct task_struct *next)
-{
-	//struct task_struct *task;
-	//struct thread_info *ti;
-
-	printk("Switch!\n");
-	prepare_arch_switch(1);
-
-
-
-
-	/* NOTE: we don't actually require the PSR_ET toggle, but if we have
-	 * unaligned accesses (or access traps), it is a really good idea, or we'll die */
-	/* NOTE: this assumes we have a mixed kernel/user mapping in the MMU (if
-	 * we are using it), otherwise we might would not be able to load the
-	 * thread's data. Oh, and we'll have to do a switch user->kernel->new
-	 * user OR we'll run into the same issue with different user contexts */
-
-	/* first, store the current thread */
-#if 0
-	__asm__ __volatile__("/*#define curptr    g6*/"
-			   "sethi	%%hi(here - 0x8), %%o7\n\t"	/* save the program counter just at the jump below as calĺed return address*/
-			    "or	%%o7, %%lo(here - 0x8), %%o7\n\t"       /* so the old thread will hop over this section when it returns */
-			   "rd	%%psr, %%g4\n\t"
-			   "std %%sp, [%%g6 + %2]\n\t" //store %sp and skip %pc to current thread's KSP
-			   "rd	%%wim, %%g5\n\t"	// read wim
-			   "wr	%%g4, 0x00000020, %%psr\n\t" // toggle ET bit (should be off at this point!
-			   "nop\n\t"
-			   //? pause
-			   "std	%%g4, [%%g6 + %4]\n\t"	// store %psr to KPSR and %wim to KWIM
-
-			   "ldd	[%1 + %4], %%g4\n\t"	// load KPSR + KWIM into %g4, %g5 from new thread
-			   "mov	%1, %%g6\n\t"		// and set the new thread as current
-			   "st	%1, [%0]\n\t"		// and to current_set[]
-			   "wr	%%g4, 0x20, %%psr\n\t"	// set new PSR and toggle ET (should be off)
-			   "nop; nop; nop\n\t"		// wait for bits to settle, so we are in the proper window
-			   "ldd	[%%g6 + %2], %%sp\n\t"	// and and load KSP to %sp (%o6) and KPC to %o7 (all of these MUST be aligned to dbl)
-			   "wr	%%g5, 0x0, %%wim\n\t"	//set the new KWIM (from double load above)
-
-			   "ldd	[%%sp + 0x00], %%l0\n\t" //load  %l0 (%t_psr and %pc
-			   "ldd	[%%sp + 0x38], %%i6\n\t"	// load %fp and %i7 (return address)
-			   "wr	%%g4, 0x0, %%psr\n\t"		// set the original PSR (without traps)
-			   "jmpl %%o7 + 0x8, %%g0\n\t"		// as the thread is switched in, it will jump to the "here" marker and continue
-				"nop\n"
-			   "here:\n"
-			   :
-			   : "r" (&(current_set[0])),
-			     "r" (&(next->thread_info)),
-				"i" (TI_KSP),
-				"i" (TI_KPC),
-				"i" (TI_KPSR)
-					:       "g1", "g2", "g3", "g4", "g5",       "g7",
-				"l0", "l1",       "l3", "l4", "l5", "l6", "l7",
-				"i0", "i1", "i2", "i3", "i4", "i5",
-				"o0", "o1", "o2", "o3",                   "o7");
-
-#endif
-
-}
-
-#if 0
-
-       __asm__ __volatile__(
-                       "mov %0, %%fp      \n\t"
-                       "sub %%fp, 96, %%sp\n\t"
-                       :
-                       : "r" (task->stack)
-                       : "memory");
-
-       thread_fn(data);
-#endif
-
-#include <asm/leon.h>
 
 void kthread_wake_up(struct task_struct *task)
 {
-	printk("running thread function\n");
-
-	task->thread_fn(task->data);
+	printk("wake thread %p\n", task->stack_top);
+	arch_local_irq_disable();
+	kthread_lock();
+	task->state = TASK_RUNNING;
+	list_move_tail(&task->node, &_kthreads.run);
+	kthread_unlock();
+	arch_local_irq_enable();
 }
 
-__attribute__((unused))
-static void kthread_exit(void)
-{
-	printk("thread leaving\n");
-}
+
 
 struct task_struct *kthread_init_main(void)
 {
@@ -267,31 +148,27 @@ struct task_struct *kthread_init_main(void)
 	if (!task)
 		return ERR_PTR(-ENOMEM);
 
+
+	arch_promote_to_task(task);
+
+	arch_local_irq_disable();
+	kthread_lock();
+
+	kernel = task;
 	/*** XXX dummy **/
 	current_set[0] = &kernel->thread_info;
 
-
-#define PSR_CWP     0x0000001f
-
-	task->thread_info.ksp = (unsigned long) leon_get_fp();
-	task->thread_info.kpc = (unsigned long) __builtin_return_address(1) - 8;
-	task->thread_info.kpsr = get_psr();
-	task->thread_info.kwim = 1 << (((get_psr() & PSR_CWP) + 1) % 8);
-	task->thread_info.task = task;
-
-	task->thread_fn = NULL;
-	task->data      = NULL;
+	task->state = TASK_RUNNING;
+	list_add_tail(&task->node, &_kthreads.run);
 
 
-		printk("kernel stack %x\n", leon_get_fp());
-	/* dummy */
-	tasks.current = task;
 
-	__asm__ __volatile__("mov	%0, %%g6\n\t"
-			     :: "r"(&(tasks.current->thread_info)) : "memory");		// and set the new thread as current
+	kthread_unlock();
+	arch_local_irq_enable();
 
 	return task;
 }
+
 
 
 
@@ -302,8 +179,8 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 {
 	struct task_struct *task;
 
-
 	task = kmalloc(sizeof(*task));
+
 
 	if (!task)
 		return ERR_PTR(-ENOMEM);
@@ -311,7 +188,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 	/* XXX: need stack size detection and realloc/migration code */
 
-	task->stack = kmalloc(8192) + 8192; /* XXX */
+	task->stack = kmalloc(8192); /* XXX */
 
 	if (!task->stack) {
 		kfree(task);
@@ -319,77 +196,28 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	}
 
 
-#define STACKFRAME_SZ	96
-#define PTREG_SZ	80
-#define PSR_CWP     0x0000001f
-	task->thread_info.ksp = (unsigned long) task->stack - (STACKFRAME_SZ + PTREG_SZ);
-	task->thread_info.kpc = (unsigned long) thread_fn - 8;
-	task->thread_info.kpsr = get_psr();
-	task->thread_info.kwim = 1 << (((get_psr() & PSR_CWP) + 1) % 8);
-	task->thread_info.task = task;
+	task->stack_bottom = task->stack; /* XXX */
+	task->stack_top = task->stack + 8192/4; /* XXX need align */
 
-	task->thread_fn = thread_fn;
-	task->data      = data;
+	memset(task->stack, 0xdeadbeef, 8192);
 
+	arch_init_task(task, thread_fn, data);
 
-		printk("%s is next at %p stack %p\n", namefmt, &task->thread_info, task->stack);
-		if (!tasks.second)
-			tasks.second = task;
-		else
-			tasks.third = task;
+	task->state = TASK_NEW;
 
-	/* wake up */
+	arch_local_irq_disable();
+	kthread_lock();
+
+	list_add_tail(&task->node, &_kthreads.new);
+
+	kthread_unlock();
+	arch_local_irq_enable();
 
 
+	//printk("%s is next at %p stack %p\n", namefmt, &task->thread_info, task->stack);
+	printk("%s\n", namefmt);
 
-#if 0
-	struct kthread_create_info *create = kmalloc(sizeof(*create),
-						     GFP_KERNEL);
 
-	if (!create)
-		return ERR_PTR(-ENOMEM);
-	create->threadfn = threadfn;
-	create->data = data;
-	create->node = node;
-	create->done = &done;
-	spin_lock(&kthread_create_lock);
-	list_add_tail(&create->list, &kthread_create_list);
-	spin_unlock(&kthread_create_lock);
-
-	wake_up_process(kthreadd_task);
-	/*
-	 * Wait for completion in killable state, for I might be chosen by
-	 * the OOM killer while kthreadd is trying to allocate memory for
-	 * new kernel thread.
-	 */
-	if (unlikely(wait_for_completion_killable(&done))) {
-		/*
-		 * If I was SIGKILLed before kthreadd (or new kernel thread)
-		 * calls complete(), leave the cleanup of this structure to
-		 * that thread.
-		 */
-		if (xchg(&create->done, NULL))
-			return ERR_PTR(-EINTR);
-		/*
-		 * kthreadd (or new kernel thread) will call complete()
-		 * shortly.
-		 */
-		wait_for_completion(&done);
-	}
-	task = create->result;
-	if (!IS_ERR(task)) {
-		static const struct sched_param param = { .sched_priority = 0 };
-
-		vsnprintf(task->comm, sizeof(task->comm), namefmt, args);
-		/*
-		 * root may have changed our (kthreadd's) priority or CPU mask.
-		 * The kernel thread should not inherit these properties.
-		 */
-		sched_setscheduler_nocheck(task, SCHED_NORMAL, &param);
-		set_cpus_allowed_ptr(task, cpu_all_mask);
-	}
-	kfree(create);
-#endif
 	return task;
 }
 
@@ -538,16 +366,10 @@ out:
  * changing the task state if and only if any tasks are woken up.
  */
 /* Used in tsk->state: */
-#define TASK_RUNNING			0x0000
-#define TASK_INTERRUPTIBLE		0x0001
-#define TASK_UNINTERRUPTIBLE		0x0002
-#define __TASK_STOPPED			0x0004
-#define __TASK_TRACED			0x0008
 
-#define TASK_NORMAL			(TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE)
 int wake_up_thread(struct task_struct *p)
 {
-	return wake_up_thread_internal(p, TASK_NORMAL, 0);
+	return wake_up_thread_internal(p, 0xdead, 0);
 }
 EXPORT_SYMBOL(wake_up_thread);
 

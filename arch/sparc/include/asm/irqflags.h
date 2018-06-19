@@ -1,5 +1,5 @@
 /**
- * @file    include/asm-generic/thread.h
+ * @file    sparc/include/asm/irqflags.h
  *
  * @copyright GPLv2
  *
@@ -14,16 +14,18 @@
  *
  */
 
-#ifndef _ASM_GENERIC_THREAD_H_
-#define _ASM_GENERIC_THREAD_H_
+#ifndef _ARCH_SPARC_ASM_IRQFLAGS_H_
+#define _ARCH_SPARC_ASM_IRQFLAGS_H_
 
-#include <asm/thread.h>
+void arch_local_irq_enable(void);
+unsigned long arch_local_irq_save(void);
+void arch_local_irq_restore(unsigned long flags);
 
-void arch_init_task(struct task_struct *task,
-		    int (*thread_fn)(void *data),
-		    void *data);
 
-void arch_promote_to_task(struct task_struct *task);
+static inline void arch_local_irq_disable(void)
+{
+	arch_local_irq_save();
+}
 
-#endif /* _ASM_GENERIC_THREAD_H_ */
 
+#endif /* _ARCH_SPARC_ASM_IRQFLAGS_H_ */
