@@ -92,12 +92,12 @@ static int putchar(int c)
 static void _sprintc(int c, char **str, const char *end)
 {
 	if (end) {
-		if ((*str) > end)
+		if ((char *) str > end)
 			return;
 	}
 
 	if (str) {
-		(**str) = c;
+		(**str) = (char) c;
 		(*str)++;
 	} else {
 		putchar(c);
@@ -122,12 +122,12 @@ static void _sprintc(int c, char **str, const char *end)
  *	 the initial boot process
  */
 
-static size_t _printn(char *str, const char *buf, size_t n)
+static size_t _printn(char **str, const char *buf, size_t n)
 {
 	size_t i;
 
 	if (str) {
-		memcpy(str, buf, n);
+		memcpy((*str), buf, n);
 	} else {
 		for (i = 0; i < n; i++)
 			putchar(buf[i]);
@@ -440,7 +440,7 @@ static void config_specifier(const char *fmt, struct fmt_spec *spec)
  * @return the number of bytes written
  */
 
-static size_t render_final(char *str, const char *end, bool sign,
+static size_t render_final(char **str, const char *end, bool sign,
 			   char *buf, size_t n, struct fmt_spec *spec)
 {
 	size_t i;
@@ -537,7 +537,7 @@ static size_t render_final(char *str, const char *end, bool sign,
  * @return the number of bytes written
  */
 
-static size_t render_xlong_to_ascii(bool usign, long value, char *str,
+static size_t render_xlong_to_ascii(bool usign, long value, char **str,
 				    const char *end, struct fmt_spec *spec)
 {
 	size_t n = 0;
@@ -589,7 +589,7 @@ static size_t render_xlong_to_ascii(bool usign, long value, char *str,
  * @return the number of bytes written
  */
 
-static size_t render_xsigned_integer(bool usign, char *str, const char *end,
+static size_t render_xsigned_integer(bool usign, char **str, const char *end,
 				     struct fmt_spec *spec, va_list *args)
 {
 	int  i;
@@ -631,7 +631,7 @@ static size_t render_xsigned_integer(bool usign, char *str, const char *end,
  * @return the number of bytes written
  */
 
-static size_t render_pointer(char *str, const char *end,
+static size_t render_pointer(char **str, const char *end,
 			     struct fmt_spec *spec, va_list *args)
 {
 	long l;
@@ -654,7 +654,7 @@ static size_t render_pointer(char *str, const char *end,
  * @return the number of bytes written
  */
 
-static size_t render_integer(char *str, const char *end, const char *fmt,
+static size_t render_integer(char **str, const char *end, const char *fmt,
 			     struct fmt_spec *spec, va_list *args)
 {
 	unsigned int n = 0;
@@ -947,7 +947,7 @@ static void separate_and_round(double value, unsigned long *characteristic,
  * @return the number of bytes written
  */
 
-static size_t render_float(char *str, const char *end, bool pr_exp,
+static size_t render_float(char **str, const char *end, bool pr_exp,
 			   struct fmt_spec *spec, va_list *args)
 {
 	size_t n = 0;
@@ -1022,7 +1022,7 @@ static size_t render_float(char *str, const char *end, bool pr_exp,
  * @return the number of bytes written
  */
 
-static size_t render_char(char *str, const char *end, struct fmt_spec *spec,
+static size_t render_char(char **str, const char *end, struct fmt_spec *spec,
 			  va_list *args)
 {
 	size_t n = 1;
@@ -1056,7 +1056,7 @@ static size_t render_char(char *str, const char *end, struct fmt_spec *spec,
  * @return the number of bytes written
  */
 
-static size_t render_string(char *str, const char *end, struct fmt_spec *spec,
+static size_t render_string(char **str, const char *end, struct fmt_spec *spec,
 			  va_list *args)
 {
 	size_t len;
@@ -1103,7 +1103,7 @@ static size_t render_string(char *str, const char *end, struct fmt_spec *spec,
  * @return the number of bytes rendered
  */
 
-static size_t render_specifier(char *str, const char *end, const char *fmt,
+static size_t render_specifier(char **str, const char *end, const char *fmt,
 			       struct fmt_spec *spec, va_list *args)
 {
 	config_specifier(fmt, spec);
@@ -1206,9 +1206,9 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 			buf += _printn(NULL, tmp, format - tmp);
 		} else {
 			if ((format - tmp) < (end - buf))
-				buf += _printn(buf, tmp, format - tmp);
+				buf += _printn(&buf, tmp, format - tmp);
 			else
-				buf += _printn(buf, tmp, end - buf);
+				buf += _printn(&buf, tmp, end - buf);
 
 			if (buf >= end)
 				break;	/* out of buffer to write */
@@ -1226,7 +1226,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		if (!str) /* to stdout? */
 			buf += render_specifier(NULL, NULL, format, &spec, &ap);
 		else
-			buf += render_specifier(buf, end, format, &spec, &ap);
+			buf += render_specifier(&buf, end, format, &spec, &ap);
 
 		format++; /* the type is always a single char */
 	}
