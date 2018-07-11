@@ -22,6 +22,7 @@
 
 
 #define offset_of(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define member_size(TYPE, MEMBER) (sizeof(((TYPE *)0)->MEMBER))
 
 /* linux/kernel.h */
 #define container_of(ptr, type, member) ({                      \
