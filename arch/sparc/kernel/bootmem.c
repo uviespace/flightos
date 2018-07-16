@@ -28,6 +28,7 @@
 
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
+#include <asm/irqflags.h>
 
 #include <chunk.h>
 
@@ -101,7 +102,9 @@ void *bootmem_alloc(size_t size)
 	if (!size)
 		return NULL;
 
+	arch_local_irq_disable();
 	ptr = chunk_alloc(&phys_mem_pool, size);
+	arch_local_irq_enable();
 
 	if (!ptr) {
 		pr_emerg("BOOTMEM: allocator out of memory\n");
@@ -120,7 +123,9 @@ void *bootmem_alloc(size_t size)
 
 void bootmem_free(void *ptr)
 {
+	arch_local_irq_disable();
 	chunk_free(&phys_mem_pool, ptr);
+	arch_local_irq_enable();
 }
 
 
