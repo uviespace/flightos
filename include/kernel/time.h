@@ -1,5 +1,5 @@
 /**
- * @file    include/kernel/time.h
+ * @file    include/kernel/ktime.h
  * @author  Armin Luntzer (armin.luntzer@univie.ac.at)
  *
  * @ingroup time
@@ -17,8 +17,8 @@
  *
  */
 
-#ifndef _KERNEL_TIME_H_
-#define _KERNEL_TIME_H_
+#ifndef _KERNEL_KTIME_H_
+#define _KERNEL_KTIME_H_
 
 #include <kernel/types.h>
 #include <kernel/kernel.h>
@@ -43,11 +43,20 @@ compile_time_assert((member_size(struct timespec, tv_nsec) == sizeof(uint32_t)),
 
 struct timekeeper {
 	struct clocksource *clock;
+	uint32_t readout_ns;	/* readout time overhead in ns */
 };
 
 
 
-void time_get_uptime(struct timespec *ts);
+struct timespec get_uptime(void);
+struct timespec get_ktime(void);
+
+uint32_t ktime_get_readout_overhead(void);
+
+
+double difftime(const struct timespec time1, const struct timespec time0);
+double difftime_ns(const struct timespec time1, const struct timespec time0);
+
 void time_init(struct clocksource *clock);
 
-#endif /* _KERNEL_TIME_H_ */
+#endif /* _KERNEL_KTIME_H_ */

@@ -18,12 +18,18 @@
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
 #include <kernel/kthread.h>
+#include <kernel/time.h>
 #include <modules-image.h>
+
+#include <kernel/string.h>
+#include <kernel/kmem.h>
 
 #include <asm/processor.h>
 
 /* for our demo */
 #include "xentium_demo.h"
+/* arch irq disable/enable */
+#include <asm/irqflags.h>
 
 
 #define MSG "MAIN: "
@@ -67,7 +73,11 @@ static void twiddle(void)
 
 #define TREADY 4
 
+#if 1
+static volatile int *console = (int *)0x80100100;
+#else
 static volatile int *console = (int *)0x80000100;
+#endif
 
 static int putchar(int c)
 {
@@ -85,8 +95,6 @@ static int putchar(int c)
 
 
 extern struct task_struct *kernel;
-struct task_struct *tsk1;
-struct task_struct *tsk2;
 
 int threadx(void *data)
 {
@@ -102,58 +110,15 @@ int threadx(void *data)
 			b++;
 		}
 		putchar('\n');
-
-		if (b > 3 * (int)c)
+#if 1
+		if (b > (int) c * (int)c)
 			break;
+#endif
 	//	schedule();
 		//twiddle();
 		//cpu_relax();
 	}
 	return 0;
-}
-
-int thread1(void *data)
-{
-	int b = 0;
-
-	while(1) {
-		//printk(".");
-		int i;
-		for (i = 0; i < 20; i++)
-			putchar('.');
-		putchar('\n');
-
-		if (b++ > 20)
-			break;
-
-		schedule();
-		//twiddle();
-		cpu_relax();
-	}
-	return 0;
-}
-
-int thread2(void *data)
-{
-	int b = 0;
-
-	while (1) {
-		int i;
-		for (i = 0; i < 20; i++) {
-			putchar('o');
-			b++;
-		}
-
-		putchar('\n');
-		if (b > 200)
-			break;
-		schedule();
-
-	}
-		//schedule();
-		//cpu_relax();
-		printk("Actually, I left...\n");
-		return 0xdeadbeef;
 }
 
 /**
@@ -176,13 +141,32 @@ static int kernel_init(void)
 arch_initcall(kernel_init);
 
 
+#include <kernel/clockevent.h>
+void clk_event_handler(struct clock_event_device *ce)
+{
+
+	struct timespec expires;
+	struct timespec now;
+
+//	printk("DIIIING-DOOONG\n");
+	get_ktime(&now);
+
+	expires = now;
+
+	expires.tv_sec += 1;
+
+	clockevents_program_event(&clk_event_handler, expires, now, CLOCK_EVT_MODE_ONESHOT);
+}
+
 
 /**
  * @brief kernel main function
  */
-
+#define MAX_TASKS 800
 int kernel_main(void)
 {
+	struct task_struct *tasks[MAX_TASKS];
+	int tcnt = 0;
 #if 0
 	void *addr;
 	struct elf_module m;
@@ -236,54 +220,81 @@ int kernel_main(void)
 	printk(MSG "Boot complete, spinning idly.\n");
 
 
-#define GR712_IRL1_GPTIMER_2    10
 
-#define LEON3_TIMER_EN 0x00000001       /* enable counting */
-#define LEON3_TIMER_RL 0x00000002       /* reload at 0     */
-#define LEON3_TIMER_LD 0x00000004       /* load counter    */
-#define LEON3_TIMER_IE 0x00000008       /* irq enable      */
 	{
-	struct gptimer_unit *mtu = (struct gptimer_unit *) 0x80000300;
+	struct timespec expires;
+	struct timespec now;
+	get_ktime(&now);
 
-	printk("%s() entered\n", __func__);
+	expires = now;
+	expires.tv_nsec += 18000;
 
-	irq_request(8,  ISR_PRIORITY_NOW, dummy, NULL);
+	BUG_ON(clockevents_program_event(NULL, expires, now, CLOCK_EVT_MODE_PERIODIC));
 
-	mtu->scaler_reload = 5;
-	/* abs min: 270 / (5+1) (sched printing) */
-	/* abs min: 800 / (5+1) (threads printing) */
-	mtu->timer[0].reload = 2000 / (mtu->scaler_reload + 1);
-	mtu->timer[0].value = mtu->timer[0].reload;
-	mtu->timer[0].ctrl = LEON3_TIMER_LD | LEON3_TIMER_EN
-		| LEON3_TIMER_RL | LEON3_TIMER_IE;
 	}
 
 
 	kernel = kthread_init_main();
 
-	tsk1 = kthread_create(thread1, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread1");
-	tsk2 = kthread_create(thread2, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread2");
-	//kthread_wake_up(tsk2);
-	//	kthread_wake_up(tsk2);
-	//
+
+
+
 	{
 	static char zzz[] = {':', '/', '\\', '~', '|'};
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(zzz); i++) 
+	for (i = 0; i < ARRAY_SIZE(zzz); i++)
 		kthread_create(threadx, &zzz[i], KTHREAD_CPU_AFFINITY_NONE, "Thread2");
 	}
 
-	while(1) {
-		//printk("-");
-#if 0
+	{
+		static char zzz[] = {':', '/', '\\', '~', '|'};
+		static int z;
+		char *buf = NULL;
 		int i;
-		for (i = 0; i < 20; i++)
-			putchar('-');
-		putchar('\n');
-#endif
+		struct timespec ts;
+		get_uptime(&ts);
+		printk("creating tasks at %d s %d ns (%g)\n", ts.tv_sec, ts.tv_nsec, (double) ts.tv_sec + (double) ts.tv_nsec / 1e9);
+
+
+
+		for (i = 0; i < MAX_TASKS; i++) {
+		//	buf = kmalloc(30);
+		//	BUG_ON(!buf);
+
+		//	sprintf(buf, "Thread %d", z);
+			z++;
+
+			tasks[tcnt++] = kthread_create(threadx, &zzz[i], KTHREAD_CPU_AFFINITY_NONE, buf);
+		//	kfree(buf);
+		}
+
+	}
+
+
+	{
+		int i;
+
+		struct timespec ts;
+		get_uptime(&ts);
+		printk("total %d after %d s %d ns (%g)\n", tcnt, ts.tv_sec, ts.tv_nsec, (double) ts.tv_sec + (double) ts.tv_nsec / 1e9);
+		BUG_ON(tcnt > MAX_TASKS);
+
+		for (i = 0; i < tcnt; i++)
+			kthread_wake_up(tasks[i]);
+
+		arch_local_irq_disable();
+		get_uptime(&ts);
+		printk("all awake after %d s %d ns (%g)\n", ts.tv_sec, ts.tv_nsec, (double) ts.tv_sec + (double) ts.tv_nsec / 1e9);
+		arch_local_irq_enable();
+	}
+
+
+	while(1) {
+		twiddle();
 		cpu_relax();
 	}
+
 	/* never reached */
 	BUG();
 

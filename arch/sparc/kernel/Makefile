@@ -28,6 +28,6 @@ obj-y += traps/data_access_exception_trap.o
 obj-y += traps/data_access_exception.o
 obj-y += irq.o
 obj-y += time.o
+obj-y += clockevent.o
 
-#libs-y                 += lib/
 

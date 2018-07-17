@@ -13,6 +13,7 @@
 #include <mm.h>
 #include <asm/irq.h>
 #include <asm/time.h>
+#include <asm/clockevent.h>
 #include <compiler.h>
 
 #include <page.h>
@@ -104,4 +105,6 @@ void setup_arch(void)
 	leon_irq_init();
 
 	sparc_uptime_init();
+
+	sparc_clockevent_init();
 }

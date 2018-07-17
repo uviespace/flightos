@@ -8,3 +8,5 @@ obj-y += irq.o
 obj-$(CONFIG_XENTIUM) += xentium.o
 obj-y += kthread.o
 obj-y += time.o
+obj-y += clockevent.o
+obj-y += tick.o

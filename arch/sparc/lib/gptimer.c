@@ -333,6 +333,9 @@ uint32_t gptimer_get_reload(struct gptimer_unit *ptu, uint32_t timer)
 
 void gptimer_start(struct gptimer_unit *ptu, uint32_t timer, uint32_t value)
 {
+	gptimer_clear_enabled(ptu, timer);
+	gptimer_clear_restart(ptu, timer);
+
 	gptimer_set_value(ptu, timer, value);
 	gptimer_set_reload(ptu, timer, value);
 
@@ -352,9 +355,11 @@ void gptimer_start(struct gptimer_unit *ptu, uint32_t timer, uint32_t value)
 void gptimer_start_cyclical(struct gptimer_unit *ptu,
 			    uint32_t timer, uint32_t value)
 {
+	gptimer_clear_enabled(ptu, timer);
+	gptimer_clear_restart(ptu, timer);
+
 	gptimer_set_value(ptu, timer, value);
 	gptimer_set_reload(ptu, timer, value);
-
 
 	gptimer_set_interrupt_enabled(ptu, timer);
 	gptimer_set_load(ptu, timer);
