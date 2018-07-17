@@ -595,7 +595,7 @@ export	INSTALL_PATH ?= ./install
 core-y		:= arch/$(SRCARCH)/
 kernel-y	:= kernel/
 init-y		:= init/
-libs-y		:= lib/
+libs-y		:= lib/ arch/$(SRCARCH)/lib/
 
 xentium-$(CONFIG_BUILD_XEN_KERNELS) := dsp/
 
