@@ -103,5 +103,5 @@ void setup_arch(void)
 
 	leon_irq_init();
 
-	leon_uptime_init();
+	sparc_uptime_init();
 }

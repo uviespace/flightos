@@ -1,6 +1,6 @@
 /**
- * @file   leon3_grtimer_longcount.c
- * @ingroup timing
+ * @file   arch/sparc/lib/grtimer_longcount.c
+ * @ingroup time
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   July, 2016
  *

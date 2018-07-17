@@ -75,7 +75,7 @@ static struct clocksource uptime_clock = {
 };
 
 
-void leon_uptime_init(void)
+void sparc_uptime_init(void)
 {
 #ifdef CONFIG_LEON3
 	leon_grtimer_longcount_init();

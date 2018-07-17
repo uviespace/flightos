@@ -1,5 +1,5 @@
 /**
- * @file arch/sparc/include/time.h
+ * @file arch/sparc/include/asm/time.h
  */
 
 #ifndef _SPARC_TIME_H_
@@ -61,6 +61,6 @@ compile_time_assert((SPARC_CPU_CPS <= 1000000000UL),
 
 
 
-void leon_uptime_init(void);
+void sparc_uptime_init(void);
 
 #endif /* _SPARC_TIME_H_ */

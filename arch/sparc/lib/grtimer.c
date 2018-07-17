@@ -1,5 +1,5 @@
 /**
- * @file   arch/sparc/drv/grtimer.c
+ * @file   arch/sparc/lib/grtimer.c
  * @ingroup time
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   July, 2016
