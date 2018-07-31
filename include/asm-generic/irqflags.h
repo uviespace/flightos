@@ -18,6 +18,8 @@
 #define _ASM_GENERIC_IRQFLAGS_H_
 
 
+#include <asm/irqflags.h>
+
 void arch_local_irq_enable(void);
 unsigned long arch_local_irq_save(void);
 void arch_local_irq_restore(unsigned long flags);
