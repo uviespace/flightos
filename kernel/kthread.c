@@ -9,11 +9,16 @@
 #include <kernel/err.h>
 #include <kernel/printk.h>
 
-#include <asm/spinlock.h>
-#include <asm/switch_to.h>
-#include <asm/irqflags.h>
+#include <asm-generic/irqflags.h>
+#include <asm-generic/spinlock.h>
 
-#include <string.h>
+
+#include <asm/switch_to.h>
+
+#include <kernel/string.h>
+
+#include <kernel/tick.h>
+
 
 
 #define MSG "KTHREAD: "
@@ -22,10 +27,12 @@
 static struct {
 	struct list_head new;
 	struct list_head run;
+	struct list_head idle;
 	struct list_head dead;
 } _kthreads = {
 	.new  = LIST_HEAD_INIT(_kthreads.new),
 	.run  = LIST_HEAD_INIT(_kthreads.run),
+	.idle = LIST_HEAD_INIT(_kthreads.idle),
 	.dead = LIST_HEAD_INIT(_kthreads.dead)
 };
 
@@ -73,50 +80,355 @@ void kthread_cleanup_dead(void)
 	list_for_each_entry_safe(p_elem, p_tmp, &_kthreads.dead, node) {
 		list_del(&p_elem->node);
 		kfree(p_elem->stack);
+		kfree(p_elem->name);
 		kfree(p_elem);
 	}
 }
 
+
+void sched_print_edf_list(void)
+{
+	ktime now;
+	char state = 'U';
+	int64_t rel_deadline;
+	int64_t rel_wait;
+
+	struct task_struct *tsk;
+	struct task_struct *tmp;
+
+
+	now = ktime_get();
+
+
+	printk("\nt: %lld\n", ktime_to_us(now));
+	printk("S\tDeadline\tWakeup\tdelta W\tdelta P\tt_rem\tName\n");
+	printk("----------------------------------------------\n");
+
+	list_for_each_entry_safe(tsk, tmp, &_kthreads.run, node) {
+
+		if (tsk->policy != SCHED_EDF)
+			continue;
+
+		rel_deadline = ktime_delta(tsk->deadline, now);
+		rel_wait     = ktime_delta(tsk->wakeup,   now);
+		if (rel_wait < 0)
+			rel_wait = 0; /* running */
+
+		if (tsk->state == TASK_IDLE)
+			state = 'I';
+		if (tsk->state == TASK_RUN)
+			state = 'R';
+
+		printk("%c\t%lld\t%lld\t%lld\t%lld\t%lld\t%s\n",
+		       state, ktime_to_us(tsk->deadline), ktime_to_us(tsk->wakeup),
+		       ktime_to_us(rel_wait), ktime_to_us(rel_deadline), ktime_to_us(tsk->runtime), tsk->name);
+	}
+
+}
+
+/**
+ * Our EDF task scheduling timeline:
+ *
+ *
+ *
+ *  wakeup/
+ *  activation
+ *   |                      absolute
+ *   |                      deadline
+ *   |  start                  |
+ *   |  time                   |               next
+ *   |   |                     |              wakeup
+ *   |   | computation|        |                |
+ *   |   |    time    |        |                |
+ *   |   |############|        |                |
+ *   +-----+-------------------+-----------------
+ *         |------ WCET -------|
+ *         ^- latest start time
+ *   |--- relative deadline ---|
+ *   |---------------- period ------------------|
+ *
+ *
+ *
+ *
+ */
+
+
+/**
+ * @brief check if an EDF task can still execute given its deadline
+ *
+ * @note effectively checks
+ *	 wcet         remaining runtime in slot
+ *	------   <   --------------------------
+ *	period        remaining time to deadline
+ *
+ * @returns true if can still execute before deadline
+ */
+
+static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
+{
+	int64_t rel_deadline;
+
+
+	if (tsk->runtime <= 0)
+		return false;
+
+	rel_deadline = ktime_delta(tsk->deadline, now);
+	if (rel_deadline <= 0)
+		return false;
+
+	if (tsk->wcet * rel_deadline < tsk->period * tsk->runtime)
+		return true;
+
+	return false;
+}
+
+
+static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
+{
+	tsk->state = TASK_IDLE;
+
+	tsk->wakeup = ktime_add(tsk->wakeup, tsk->period);
+//	BUG_ON(ktime_after(tsk->wakeup, now)); /* deadline missed earlier? */
+
+	tsk->deadline = ktime_add(tsk->wakeup, tsk->deadline_rel);
+
+	tsk->runtime = tsk->wcet;
+}
+
+
+#define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 3000000000UL
+/* stupidly sort EDFs */
+static int64_t schedule_edf(ktime now)
+{
+//	ktime now;
+
+	int64_t delta;
+
+	int64_t slot = SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
+
+	struct task_struct *tsk;
+	struct task_struct *tmp;
+
+	ktime wake;
+
+//	now = ktime_get();
+
+//	printk("vvvv\n");
+	list_for_each_entry_safe(tsk, tmp, &_kthreads.run, node) {
+
+		if (tsk->policy != SCHED_EDF)
+			continue;
+
+	//	printk("%s: %lld\n", tsk->name, ktime_to_us(tsk->wakeup));
+		/* time to wake up yet? */
+		if (ktime_after(tsk->wakeup, now)) {
+			/* nope, update minimum runtime for this slot */
+			delta = ktime_delta(tsk->wakeup, now);
+			if (delta > 0  && (delta < slot))
+				slot = delta;
+			continue;
+		}
+
+		/* if it's already running, see if there is time remaining */
+		if (tsk->state == TASK_RUN) {
+			if (ktime_after(tsk->wakeup, now)) {
+				printk("violated %s\n", tsk->name);
+			}
+			if (!schedule_edf_can_execute(tsk, now)) {
+				schedule_edf_reinit_task(tsk, now);
+				/* nope, update minimum runtime for this slot */
+				delta = ktime_delta(tsk->wakeup, now);
+				if (delta > 0  && (delta < slot))
+					slot = delta;
+				continue;
+			}
+
+			/* move to top */
+			list_move(&tsk->node, &_kthreads.run);
+			continue;
+		}
+
+		/* time to wake up */
+		if (tsk->state == TASK_IDLE) {
+			tsk->state = TASK_RUN;
+			/* move to top */
+			list_move(&tsk->node, &_kthreads.run);
+		}
+
+	}
+//	printk("---\n");
+	/* now find the closest relative deadline */
+
+	wake = ktime_add(now, slot);
+	list_for_each_entry_safe(tsk, tmp, &_kthreads.run, node) {
+
+		if (tsk->policy != SCHED_EDF)
+			break;
+
+		/* all currently runnable task are at the top of the list */
+		if (tsk->state != TASK_RUN)
+			break;
+
+		if (ktime_before(wake, tsk->deadline))
+			continue;
+
+		delta = ktime_delta(wake, tsk->deadline);
+
+		if (delta < 0) {
+			delta = ktime_delta(now, tsk->deadline);
+			printk("\n [%lld] %s deadline violated by %lld us\n", ktime_to_ms(now), tsk->name, ktime_to_us(delta));
+		}
+
+
+		if (delta < slot) {
+			if (delta)
+				slot = delta;
+			else
+				delta = tsk->runtime;
+			wake = ktime_add(now, slot); /* update next wakeup */
+			/* move to top */
+			list_move(&tsk->node, &_kthreads.run);
+			BUG_ON(slot <= 0);
+		}
+	}
+
+//	printk("in: %lld\n", ktime_to_us(ktime_delta(ktime_get(), now)));
+	BUG_ON(slot < 0);
+
+	return slot;
+}
+
+
+void sched_yield(void)
+{
+	struct task_struct *tsk;
+
+	tsk = current_set[0]->task;
+	if (tsk->policy == SCHED_EDF)
+		tsk->runtime = 0;
+
+	schedule();
+}
 
 
 
 void schedule(void)
 {
 	struct task_struct *next;
+	struct task_struct *current;
+	int64_t slot_ns;
+	ktime now = ktime_get();
 
 
 	if (list_empty(&_kthreads.run))
-	    return;
+		return;
 
 
+
+	/* XXX: dummy; need solution for sched_yield() so timer is
+	 * disabled either via disable_tick or need_resched variable
+	 * (in thread structure maybe?)
+	 * If we don't do this here, the timer may fire while interrupts
+	 * are disabled, which may land us here yet again
+	 */
 
 
 	arch_local_irq_disable();
 
 	kthread_lock();
+	tick_set_next_ns(1e9);
+
+
+
+	current = current_set[0]->task;
+	if (current->policy == SCHED_EDF) {
+		ktime d;
+		d = ktime_delta(now, current->exec_start);
+//		if (d > current->runtime);
+//			printk("\ntrem: %lld, %lld\n", ktime_to_us(current->runtime), ktime_to_us(d));
+		if (current->runtime)
+			current->runtime -= d;
+	}
+
+
+	/** XXX not here, add cleanup thread */
 	kthread_cleanup_dead();
 
+#if 1
+	{
+		static int init;
+		if (!init) { /* dummy switch */
+			tick_set_mode(TICK_MODE_ONESHOT);
+			init = 1;
+		}
+	}
+#endif
+	slot_ns = schedule_edf(now);
 
-
-	/* round robin */
+	/* round robin as before */
 	do {
+
 		next = list_entry(_kthreads.run.next, struct task_struct, node);
+
+		//printk("[%lld] %s\n", ktime_to_ms(ktime_get()), next->name);
 		if (!next)
 			BUG();
 
-		if (next->state == TASK_RUNNING) {
+		if (next->state == TASK_RUN) {
 			list_move_tail(&next->node, &_kthreads.run);
 			break;
 		}
+		if (next->state == TASK_IDLE) {
+			list_move_tail(&next->node, &_kthreads.run);
+			continue;
+		}
 
-		list_move_tail(&next->node, &_kthreads.dead);
+		if (next->state == TASK_DEAD)
+			list_move_tail(&next->node, &_kthreads.dead);
 
 	} while (!list_empty(&_kthreads.run));
 
+
+	if (next->policy == SCHED_EDF) {
+		if (next->runtime <= slot_ns) {
+			slot_ns = next->runtime; /* XXX must track actual time because of IRQs */
+			next->runtime = 0;
+		}
+	}
+
+	next->exec_start = now;
+
 	kthread_unlock();
 
+	if (slot_ns > 0xffffffff)
+		slot_ns = 0xffffffff;
 
+	if (slot_ns < 18000) {
+		printk("%u\n",slot_ns);
+		slot_ns = 18000;
+	}
+//	printk("\n%lld ms\n", ktime_to_ms(slot_ns));
+	tick_set_next_ns(slot_ns);
+#if 0
+#if 0
+	tick_set_next_ns(30000);
+#else
+	{
+		static int cnt = 2;
+		static int sig = 1;
+		struct timespec now;
+		now = get_ktime();
+		now.tv_nsec += 1000000000 / cnt; // 10k Hz
 
+		if (cnt > 100)
+			sig = -1;
+		if (cnt < 2)
+			sig = 1;
+		cnt = cnt + sig;
+		BUG_ON(tick_set_next_ktime(now) < 0);
+	}
+#endif
+#endif
 
 	prepare_arch_switch(1);
 	switch_to(next);
@@ -125,16 +437,150 @@ void schedule(void)
 }
 
 
+static void kthread_set_sched_policy(struct task_struct *task,
+				     enum sched_policy policy)
+{
+	arch_local_irq_disable();
+	kthread_lock();
+	task->policy = policy;
+	kthread_unlock();
+	arch_local_irq_enable();
+}
+
+
+void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
+			  unsigned long wcet_us, unsigned long deadline_rel_us)
+{
+	/* XXX schedulability tests */
+
+	if (wcet_us >= period_us) {
+		printk("Cannot schedule EDF task with WCET %u >= PERIOD %u !\n", wcet_us, period_us);
+		return;
+	}
+
+	if (wcet_us >= deadline_rel_us) {
+		printk("Cannot schedule EDF task with WCET %u >= DEADLINE %u !\n", wcet_us, deadline_rel_us);
+		return;
+	}
+
+	if (deadline_rel_us >= period_us) {
+		printk("Cannot schedule EDF task with DEADLINE %u >= PERIOD %u !\n", deadline_rel_us, period_us);
+		return;
+	}
+
+
+	arch_local_irq_disable();
+	task->period   = us_to_ktime(period_us);
+	task->wcet     = us_to_ktime(wcet_us);
+	task->runtime  = task->wcet;
+	task->deadline_rel = us_to_ktime(deadline_rel_us);
+
+
+
+
+	{
+		double u = 0.0;	/* utilisation */
+
+		struct task_struct *tsk;
+		struct task_struct *tmp;
+
+
+		u += (double) (int32_t) task->wcet / (double) (int32_t) task->period;
+
+
+		list_for_each_entry_safe(tsk, tmp, &_kthreads.run, node) {
+
+			if (tsk->policy != SCHED_EDF)
+				continue;
+
+			u += (double) (int32_t) tsk->wcet / (double) (int32_t) tsk->period;
+		}
+		if (u > 1.0)
+			printk("I am not schedule-able: %g\n", u);
+	}
+
+
+
+	kthread_set_sched_policy(task, SCHED_EDF);
+
+	arch_local_irq_enable();
+
+
+
+
+
+}
+
+
+
+/**
+ * t1:        | ##d
+ *
+ * t2:   |    #####d
+ *
+ * t3:      |       ############d
+ *  --------------------------------------------------
+ *
+ * |...wakeup
+ * #...wcet
+ * d...deadline
+ */
 
 void kthread_wake_up(struct task_struct *task)
 {
-	printk("wake thread %p\n", task->stack_top);
+//	printk("wake thread %p\n", task->stack_top);
 	arch_local_irq_disable();
 	kthread_lock();
-	task->state = TASK_RUNNING;
+
+	/* for now, simply take the current time and add the task wakeup
+	 * period to configure the first wakeup, then set the deadline
+	 * accordingly.
+	 * note: once we have more proper scheduling, we will want to
+	 * consider the following: if a EDF task is in paused state (e.g.
+	 * with a semaphore locked, do the same when the semaphore is unlocked,
+	 * but set the deadline to now + wcet
+	 */
+
+	BUG_ON(task->state != TASK_NEW);
+
+	task->state = TASK_IDLE;
+
+	if (task->policy == SCHED_EDF) {
+
+		struct task_struct *tsk;
+		struct task_struct *tmp;
+
+		/* initially set current time as wakeup */
+		task->wakeup = ktime_add(ktime_get(), task->period);
+		task->deadline = ktime_add(task->wakeup, task->deadline_rel);
+
+	//	printk("%s initial wake: %llu, deadline: %llu\n", task->name, ktime_to_us(task->wakeup), ktime_to_us(task->deadline));
+
+		list_for_each_entry_safe(tsk, tmp, &_kthreads.run, node) {
+
+			if (tsk->policy != SCHED_EDF)
+				continue;
+
+			if (ktime_before(tsk->deadline, task->deadline))
+				continue;
+
+			/* move the deadline forward */
+			task->deadline = ktime_add(tsk->deadline, task->deadline_rel);
+		//	printk("%s deadline now: %llu\n", task->name, ktime_to_us(task->deadline));
+		}
+
+		/* update first wakeup time */
+//		printk("%s deadline fin: %llu\n", task->name, ktime_to_us(task->deadline));
+		task->wakeup = ktime_sub(task->deadline, task->deadline_rel);
+//		printk("%s wakeup now: %llu\n", task->name, ktime_to_us(task->wakeup));
+	}
+
 	list_move_tail(&task->node, &_kthreads.run);
+
 	kthread_unlock();
 	arch_local_irq_enable();
+
+	schedule();
 }
 
 
@@ -148,8 +594,13 @@ struct task_struct *kthread_init_main(void)
 	if (!task)
 		return ERR_PTR(-ENOMEM);
 
+	/* XXX accessors */
+	task->policy = SCHED_RR; /* default */
 
 	arch_promote_to_task(task);
+
+	task->name = "KERNEL";
+	task->policy = SCHED_RR;
 
 	arch_local_irq_disable();
 	kthread_lock();
@@ -158,7 +609,8 @@ struct task_struct *kthread_init_main(void)
 	/*** XXX dummy **/
 	current_set[0] = &kernel->thread_info;
 
-	task->state = TASK_RUNNING;
+
+	task->state = TASK_RUN;
 	list_add_tail(&task->node, &_kthreads.run);
 
 
@@ -188,7 +640,9 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 	/* XXX: need stack size detection and realloc/migration code */
 
-	task->stack = kmalloc(8192); /* XXX */
+	task->stack = kmalloc(8192 + STACK_ALIGN); /* XXX */
+
+	BUG_ON((int) task->stack > (0x40800000 - 4096 + 1));
 
 	if (!task->stack) {
 		kfree(task);
@@ -197,9 +651,28 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 
 	task->stack_bottom = task->stack; /* XXX */
-	task->stack_top = task->stack + 8192/4; /* XXX need align */
+	task->stack_top = ALIGN_PTR(task->stack, STACK_ALIGN) +8192/4; /* XXX */
+	BUG_ON(task->stack_top > (task->stack + (8192/4 + STACK_ALIGN/4)));
 
-	memset(task->stack, 0xdeadbeef, 8192);
+#if 0
+	/* XXX: need wmemset() */
+	memset(task->stack, 0xab, 8192 + STACK_ALIGN);
+#else
+	{
+		int i;
+		for (i = 0; i < (8192 + STACK_ALIGN) / 4; i++)
+			((int *) task->stack)[i] = 0xdeadbeef;
+
+	}
+#endif
+
+	/* dummy */
+	task->name = kmalloc(32);
+	BUG_ON(!task->name);
+	vsnprintf(task->name, 32, namefmt, args);
+
+	/* XXX accessors */
+	task->policy = SCHED_RR; /* default */
 
 	arch_init_task(task, thread_fn, data);
 
@@ -215,7 +688,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 
 	//printk("%s is next at %p stack %p\n", namefmt, &task->thread_info, task->stack);
-	printk("%s\n", namefmt);
+	//printk("%s\n", namefmt);
 
 
 	return task;
@@ -231,7 +704,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
  * @state: the mask of task states that can be woken
  * @wake_flags: wake modifier flags (WF_*)
  *
- * If (@state & @p->state) @p->state = TASK_RUNNING.
+ * If (@state & @p->state) @p->state = TASK_RUN.
  *
  * If the task was not queued/runnable, also place it back on a runqueue.
  *
@@ -424,3 +897,6 @@ struct task_struct *kthread_create(int (*thread_fn)(void *data),
 	return task;
 }
 EXPORT_SYMBOL(kthread_create);
+
+
+

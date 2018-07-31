@@ -73,7 +73,7 @@ static void twiddle(void)
 
 #define TREADY 4
 
-#if 1
+#if 0
 static volatile int *console = (int *)0x80100100;
 #else
 static volatile int *console = (int *)0x80000100;
@@ -91,6 +91,85 @@ static int putchar(int c)
 	}
 
 	return c;
+}
+
+
+
+int edf1(void *data)
+{
+	struct timespec ts;
+	static struct timespec t0;
+	int i;
+
+	while (1) {
+		ts = get_ktime();
+#if 0
+		printk("\tedf1: %g s; delta: %g s (%g Hz)\n",
+		       (double) ts.tv_sec + (double) ts.tv_nsec / 1e9,
+		       difftime(ts, t0), 1.0/difftime(ts, t0));
+#endif
+		for (i = 0; i < 100000; i++)
+			putchar('.');
+
+
+		t0 = ts;
+		sched_yield();
+	}
+}
+
+int edf2(void *data)
+{
+	while (1)
+		putchar( *((char *) data) );
+}
+
+
+int edf3(void *data)
+{
+	while (1) {
+		putchar( *((char *) data) );
+		putchar( *((char *) data) );
+		sched_yield();
+	}
+}
+
+int edf4(void *data)
+{
+	while (1) {
+		//sched_print_edf_list();
+		putchar('-');
+		sched_yield();
+	}
+}
+
+
+int add0r(void *data)
+{
+	volatile int *add = (int *) data;
+
+	while (1) 
+		add[0]++;
+}
+
+int print0r(void *data)
+{
+	int i;
+	int *s = (int *) data;
+	static int addx[30];
+
+	while (1) {
+		for (i = 0; i < 30; i++)
+			addx[i] = s[i];
+
+		printk("delta: ");
+		for (i = 0; i < 30; i++)
+			 printk("%d ", s[i]- addx[i]);
+		printk("\nabs:   ");
+		for (i = 0; i < 30; i++)
+			 printk("%d ", s[i]);
+		printk("\n\n");
+		sched_yield();
+	}
 }
 
 
@@ -114,7 +193,7 @@ int threadx(void *data)
 		if (b > (int) c * (int)c)
 			break;
 #endif
-	//	schedule();
+	//	schedule();putchar( *((char *) data) );
 		//twiddle();
 		//cpu_relax();
 	}
@@ -127,10 +206,6 @@ int threadx(void *data)
 
 static int kernel_init(void)
 {
-	/* registered initcalls are executed by the libgloss boot code at this
-	 * time no need to do anything here at the moment.
-	 */
-
 	setup_arch();
 
 	/* free_bootmem() */
@@ -141,28 +216,12 @@ static int kernel_init(void)
 arch_initcall(kernel_init);
 
 
-#include <kernel/clockevent.h>
-void clk_event_handler(struct clock_event_device *ce)
-{
-
-	struct timespec expires;
-	struct timespec now;
-
-//	printk("DIIIING-DOOONG\n");
-	get_ktime(&now);
-
-	expires = now;
-
-	expires.tv_sec += 1;
-
-	clockevents_program_event(&clk_event_handler, expires, now, CLOCK_EVT_MODE_ONESHOT);
-}
-
 
 /**
- * @brief kernel main function
+ * @brief kernel main functionputchar( *((char *) data) );
  */
-#define MAX_TASKS 800
+#define MAX_TASKS 0
+#include <kernel/clockevent.h>
 int kernel_main(void)
 {
 	struct task_struct *tasks[MAX_TASKS];
@@ -221,23 +280,111 @@ int kernel_main(void)
 
 
 
-	{
-	struct timespec expires;
-	struct timespec now;
-	get_ktime(&now);
-
-	expires = now;
-	expires.tv_nsec += 18000;
-
-	BUG_ON(clockevents_program_event(NULL, expires, now, CLOCK_EVT_MODE_PERIODIC));
-
-	}
-
-
 	kernel = kthread_init_main();
 
 
+#if 0
+	{
+	struct task_struct *t1;
+	t1 = kthread_create(edf1, NULL, KTHREAD_CPU_AFFINITY_NONE, "Thread2");
+	kthread_set_sched_edf(t1, 2e5,  1e5);
+	kthread_wake_up(t1);
+	}
+#endif
+#if 0
+	{
+	struct task_struct *t2;
+	struct task_struct *t3;
 
+	t2 = kthread_create(edf3, "\n", KTHREAD_CPU_AFFINITY_NONE, "EDF%d", 1);
+	kthread_set_sched_edf(t2, 1 * USEC_PER_SEC,  40 * USEC_PER_MSEC, 60 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t2);
+
+
+	t2 = kthread_create(edf3, "?", KTHREAD_CPU_AFFINITY_NONE, "EDF%d", 1);
+	kthread_set_sched_edf(t2, 1 * USEC_PER_SEC,  40 * USEC_PER_MSEC, 60 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t2);
+
+	t3 = kthread_create(edf4, NULL, KTHREAD_CPU_AFFINITY_NONE, "EDF_other");
+	kthread_set_sched_edf(t3, 200 * USEC_PER_MSEC,  10 * USEC_PER_MSEC, 10 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t3);
+
+	t3 = kthread_create(edf2, "x", KTHREAD_CPU_AFFINITY_NONE, "EDF_otherx");
+	kthread_set_sched_edf(t3, 300 * USEC_PER_MSEC,  5 * USEC_PER_MSEC, 5 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t3);
+
+	t3 = kthread_create(edf2, ":", KTHREAD_CPU_AFFINITY_NONE, "EDF_otherx");
+	kthread_set_sched_edf(t3, 50 * USEC_PER_MSEC,  5 * USEC_PER_MSEC, 5 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t3);
+
+	t3 = kthread_create(edf2, "o", KTHREAD_CPU_AFFINITY_NONE, "EDF_otherx");
+	kthread_set_sched_edf(t3, 50 * USEC_PER_MSEC,  5 * USEC_PER_MSEC, 5 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t3);
+
+	t3 = kthread_create(edf2, "/", KTHREAD_CPU_AFFINITY_NONE, "EDF_otherx");
+	kthread_set_sched_edf(t3, 30 * USEC_PER_MSEC,  3 * USEC_PER_MSEC, 3 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t3);
+
+	t3 = kthread_create(edf2, "\\", KTHREAD_CPU_AFFINITY_NONE, "EDF_otherx");
+	kthread_set_sched_edf(t3, 6 * USEC_PER_MSEC,  2 * USEC_PER_MSEC, 2 * USEC_PER_MSEC + 1);
+	kthread_wake_up(t3);
+
+	}
+#endif
+
+
+#if 1
+	{
+		int i;
+		struct task_struct *t;
+		static int add[30];
+
+		t = kthread_create(print0r, add, KTHREAD_CPU_AFFINITY_NONE, "print");
+		kthread_set_sched_edf(t, 1e6,  300 * USEC_PER_MSEC, 300 * USEC_PER_MSEC + 1);
+		kthread_wake_up(t);
+#if 1
+
+		for (i = 0; i < 30; i++) {
+			t = kthread_create(add0r, &add[i], KTHREAD_CPU_AFFINITY_NONE, "EDF%d", i);
+			kthread_set_sched_edf(t, 45 * USEC_PER_MSEC,  1 * USEC_PER_MSEC, 1 * USEC_PER_MSEC + 1);
+			kthread_wake_up(t);
+		}
+#endif
+	}
+#endif
+
+
+
+
+
+
+
+
+	while(1) {
+	//	putchar('o');
+#if 0
+		static ktime t0;
+		ktime ts;
+
+		ts = ktime_get();
+
+		printk("now: %llu %llu delta %lld\n\n", ts, t0, ts-t0);
+		t0 = ts;
+#endif
+		cpu_relax();
+	}
+
+
+
+	while(1) {
+		struct timespec ts;
+		static struct timespec t0;
+
+		ts = get_ktime();
+		//printk("now: %g s; delta: %g ns (%g Hz)\n", (double) ts.tv_sec + (double) ts.tv_nsec / 1e9, difftime(ts, t0), 1.0/difftime(ts, t0) );
+		t0 = ts;
+		cpu_relax();
+	}
 
 	{
 	static char zzz[] = {':', '/', '\\', '~', '|'};
@@ -253,7 +400,7 @@ int kernel_main(void)
 		char *buf = NULL;
 		int i;
 		struct timespec ts;
-		get_uptime(&ts);
+		ts = get_uptime();
 		printk("creating tasks at %d s %d ns (%g)\n", ts.tv_sec, ts.tv_nsec, (double) ts.tv_sec + (double) ts.tv_nsec / 1e9);
 
 
@@ -276,7 +423,7 @@ int kernel_main(void)
 		int i;
 
 		struct timespec ts;
-		get_uptime(&ts);
+		ts = get_uptime();
 		printk("total %d after %d s %d ns (%g)\n", tcnt, ts.tv_sec, ts.tv_nsec, (double) ts.tv_sec + (double) ts.tv_nsec / 1e9);
 		BUG_ON(tcnt > MAX_TASKS);
 
@@ -284,7 +431,7 @@ int kernel_main(void)
 			kthread_wake_up(tasks[i]);
 
 		arch_local_irq_disable();
-		get_uptime(&ts);
+		ts = get_uptime();
 		printk("all awake after %d s %d ns (%g)\n", ts.tv_sec, ts.tv_nsec, (double) ts.tv_sec + (double) ts.tv_nsec / 1e9);
 		arch_local_irq_enable();
 	}
