@@ -44,6 +44,7 @@
 #define VSN_CHAR	(1 << 6)	/* arg is int, upcast from char */
 #define VSN_SHORT	(1 << 7)	/* arg is int, upcast from short */
 #define VSN_LONG	(1 << 8)	/* arg is long type */
+#define VSN_LONG_LONG	(1 << 10)	/* arg is long long type */
 
 /* type flags */
 #define VSN_UPPERCASE	(1 << 9)	/* %x or %X */
@@ -316,6 +317,9 @@ static size_t eval_prec(const char *fmt, struct fmt_spec *spec, va_list *args)
 	const char *begin = fmt;
 
 
+	/* default */
+	spec->prec = 0;
+
 	if ((*fmt) != '.')
 		return 0;
 
@@ -367,7 +371,12 @@ static size_t eval_length(const char *fmt, struct fmt_spec *spec)
 
 	case 'l':
 		/* we don't support long long specifiers */
-		spec->flags |= VSN_LONG;
+		if (fmt[1] == 'l') {
+			spec->flags |= VSN_LONG_LONG;
+			fmt++;
+		} else {
+			spec->flags |= VSN_LONG;
+		}
 		fmt++;
 		break;
 
@@ -577,6 +586,38 @@ static size_t render_xlong_to_ascii(bool usign, long value, char **str,
 	return render_final(str, end, sign, buf, n, spec);
 }
 
+/**
+ * @brief
+ *
+ * @param usign whether the value is treated as signed or unsigned
+ * @param str	the destination buffer, NULL to print to stdout
+ * @param spec	a struct fmt_spec
+ * @param args	the arguments to the format string
+ *
+ * @return the number of bytes written
+ */
+
+static size_t render_xlong_long_to_ascii(bool usign, long long value, char **str,
+				    const char *end, struct fmt_spec *spec)
+{
+	size_t n = 0;
+
+	long upper, lower;
+
+
+	upper = (long) (value >> 32) & 0xFFFFFFFFUL;
+	lower = (long) (value      ) & 0xFFFFFFFFUL;
+
+	/* only if set, otherwise we have a leading zero */
+	if (upper)
+		n = render_xlong_to_ascii(usign, upper, str, end, spec);
+
+	n += render_xlong_to_ascii(true, lower, str, end, spec);
+
+	return n;
+}
+
+
 
 /**
  * @brief render signed integer types
@@ -594,7 +635,14 @@ static size_t render_xsigned_integer(bool usign, char **str, const char *end,
 {
 	int  i;
 	long l;
+	long long ll;
 
+
+	/* argument is a long long, will turn into a long long */
+	if (spec->flags & VSN_LONG_LONG) {
+		ll = va_arg((*args), long long);
+		return render_xlong_long_to_ascii(usign, ll, str, end, spec);
+	}
 
 	/* argument is a long, will turn into a long */
 	if (spec->flags & VSN_LONG) {
@@ -670,6 +718,8 @@ static size_t render_integer(char **str, const char *end, const char *fmt,
 	case 'X':
 	case 'o':
 	case 'b':
+		n = render_xsigned_integer(true, str, end, spec, args);
+		break;
 	case 'p':
 		n = render_pointer(str, end, spec, args);
 		break;
