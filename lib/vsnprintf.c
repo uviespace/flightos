@@ -597,24 +597,48 @@ static size_t render_xlong_to_ascii(bool usign, long value, char **str,
  * @return the number of bytes written
  */
 
-static size_t render_xlong_long_to_ascii(bool usign, long long value, char **str,
+static size_t render_xlong_long_to_ascii(bool usign, long long val, char **str,
 				    const char *end, struct fmt_spec *spec)
 {
 	size_t n = 0;
 
-	long upper, lower;
+	bool sign = false;
+
+	char digit;
+	char buf[STACK_BUF_SIZE];
+
+	unsigned long long value;
 
 
-	upper = (long) (value >> 32) & 0xFFFFFFFFUL;
-	lower = (long) (value      ) & 0xFFFFFFFFUL;
+	if (!usign) {
+		if (val < 0) {
+			sign = true;
+			val = -val;
+		}
+	}
 
-	/* only if set, otherwise we have a leading zero */
-	if (upper)
-		n = render_xlong_to_ascii(usign, upper, str, end, spec);
+	value = val;
 
-	n += render_xlong_to_ascii(true, lower, str, end, spec);
+	do {
 
-	return n;
+		digit = (char) (value % spec->base);
+
+		if (digit < 10) {
+
+			buf[n] = '0' + digit;
+
+		} else { /* base 16 hex (we assume) */
+			if (spec->flags & VSN_UPPERCASE)
+				buf[n] = 'A' + digit - 10;
+			else
+				buf[n] = 'a' + digit - 10;
+		}
+
+		n++;
+		value /= spec->base;
+	} while (value && (n < STACK_BUF_SIZE));
+
+	return render_final(str, end, sign, buf, n, spec);
 }
 
 
