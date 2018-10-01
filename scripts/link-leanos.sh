@@ -309,7 +309,9 @@ if [ "$1" = "embed" ]; then
 	rm -f modules.image
 	${AR} rcs ${srctree}/modules.image \
 		$(tr '\n' ' ' < ${srctree}/modules.order) \
-		$(find dsp/xentium -name *.xen)
+		$(find dsp/xentium -name *.xen) \
+		"${CONFIG_EMBED_APPLICATION}"
+		
 
 	leanos_link "${kallsymso}" leanos "${embedflags}"
 	exit
