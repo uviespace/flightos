@@ -1,0 +1,26 @@
+
+Description:
+============
+
+This test configures and executes an embedded application demonstrator.
+
+Press Ctrl+C to quit the demonstration.
+
+Pass/Fail Criterea:
+===================
+
+	None
+
+Prerequisites:
+==============
+
+	* connected GR712 board
+	* grmon v2.x
+
+
+Notes:
+======
+
+The current .config of LeanOS will be overwritten and the image will
+be rebuilt.
+

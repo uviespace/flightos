@@ -94,10 +94,6 @@ int kernel_main(void)
 {
 	struct task_struct *t;
 
-#if 0
-	void *addr;
-	struct elf_module m;
-#endif
 
 	printk(MSG "Loading module image\n");
 
@@ -113,6 +109,10 @@ int kernel_main(void)
 	       module_lookup_embedded("noc_dma.ko"));
 
 #if 0
+{
+	void *addr;
+	struct elf_module m;
+
 	/* If you have kernel modules embedded in your modules.images, this
 	 * is how you can access them:
 	 * lookup the module containing <symbol>
@@ -128,7 +128,29 @@ int kernel_main(void)
 		module_load(&m, addr);
 
 	modules_list_loaded();
+}
 #endif
+
+
+#ifdef CONFIG_EMBED_APPLICATION
+	/* dummy demonstrator */
+{
+	void *addr;
+	struct elf_module m;
+
+	addr = module_read_embedded("executable_demo");
+
+	pr_debug(MSG "test executable address is %p\n", addr);
+	if (addr)
+		module_load(&m, addr);
+
+#if 0
+	modules_list_loaded();
+#endif
+}
+#endif
+
+
 
 #ifdef CONFIG_MPPB
 	/* The mppbv2 LEON's cache would really benefit from cache sniffing...
@@ -152,8 +174,7 @@ int kernel_main(void)
 	kernel = kthread_init_main();
 
 
-
-
+#if 0
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print");
 	//kthread_set_sched_edf(t, 1000000,  50000, 90000);
 	t->priority = 4;
@@ -163,7 +184,7 @@ int kernel_main(void)
 	//kthread_set_sched_edf(t, 1000000,  50000, 90000);
 	t->priority = 8;
 	kthread_wake_up(t);
-
+#endif
 
 
 	while(1) {
