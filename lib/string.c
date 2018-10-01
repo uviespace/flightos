@@ -173,6 +173,33 @@ EXPORT_SYMBOL(strdup);
 
 
 /**
+ * @brief locate a character in string
+ *
+ * @param s the string to search in
+ * @param c the character to search for
+ *
+ * @returns a pointer to the first matched character or NULL if not found
+ *
+ * @note the terminating null byte is considered part of the string, so that if
+ *	 c is given as '\0', the function returns a pointer to the terminator
+ */
+
+char *strchr(const char *s, int c)
+{
+	while ((*s) != (char) c) {
+
+		if ((*s) == '\0')
+			return NULL;
+
+		s++;
+	}
+
+	return (char *) s;
+}
+EXPORT_SYMBOL(strchr);
+
+
+/**
  * @brief calculate the length of a string
  *
  * @param s the string

@@ -145,8 +145,6 @@ hw_div0_trap_handler:
 nmi_entry:
 	.global reg_access_trap_handler
 reg_access_trap_handler:
-	.global strchr
-strchr:
 	.global syscall_tbl
 syscall_tbl:
 	.global syscall_trap
@@ -159,4 +157,4 @@ syscall_trap:
 unimpl_flush_trap_handler:
 	.global watchpoint_det_trap_handler
 watchpoint_det_trap_handler:
-	ta 0
+	ta 3

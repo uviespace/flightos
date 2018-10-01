@@ -20,6 +20,8 @@ char *strpbrk(const char *s, const char *accept);
 char *strsep(char **stringp, const char *delim);
 char *strdup(const char *s);
 
+char *strchr(const char *s, int c);
+
 char *strstr(const char *haystack, const char *needle);
 size_t strlen(const char *s);
 int memcmp(const void *s1, const void *s2, size_t n);
