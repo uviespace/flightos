@@ -412,6 +412,8 @@ ktime ktime_get(void)
 
 	ns = (ktime) sec * NSEC_PER_SEC + (ktime) nsec;
 
+	ns += (ktime) ktime_get_readout_overhead();
+
 
 	return ns;
 }
