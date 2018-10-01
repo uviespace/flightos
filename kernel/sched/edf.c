@@ -20,6 +20,11 @@
 #include <kernel/tick.h>
 
 
+extern struct remove_this_declaration _kthreads;
+void kthread_set_sched_policy(struct task_struct *task,
+			      enum sched_policy policy);
+
+
 
 void sched_print_edf_list_internal(ktime now)
 {
@@ -65,7 +70,8 @@ void sched_print_edf_list_internal(ktime now)
 		prevd = tsk->deadline;
 	}
 }
-
+ktime total;
+ktime times;
 void sched_print_edf_list(void)
 {
 	printk("avg: %lld\n", ktime_to_us(total/times));
@@ -161,7 +167,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 
 #define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 10000000LL
 /* stupidly sort EDFs */
-static int64_t schedule_edf(ktime now)
+/*static*/ int64_t schedule_edf(ktime now)
 {
 //	ktime now;
 
@@ -249,11 +255,13 @@ static int64_t schedule_edf(ktime now)
 			BUG_ON(slot <= 0);
 		}
 	}
-
+#if 1
 	total = ktime_add(total, ktime_delta(ktime_get(), now));
 	times++;
-
-	//printk("%3.d %3.lld\n", cnt, ktime_to_us(total / times) );
+#endif
+#if 0
+	printk("%3.d %3.lld\n", cnt, ktime_to_us(total / times) );
+#endif
 	BUG_ON(slot < 0);
 
 	return slot;
@@ -577,7 +585,7 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 	task->deadline_rel = us_to_ktime(deadline_rel_us);
 	arch_local_irq_enable();
 
-
+	printk("\nvvvv EDF analysis vvvv\n\n");
 	{
 		ktime p = hyperperiod();
 		ktime h ;
@@ -605,7 +613,7 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 		BUG_ON(p < t0->period);
 		h = p / t0->period;
 
-//		printk("Period factor %lld %lld %lld\n", h, p, t0->period);
+		printk("Period factor %lld, duration %lld actual min period: %lld\n", h, ktime_to_ms(p), ktime_to_ms(t0->period));
 
 
 
@@ -614,7 +622,7 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 		f1 = ut/h;
 
 
-		printk("max UH: %lld, UT: %lld\n", (uh), (ut));
+		printk("max UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
 
 
 		list_for_each_entry_safe(tsk, tmp, &_kthreads.new, node) {
@@ -647,7 +655,7 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			ut = ut - st;
 
 
-			printk("UH: %lld, UT: %lld\n", (uh),(ut));
+			printk("UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
 
 
 		}
@@ -692,6 +700,7 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 		}
 	}
 
+	printk("\n^^^^ EDF analysis ^^^^\n");
 
 
 //	arch_local_irq_enable();

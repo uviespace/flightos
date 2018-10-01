@@ -24,12 +24,12 @@
 #define MSG "KTHREAD: "
 
 
-static struct {
+struct remove_this_declaration /*{
 	struct list_head new;
 	struct list_head run;
 	struct list_head wake;
 	struct list_head dead;
-} _kthreads = {
+}*/ _kthreads = {
 	.new  = LIST_HEAD_INIT(_kthreads.new),
 	.run  = LIST_HEAD_INIT(_kthreads.run),
 	.wake = LIST_HEAD_INIT(_kthreads.wake),
@@ -133,6 +133,9 @@ void sched_wake(struct task_struct *next, ktime now, int64_t slot_ns)
 
 #define OVERHEAD	0LL
 
+/* XXX */
+int64_t schedule_edf(ktime now);
+
 void schedule(void)
 {
 	struct task_struct *next;
@@ -203,7 +206,7 @@ void schedule(void)
 
 
 
-#if 0
+#if 1
 	slot_ns = schedule_edf(now);
 #endif
 
@@ -261,7 +264,7 @@ void schedule(void)
 }
 
 __attribute__((unused))
-static void kthread_set_sched_policy(struct task_struct *task,
+/* static */ void kthread_set_sched_policy(struct task_struct *task,
 				     enum sched_policy policy)
 {
 	arch_local_irq_disable();

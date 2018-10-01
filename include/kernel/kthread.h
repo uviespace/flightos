@@ -13,6 +13,16 @@
 #include <kernel/time.h>
 
 
+
+struct remove_this_declaration {
+	struct list_head new;
+	struct list_head run;
+	struct list_head wake;
+	struct list_head dead;
+};
+
+
+
 #define KTHREAD_CPU_AFFINITY_NONE	(-1)
 
 

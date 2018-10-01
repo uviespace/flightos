@@ -49,7 +49,7 @@
 int task1(void *data)
 {
 	while (1) {
-		printk(".");
+	//	printk(".");
 	//	sched_yield();
 	}
 }
@@ -58,7 +58,7 @@ int task1(void *data)
 int task2(void *data)
 {
 	while (1) {
-		printk("-");
+	//	printk("-");
 	//	sched_yield();
 	}
 }
@@ -151,23 +151,50 @@ int kernel_main(void)
 	/* elevate boot thread */
 	kernel = kthread_init_main();
 
+	/*
+	 *  T1: (P=50, D=20, R=10)
+	 *
+	 *  T2: (P= 4, D= 2, R= 1)
+	 *  T5: (P=20, D=12, R= 5)
+	 *
+	 *  T6: (P=33, D=30, R= 4)
+	 *  T7: (P=50, D=46, R= 6)
+	 */
+
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T1");
+	kthread_set_sched_edf(t, 50 * MSEC_PER_SEC,  10 * MSEC_PER_SEC, 20 * MSEC_PER_SEC);
+
+
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T2");
+	kthread_set_sched_edf(t, 4 * MSEC_PER_SEC,  1 * MSEC_PER_SEC, 2 * MSEC_PER_SEC);
+
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T5");
+	kthread_set_sched_edf(t, 20 * MSEC_PER_SEC, 5 * MSEC_PER_SEC, 12 * MSEC_PER_SEC);
+
+
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T6");
+	kthread_set_sched_edf(t, 33 * MSEC_PER_SEC, 4 * MSEC_PER_SEC, 30 * MSEC_PER_SEC);
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T7");
+	kthread_set_sched_edf(t, 50 * MSEC_PER_SEC, 6 * MSEC_PER_SEC, 46 * MSEC_PER_SEC);
 
 
 
+
+
+
+#if 0
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print");
-	//kthread_set_sched_edf(t, 1000000,  50000, 90000);
 	t->priority = 4;
 	kthread_wake_up(t);
 
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
-	//kthread_set_sched_edf(t, 1000000,  50000, 90000);
 	t->priority = 8;
 	kthread_wake_up(t);
-
+#endif
 
 
 	while(1) {
-		printk("|");
+		//printk("|");
 		cpu_relax();
 	}
 
