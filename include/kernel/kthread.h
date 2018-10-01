@@ -32,7 +32,7 @@ enum sched_policy {
 	SCHED_OTHER,
 };
 
-
+extern volatile int sched_edf;
 struct task_struct {
 
 	struct thread_info thread_info;
@@ -69,7 +69,11 @@ struct task_struct {
 	ktime				deadline; /* deadline of current period */
 
 	ktime				exec_start;
+	ktime				total;
+	unsigned long			slices;
 
+	ktime			first_wake;
+	ktime			first_dead;
 
 	/* Tasks may have a parent and any number of siblings or children.
 	 * If the parent is killed or terminated, so are all siblings and
@@ -96,6 +100,7 @@ void switch_to(struct task_struct *next);
 void schedule(void);
 void sched_yield(void);
 
+void sched_print_edf_list_internal(ktime now);
 void sched_print_edf_list(void);
 
 void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,

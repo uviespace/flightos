@@ -2,25 +2,27 @@
  * @file arch/sparc/kernel/traps/data_access_exception_trap.S
  * @brief this is a function that is called by a custom trap handler to handle
  *        an MMU or EDAC trap
- *
- * @todo this is BCC-specific
  */
 
 
-
+#ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+#include <asm/ttable.h>
+#else
+/* XXX: BCC */
 #define SAVE_ALL_HEAD \
         sethi   %hi(leonbare_trapsetup), %l4; \
         jmpl    %l4 + %lo(leonbare_trapsetup), %l6;
 #define SAVE_ALL \
         SAVE_ALL_HEAD \
          nop;
+/* All traps low-level code here must end with this macro. */
+#define RESTORE_ALL b leonbare_trapreturn; clr %l6;
+#endif
 
 
 #define FW_REGS_SZ     0x90 /* 36*4 */
 #define SF_REGS_SZ     0x60 /* 24*4 */
 
-/* All traps low-level code here must end with this macro. */
-#define RESTORE_ALL b leonbare_trapreturn; clr %l6;
 
 
 
@@ -40,14 +42,14 @@ data_access_exception_trap:
 	 * hence we have to point %pc to %npc and increment %npc to the
 	 * following instruction
          */
-	
+
 	/* ...but we can for the MMU
 	 mov	%l2, %l1
 	 add	%l2, 4, %l2
 	*/
 
 	rd	%wim, %l3	/* trap setup needs the %wim in %l3 */
-	
+
 	SAVE_ALL	/* create a trap window */
 
 	/* re-enable traps but not interrupts (set level to max) */

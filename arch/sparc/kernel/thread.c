@@ -37,15 +37,27 @@ extern struct thread_info *current_set[];
 /**
  * @brief this is a wrapper that actually executes the thread function
  */
-
+#include <kernel/time.h>
 static void th_starter(void)
 {
 	struct task_struct *task = current_set[0]->task;
 
+	struct timespec ts;
+	double start;
+	double stop;
+
+	ts = get_uptime();
+
+	start = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
+
 	task->thread_fn(task->data);
 
-	printk("thread: %p returned\n", task->thread_fn);
+	arch_local_irq_disable();
+	ts = get_uptime();
+	stop = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
+	printk("thread: %p returned after %gs\n", task->stack, stop-start);
 	task->state = TASK_DEAD;
+	arch_local_irq_enable();
 
 	schedule();
 
