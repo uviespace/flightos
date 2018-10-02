@@ -28,6 +28,8 @@ int memcmp(const void *s1, const void *s2, size_t n);
 
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+
 char *strcpy(char *dest, const char *src);
 void bzero(void *s, size_t n);
 
@@ -45,5 +47,7 @@ int vprintf(const char *format, va_list ap);
 int vsprintf(char *str, const char *format, va_list ap);
 int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 
+int puts(const char *s);
+int putchar(int c);
 
 #endif /* _KERNEL_STRING_H_ */
