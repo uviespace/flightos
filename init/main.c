@@ -92,8 +92,9 @@ arch_initcall(kernel_init);
 #include <kernel/clockevent.h>
 int kernel_main(void)
 {
+#if 0
 	struct task_struct *t;
-
+#endif
 
 	printk(MSG "Loading module image\n");
 
@@ -138,7 +139,7 @@ int kernel_main(void)
 	void *addr;
 	struct elf_module m;
 
-	addr = module_read_embedded("executable_demo");
+	addr = module_read_embedded("CrApp1");
 
 	pr_debug(MSG "test executable address is %p\n", addr);
 	if (addr)
@@ -188,7 +189,7 @@ int kernel_main(void)
 
 
 	while(1) {
-		printk("|");
+	//	printk("|");
 		cpu_relax();
 	}
 
