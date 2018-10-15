@@ -19,6 +19,9 @@
 
 #define MSG "TICK: "
 
+/* the minimum effective tick period; default to 1 ms */
+static unsigned long tick_period_min_ns = 1000000UL;
+
 static struct clock_event_device *tick_device;
 
 
@@ -100,6 +103,32 @@ static int tick_set_mode_oneshot(struct clock_event_device *dev)
 	return 0;
 }
 
+/**
+ * @brief calibrate the minimum processable tick length for this device
+ *
+ * XXX:
+ * what this will do:
+ *  - disable scheduling
+ *  - mask all interrupts except timer (maybe)
+ *  - in tick_event_handler, record time between calls
+ *  - keep decreasing tick length until time between calls does not decrement
+ *    (i.e. interrupt response limit has been hit)
+ *  - NOTE: check clockevents_timout_in_range() or somesuch to clamp to
+ *	    actual timer range (maybe add function to clockevents to
+ *	    return actual timer minimum
+ *  - multiply tick length by some factor (2...10)
+ *  - ???
+ *  - profit!
+ */
+
+static void tick_calibrate_min(struct clock_event_device *dev)
+{
+#define RANDOM_TICK_RATE_NS	18000UL
+	tick_period_min_ns = RANDOM_TICK_RATE_NS;
+#define MIN_SLICE		1000000UL
+	tick_period_min_ns = MIN_SLICE;
+}
+
 
 /**
  * @brief configure the tick device
@@ -107,13 +136,14 @@ static int tick_set_mode_oneshot(struct clock_event_device *dev)
 
 static void tick_setup_device(struct clock_event_device *dev)
 {
-#define RANDOM_TICK_RATE_NS	18000
-	clockevents_set_handler(dev, tick_event_handler);
+	tick_calibrate_min(dev);
 
-	/* FIXME: assume blindly for the moment */
+	/* FIXME: assume blindly for the moment, should apply mode
+	 * of previous clock device (if replaced) */
 	tick_set_mode_periodic(dev);
 
-	clockevents_program_timeout_ns(dev, RANDOM_TICK_RATE_NS);
+	clockevents_set_handler(dev, tick_event_handler);
+	clockevents_program_timeout_ns(dev, tick_period_min_ns);
 }
 
 
@@ -141,6 +171,9 @@ void tick_check_device(struct clock_event_device *dev)
 	tick_set_device(dev, 0);
 
 	tick_setup_device(dev);
+
+	/* XXX should inform scheduler to recalculate any deadline-related
+	 * timeouts of tasks */
 }
 
 
@@ -169,6 +202,20 @@ int tick_set_mode(enum tick_mode mode)
 
 	return -EINVAL;
 }
+
+
+/**
+ * @brief get the (calibrated) minimum effective tick period
+ *
+ * @note This represents a safe-to-use value of the best-effort interrupt
+ *	 processing time of the system.
+ */
+
+unsigned long tick_get_period_min_ns(void)
+{
+	return tick_period_min_ns;
+}
+
 
 
 /**

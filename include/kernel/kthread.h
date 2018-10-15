@@ -11,6 +11,7 @@
 #include <list.h>
 #include <asm-generic/thread.h>
 #include <kernel/time.h>
+#include <kernel/sched.h>
 
 
 
@@ -35,14 +36,9 @@ struct remove_this_declaration {
 #define TASK_DEAD	0x0004
 
 
-enum sched_policy {
-	SCHED_RR,
-	SCHED_EDF,
-	SCHED_FIFO,
-	SCHED_OTHER,
-};
 
-extern volatile int sched_edf;
+
+//extern volatile int sched_edf;
 struct task_struct {
 
 	struct thread_info thread_info;
@@ -68,11 +64,10 @@ struct task_struct {
 	 */
 	unsigned long stack_canary;
 
-	enum sched_policy		policy;
-	unsigned long			priority;
-	ktime				period; /* wakeup period */
-	ktime				wcet; /* max runtime per period*/
-	ktime				deadline_rel; /* time to deadline from begin of wakeup*/
+
+	struct scheduler		*sched;
+
+	struct sched_attr		attr;
 
 	ktime				runtime; /* remaining runtime in this period  */
 	ktime				wakeup; /* start of next period */

@@ -36,5 +36,6 @@ void tick_check_device(struct clock_event_device *dev);
 int tick_set_mode(enum tick_mode mode);
 int tick_set_next_ns(unsigned long nanoseconds);
 int tick_set_next_ktime(struct timespec expires);
+unsigned long tick_get_period_min_ns(void);
 
 #endif /* _KERNEL_TICK_H_ */

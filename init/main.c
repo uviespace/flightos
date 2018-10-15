@@ -49,8 +49,8 @@
 int task1(void *data)
 {
 	while (1) {
-	//	printk(".");
-	//	sched_yield();
+		printk(".");
+		sched_yield();
 	}
 }
 
@@ -58,10 +58,19 @@ int task1(void *data)
 int task2(void *data)
 {
 	while (1) {
-	//	printk("-");
-	//	sched_yield();
+		printk("-");
+		sched_yield();
 	}
 }
+
+int task3(void *data)
+{
+	while (1) {
+		printk("x");
+		sched_yield();
+	}
+}
+
 
 
 
@@ -150,7 +159,7 @@ int kernel_main(void)
 
 	/* elevate boot thread */
 	kernel = kthread_init_main();
-
+#if 0
 	/*
 	 *  T1: (P=50, D=20, R=10)
 	 *
@@ -177,19 +186,38 @@ int kernel_main(void)
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T7");
 	kthread_set_sched_edf(t, 50 * MSEC_PER_SEC, 6 * MSEC_PER_SEC, 46 * MSEC_PER_SEC);
 
+#endif
 
 
 
 
+#if 1
+{
+	struct sched_attr attr;
 
-#if 0
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print");
-	t->priority = 4;
+	sched_get_attr(t, &attr);
+	attr.priority = 4;
+	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
-	t->priority = 8;
+	sched_get_attr(t, &attr);
+	attr.priority = 8;
+	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
+
+
+	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "edfprint");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = 9000000;
+	attr.deadline_rel = 1100000;
+	attr.wcet         = 1000000;
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+
+}
 #endif
 
 

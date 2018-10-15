@@ -92,7 +92,7 @@ void sched_yield(void)
 	struct task_struct *tsk;
 
 	tsk = current_set[0]->task;
-	if (tsk->policy == SCHED_EDF)
+	if (tsk->attr.policy == SCHED_EDF)
 		tsk->runtime = 0;
 
 	schedule();
@@ -109,19 +109,19 @@ void sched_wake(struct task_struct *next, ktime now, int64_t slot_ns)
 
 	task = list_entry(_kthreads.wake.next, struct task_struct, node);
 
-	if (task->policy == SCHED_EDF) {
-		if (next->policy == SCHED_EDF)
+	if (task->attr.policy == SCHED_EDF) {
+		if (next->attr.policy == SCHED_EDF)
 			return;
 		/* initially set current time as wakeup */
 		task->wakeup = ktime_add(now, slot_ns);
-		task->deadline = ktime_add(task->wakeup, task->deadline_rel);
+		task->deadline = ktime_add(task->wakeup, task->attr.deadline_rel);
 		task->first_wake = task->wakeup;
 		task->first_dead = task->deadline;
 
 		list_move(&task->node, &_kthreads.run);
 	}
 
-	if (task->policy == SCHED_RR) {
+	if (task->attr.policy == SCHED_RR) {
 		task->state = TASK_RUN;
 		list_move(&task->node, &_kthreads.run);
 	}
@@ -129,139 +129,7 @@ void sched_wake(struct task_struct *next, ktime now, int64_t slot_ns)
 }
 
 
-#define MIN_SLICE	1000000LL	/* 1 ms */
 
-#define OVERHEAD	0LL
-
-/* XXX */
-int64_t schedule_edf(ktime now);
-
-void schedule(void)
-{
-	struct task_struct *next;
-	struct task_struct *current;
-	int64_t slot_ns = MIN_SLICE;
-
-
-
-	ktime now;
-
-
-	if (list_empty(&_kthreads.run))
-		return;
-
-
-
-	/* XXX: dummy; need solution for sched_yield() so timer is
-	 * disabled either via disable_tick or need_resched variable
-	 * (in thread structure maybe?)
-	 * If we don't do this here, the timer may fire while interrupts
-	 * are disabled, which may land us here yet again
-	 */
-
-
-	arch_local_irq_disable();
-
-	kthread_lock();
-
-	now = ktime_add(ktime_get(), OVERHEAD);
-
-	tick_set_next_ns(1e9);
-
-
-
-	current = current_set[0]->task;
-
-
-
-	if (current->policy == SCHED_EDF) {
-		ktime d;
-		d = ktime_delta(now, current->exec_start);
-		BUG_ON(d < 0);
-		current->total = ktime_add(current->total, d);
-		current->slices++;
-		current->runtime = ktime_sub(current->runtime, d);
-		//printk("%lld %lld\n", d, current->runtime);
-	}
-
-
-	/** XXX not here, add cleanup thread */
-	kthread_cleanup_dead();
-
-
-#if 1
-	{
-		static int init;
-		if (!init) { /* dummy switch */
-			tick_set_mode(TICK_MODE_ONESHOT);
-			init = 1;
-		}
-	}
-#endif
-
-
-
-
-
-
-
-
-#if 1
-	slot_ns = schedule_edf(now);
-#endif
-
-
-	/* round robin as before */
-	do {
-
-		next = list_entry(_kthreads.run.next, struct task_struct, node);
-
-		BUG_ON(!next);
-
-		if (next->state == TASK_RUN) {
-			list_move_tail(&next->node, &_kthreads.run);
-			break;
-		}
-		if (next->state == TASK_IDLE) {
-			list_move_tail(&next->node, &_kthreads.run);
-			continue;
-		}
-
-		if (next->state == TASK_DEAD)
-			list_move_tail(&next->node, &_kthreads.dead);
-
-	} while (!list_empty(&_kthreads.run));
-
-
-	if (next->policy == SCHED_EDF) {
-		if (next->runtime <= slot_ns)
-			slot_ns = next->runtime; /* XXX must track actual time because of IRQs */
-	}
-
-	if (next->policy == SCHED_RR)
-		slot_ns = (ktime) next->priority * MIN_SLICE;
-
-
-
-	if (slot_ns > 0xffffffff)
-		slot_ns = 0xffffffff;
-
-	BUG_ON (slot_ns < 18000);
-
-
-	sched_wake(next, now, slot_ns);
-
-	next->exec_start = ktime_get();
-
-	kthread_unlock();
-
-	tick_set_next_ns(slot_ns);
-
-	prepare_arch_switch(1);
-	switch_to(next);
-
-	arch_local_irq_enable();
-}
 
 __attribute__((unused))
 /* static */ void kthread_set_sched_policy(struct task_struct *task,
@@ -269,7 +137,7 @@ __attribute__((unused))
 {
 	arch_local_irq_disable();
 	kthread_lock();
-	task->policy = policy;
+	task->attr.policy = policy;
 	kthread_unlock();
 	arch_local_irq_enable();
 }
@@ -284,8 +152,9 @@ void kthread_wake_up(struct task_struct *task)
 	BUG_ON(task->state != TASK_NEW);
 
 	task->state = TASK_IDLE;
-
-	list_move_tail(&task->node, &_kthreads.wake);
+	/** XXX **/
+	sched_enqueue(task);
+	//list_move_tail(&task->node, &_kthreads.wake);
 
 	kthread_unlock();
 	arch_local_irq_enable();
@@ -303,13 +172,13 @@ struct task_struct *kthread_init_main(void)
 		return ERR_PTR(-ENOMEM);
 
 	/* XXX accessors */
-	task->policy = SCHED_RR; /* default */
-	task->priority = 1;
+	task->attr.policy = SCHED_RR; /* default */
+	task->attr.priority = 1;
 
 	arch_promote_to_task(task);
 
 	task->name = "KERNEL";
-	task->policy = SCHED_RR;
+	BUG_ON(sched_set_policy_default(task));
 
 	arch_local_irq_disable();
 	kthread_lock();
@@ -320,7 +189,9 @@ struct task_struct *kthread_init_main(void)
 
 
 	task->state = TASK_RUN;
-	list_add_tail(&task->node, &_kthreads.run);
+
+	sched_enqueue(task);
+	/*list_add_tail(&task->node, &_kthreads.run);*/
 
 
 
@@ -380,9 +251,10 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	BUG_ON(!task->name);
 	vsnprintf(task->name, 32, namefmt, args);
 
-	/* XXX accessors */
-	task->policy = SCHED_RR; /* default */
-	task->priority = 1;
+	if (sched_set_policy_default(task)) {
+		pr_crit("KTHREAD: must destroy task at this point\n");
+		BUG();
+	}
 
 	task->total = 0;
 	task->slices = 0;
@@ -393,7 +265,8 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	arch_local_irq_disable();
 	kthread_lock();
 
-	list_add_tail(&task->node, &_kthreads.new);
+	/** XXX **/ /*sched_enqueue(task); */
+	//list_add_tail(&task->node, &_kthreads.new);
 
 	kthread_unlock();
 	arch_local_irq_enable();
