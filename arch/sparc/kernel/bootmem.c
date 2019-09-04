@@ -251,7 +251,27 @@ void bootmem_init(void)
 
 
 	/* now add the remaining memory banks */
+
+	/**
+	 * XXX bcc2 (sparc-gaisler-elf-gcc) 7.2.0 screws this up by swallowing
+	 * a cmp; bne sequence after the call to page_map_add and placing
+	 * the required ret; restore sequence along with some instructions
+	 * for one of the BUG() related printks lower down in the remaining
+	 * instruction. The function consequently never returns, and partially
+	 * removing sections of this loop results in apparent random BUG()s,
+	 * because all of the generated instructions are ordered to the end of
+	 * the function. The reason appears to be some flawed optimisation
+	 * heuristic, because the problem goes away, when SPARC_PHYS_BANKS
+	 * is set to a value > 0, which means that sp_banks will have
+	 * more than a single entry and the check of base_pfn vs the
+	 * bank's base address results in the rest of the loop being taken.
+	 */
+#define BCC2_IS_RETARDED
+#ifdef BCC2_IS_RETARDED
+	for (i = 0; i <= SPARC_PHYS_BANKS; i++) {
+#else
 	for (i = 0; sp_banks[i].num_bytes != 0; i++) {
+#endif
 
 		BUG_ON(i > SPARC_PHYS_BANKS);
 

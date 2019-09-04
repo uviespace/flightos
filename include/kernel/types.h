@@ -28,6 +28,8 @@
 #if defined(GCC_VERSION) && (GCC_VERSION >= 40402)
 #include <stdint.h>
 #else
+#include <stdint.h>
+#if 0 /* XXX need CLANG FIX */
 /* this must do... */
 typedef unsigned long uintptr_t;
 typedef   signed long  intptr_t;
@@ -52,7 +54,7 @@ compile_time_assert(sizeof(uint16_t) == 2, TYPES_UINT16_SIZE_INVALID);
 compile_time_assert(sizeof( int16_t) == 2, TYPES__INT16_SIZE_INVALID);
 compile_time_assert(sizeof(uint8_t)  == 1, TYPES_UINT_8_SIZE_INVALID);
 compile_time_assert(sizeof( int8_t)  == 1, TYPES__INT_8_SIZE_INVALID);
-
+#endif
 #endif
 
 #ifndef __SIZEOF_LONG__

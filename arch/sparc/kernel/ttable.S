@@ -131,14 +131,14 @@ mna_trap_handler:
 fpe_trap_handler:
 	.global tag_overflow_trap_handler
 tag_overflow_trap_handler:
-	.global mna_trap_handler
-mna_trap_handler:
+#	.global mna_trap_handler /* CLANG! */
+#mna_trap_handler:
 	.global cpdis_trap_handler
 cpdis_trap_handler:
 	.global cpex_trap_handler
 cpex_trap_handler:
-	.global fpe_trap_handler
-fpe_trap_handler:
+#	.global fpe_trap_handler
+#fpe_trap_handler:
 	.global hw_div0_trap_handler
 hw_div0_trap_handler:
 	.global nmi_entry

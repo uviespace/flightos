@@ -69,6 +69,12 @@ struct task_struct {
 
 	struct sched_attr		attr;
 
+
+	/* bcc is SO extremely stupid, it misaligns 64-bit types and generates
+	 * ldd's to laod them; also, it does not respect the aligned attribute
+	 */
+	int				unused;
+
 	ktime				runtime; /* remaining runtime in this period  */
 	ktime				wakeup; /* start of next period */
 	ktime				deadline; /* deadline of current period */

@@ -265,7 +265,7 @@ static size_t eval_flags(const char *fmt, struct fmt_spec *spec)
 
 static size_t eval_width(const char *fmt, struct fmt_spec *spec, va_list *args)
 {
-	int w;
+	int w = 0;
 
 	char *end;
 

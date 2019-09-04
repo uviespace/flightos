@@ -464,7 +464,8 @@ ARCH_AFLAGS :=
 ARCH_CFLAGS :=
 -include arch/$(ARCH)/Makefile
 
-KBUILD_CFLAGS	+= $(call cc-option,-fno-delete-null-pointer-checks,)
+# XXX unsuppported by clang
+#KBUILD_CFLAGS	+= $(call cc-option,-fno-delete-null-pointer-checks,)
 
 ifdef CONFIG_CC_OPTIMIZE_NONE
 KBUILD_CFLAGS	+= -O0 $(call cc-disable-warning,maybe-uninitialized,)

@@ -36,10 +36,11 @@ struct thread_info {
 	int			softirq_count;
 	int			hardirq_count;
 
-	uint32_t __unused;
+	/* bcc is stupid and does not respect the aligned attribute */
+	int			unused;
 
 	/* Context switch saved kernel state. */
-	unsigned long ksp;	/* ... ksp __attribute__ ((aligned (8))); */
+	unsigned long ksp __attribute__ ((aligned (8)));
 	unsigned long kpc;
 	unsigned long kpsr;
 	unsigned long kwim;
