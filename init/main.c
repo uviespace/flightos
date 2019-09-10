@@ -44,7 +44,7 @@
 #endif /* __OPTIMIZE__ */
 #endif /* GCC_VERSION */
 
-
+volatile int inc;
 
 int task1(void *data)
 {
@@ -62,12 +62,27 @@ int task2(void *data)
 		sched_yield();
 	}
 }
-
+static int cnt;
+static	ktime buf[1024];
 int task3(void *data)
 {
+	ktime last = 0;
+
 	while (1) {
-		printk("x");
-		sched_yield();
+#if 0
+		ktime now;
+		if (cnt < 1024) {
+			now = ktime_get();
+			buf[cnt] = ktime_delta(now, last);
+			last = now;
+			cnt++;
+		}
+	       //	else
+		//	sched_yield();
+
+#endif
+		printk("%llu\n", ktime_get());
+	//	sched_yield();
 	}
 }
 
@@ -194,7 +209,7 @@ int kernel_main(void)
 #if 1
 {
 	struct sched_attr attr;
-
+#if 0
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print");
 	sched_get_attr(t, &attr);
 	attr.priority = 4;
@@ -206,26 +221,68 @@ int kernel_main(void)
 	attr.priority = 8;
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
-
-
+#endif
+#if 1
 	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "edfprint");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = 9000000;
-	attr.deadline_rel = 1100000;
-	attr.wcet         = 1000000;
+	attr.period       = ms_to_ktime(3000);
+	attr.deadline_rel = ms_to_ktime(2000);
+	attr.wcet         = ms_to_ktime(1000);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
-
-}
 #endif
 
 
+
+
+}
+#endif
 	while(1) {
-		//printk("|");
-		cpu_relax();
+#if 0
+		int val = inc;
+		static ktime last;
+		ktime now;
+		now = ktime_get();
+		static ktime delta;
+
+		delta	= ktime_delta(last, now);
+		last = now;
+		printk("%d %lld\n", val, ktime_to_us(delta));
+#endif
+#if 0
+	static int i;
+	static ktime last;
+		ktime now;
+		now = ktime_get();
+		if (i == 10) {
+		printk("%lld\n", ktime_to_ms(ktime_delta(now, last)));
+		last = now;
+		i = 0;
+		}
+		i++;
+#endif
+	//	sched_yield();
+		if (cnt > 1023) {
+			int i;
+			for (i = 1; i < 1024; i++)
+				printk("%lld\n", buf[i]);
+		//	cnt = 0;
+			break;
+		}
+		printk("xxx %llu\n", ktime_get());
+
+		//printk("%d\n", cnt);
+
+
+	//	sched_yield();
+	//	cpu_relax();
 	}
 
+		//printk("%lld\n", buf[i]);
+
+	while(1)
+		cpu_relax();
 	/* never reached */
 	BUG();
 

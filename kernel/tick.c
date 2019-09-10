@@ -125,7 +125,7 @@ static void tick_calibrate_min(struct clock_event_device *dev)
 {
 #define RANDOM_TICK_RATE_NS	18000UL
 	tick_period_min_ns = RANDOM_TICK_RATE_NS;
-#define MIN_SLICE		1000000UL
+#define MIN_SLICE		100000UL
 	tick_period_min_ns = MIN_SLICE;
 }
 

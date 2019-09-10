@@ -116,11 +116,10 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 
 	if (tsk->runtime <= 0)
 		return false;
-
 	if (ktime_before(tsk->deadline, now))  {
-		printk("%s violated, %lld %lld, %lld %lld\n", tsk->name,
+		printk("%s violated, %lld %lld, dead %lld wake %lld now %lld\n", tsk->name,
 		       tsk->runtime, ktime_us_delta(tsk->deadline, now),
-		       tsk->deadline, now);
+		       tsk->deadline, tsk->wakeup, now);
 	//	sched_print_edf_list_internal(now);
 		BUG();
 		return false;
@@ -673,7 +672,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 			return -EINVAL;
 			printk("changed task mode to RR\n", u);
 		} else {
-			printk("Utilisation %g\n", u);
+			printk("Utilisation: %g\n", u);
 			return 0;
 		}
 	}
@@ -681,7 +680,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 	u = (double) (int32_t) task->attr.wcet / (double) (int32_t) task->attr.period;
 
-	printk("was the first task %g\n", u);
+	printk("was the first task, utilisation: %g\n", u);
 
 	return 0;
 }
@@ -694,7 +693,7 @@ static int64_t slot;
 
 static struct task_struct *edf_pick_next(struct task_queue *tq)
 {
-#define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 10000000LL
+#define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 100000LL
 	int64_t delta;
 
 
@@ -705,26 +704,46 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 slot = SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 
 
+//	printk("-\n");
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
 		if (delta >= 0) {
 			/* nope, just update minimum runtime for this slot */
-			if (delta < slot)
+			if (delta < slot) {
 				slot = delta;
+			//	printk("d %lld now: %lld \n", ktime_to_us(delta), now);
+			}
+		//	printk("delta %llu %llu\n", delta, tsk->wakeup);
 
-			continue;
+//			continue;
+		}
+		if (delta < 0) {
+
+		//	printk("\n%lld %d\n", ktime_to_us(delta), tsk->state);
+		//	printk("%s: %lld (%lld) deadline: %lld now: %lld state %d\n", tsk->name, ktime_to_ms(delta), tsk->wakeup, tsk->deadline, now, tsk->state);
 		}
 
 		/* if it's already running, see if there is time remaining */
 		if (tsk->state == TASK_RUN) {
+
 			if (!schedule_edf_can_execute(tsk, now)) {
 				schedule_edf_reinit_task(tsk, now);
 				/* nope, update minimum runtime for this slot */
 				delta = ktime_delta(tsk->wakeup, now);
+#if 1
+				if (delta < 0) {
+					delta = tsk->attr.wcet;
+					slot = delta;
+				}
+#endif
 				if (delta < slot)
 					slot = delta;
+				if (delta < 0)
+					printk("delta %lld %lld\n", ktime_to_us(delta), ktime_to_us(tick_get_period_min_ns()));
+				BUG_ON(delta < 0);
+
 				continue;
 			}
 
@@ -822,9 +841,9 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 
 	/* need only check WCET, all other times are longer */
 	if (attr->wcet < (ktime) tick_get_period_min_ns()) {
-		pr_err(MSG "Cannot schedule EDF task with WCET of %lld ns, "
-		           "minimum tick duration is %ld\n", attr->wcet,
-			   tick_get_period_min_ns());
+		pr_err(MSG "Cannot schedule EDF task with WCET of %llu ns, "
+		           "minimum tick duration is %lld\n", attr->wcet,
+			   (ktime) tick_get_period_min_ns());
 		goto error;
 	}
 
@@ -835,14 +854,14 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 	}
 
 	if (attr->wcet >= attr->deadline_rel) {
-		pr_err(MSG "Cannot schedule EDF task with WCET %u >= "
-		           "DEADLINE %u !\n", attr->wcet, attr->deadline_rel);
+		pr_err(MSG "Cannot schedule EDF task with WCET %llu >= "
+		           "DEADLINE %llu !\n", attr->wcet, attr->deadline_rel);
 		goto error;
 	}
 
 	if (attr->deadline_rel >= attr->period) {
-		pr_err(MSG "Cannot schedule EDF task with DEADLINE %u >= "
-		           "PERIOD %u !\n", attr->deadline_rel, attr->period);
+		pr_err(MSG "Cannot schedule EDF task with DEADLINE %llu >= "
+		           "PERIOD %llu !\n", attr->deadline_rel, attr->period);
 		goto error;
 	}
 
@@ -895,7 +914,10 @@ ktime edf_task_ready_ns(struct task_queue *tq)
 		}
 	}
 
-	slot = 1000000;
+	/* subtract call overhead */
+ 	//slot = ktime_sub(slot, 10000ULL);
+ 	//slot = ktime_sub(slot, 2000ULL);
+
 	BUG_ON(slot < 0);
 
 	return slot;

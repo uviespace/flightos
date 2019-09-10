@@ -89,7 +89,7 @@ static void rr_enqueue(struct task_queue *tq, struct task_struct *task)
 
 static ktime rr_timeslice_ns(struct task_struct *task)
 {
-	return (ktime) task->attr.priority * tick_get_period_min_ns();
+	return (ktime) (task->attr.priority * tick_get_period_min_ns() * 1000);
 }
 
 

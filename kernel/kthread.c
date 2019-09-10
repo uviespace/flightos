@@ -99,38 +99,6 @@ void sched_yield(void)
 }
 
 
-void sched_wake(struct task_struct *next, ktime now, int64_t slot_ns)
-{
-
-	struct task_struct *task;
-
-	if (list_empty(&_kthreads.wake))
-		return;
-
-	task = list_entry(_kthreads.wake.next, struct task_struct, node);
-
-	if (task->attr.policy == SCHED_EDF) {
-		if (next->attr.policy == SCHED_EDF)
-			return;
-		/* initially set current time as wakeup */
-		task->wakeup = ktime_add(now, slot_ns);
-		task->deadline = ktime_add(task->wakeup, task->attr.deadline_rel);
-		task->first_wake = task->wakeup;
-		task->first_dead = task->deadline;
-
-		list_move(&task->node, &_kthreads.run);
-	}
-
-	if (task->attr.policy == SCHED_RR) {
-		task->state = TASK_RUN;
-		list_move(&task->node, &_kthreads.run);
-	}
-
-}
-
-
-
-
 __attribute__((unused))
 /* static */ void kthread_set_sched_policy(struct task_struct *task,
 				     enum sched_policy policy)
