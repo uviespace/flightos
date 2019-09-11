@@ -34,7 +34,7 @@ void schedule(void)
 
 	struct task_struct *next = NULL;
 
-	struct task_struct *current = current_set[0]->task;
+	struct task_struct *current;
 	int64_t slot_ns;
 	int64_t wake_ns = 0;
 
@@ -52,6 +52,11 @@ void schedule(void)
 	arch_local_irq_disable();
 	/* kthread_lock(); */
 
+	/* get the current task for this CPU */
+	current = current_set[0]->task;
+
+	/** XXX need timeslice_update callback for schedulers */
+	/* update remaining runtime of current thread */
 	current->runtime = ktime_sub(current->exec_start, ktime_get());
 
 
@@ -62,77 +67,95 @@ void schedule(void)
 		sched->wake_next_task(&sched->tq);
 	}
 
-	current = current_set[0]->task;
 
 	/* XXX need sorted list: highest->lowest scheduler priority, e.g.:
 	 * EDF -> RMS -> FIFO -> RR
 	 * TODO: scheduler priority value
 	 */
+
 	list_for_each_entry(sched, &kernel_schedulers, node) {
-	//	struct task_struct *tmpn;
+
+
+
+		/* if one of the schedulers have a task which needs to run now,
+		 * next is non-NULL
+		 */
 		next = sched->pick_next_task(&sched->tq);
+#if 0
+		if (next)
+			printk("next %s %llu %llu\n", next->name, next->first_wake, ktime_get());
+		else
+			printk("NULL\n");
+#endif
 
 		/* check if we need to limit the next tasks timeslice;
 		 * since our scheduler list is sorted by scheduler priority,
 		 * only update the value if wake_next is not set;
+		 *
+		 * because our schedulers are sorted, this means that if next
+		 * is set, the highest priority scheduler will both tell us
+		 * whether it has another task pending soon. If next is not set,
+		 * a lower-priority scheduler may set the next thread to run,
+		 * but we will take the smallest timeout from high to low
+		 * priority schedulers, so we enter this function again when
+		 * the timeslice of the next thread is over and we can determine
+		 * what needs to be run in the following scheduling cycle. This
+		 * way, we will distribute CPU time even to the lowest priority
+		 * scheduler, if available, but guarantee, that the highest
+		 * priority threads are always ranked and executed on time
+		 *
 		 * we assume that the timeslice is reasonable; if not fix it in
 		 * the corresponding scheduler
 		 */
-		//int64_t tmp;
+
 		if (!wake_ns)
 			wake_ns = sched->task_ready_ns(&sched->tq);
-#if 0
-		if (next)
-			printk("next %s\n", next->name);
-		printk("wake_ns %llu\n", wake_ns);
-#endif
-#if 0
-		else {
-			tmp = sched->task_ready_ns(&sched->tq);
-			if (tmp > wake_ns) {
-				wake_ns = tmp;
-				next = tmpn;
-			}
-		}
 
-		if (!next)
-			next = tmpn;
-
-#endif
+		/* we found something to execute, off we go */
 		if (next)
 			break;
 	}
 
 
 	if (!next) {
-		/* nothing to do, check again later */
-		if (wake_ns) {
+		/* there is absolutely nothing nothing to do, check again later */
+		if (wake_ns)
 			tick_set_next_ns(wake_ns);
-		}
 		else
-			tick_set_next_ns(1e9);	/* XXX pause for a second */
+			tick_set_next_ns(1e9);	/* XXX pause for a second, there are no threads in any scheduler */
 
 		goto exit;
 	}
 
-	/* see if we can use a full slice or if we have to wake earlier */
-	slot_ns = wake_ns;
-		slot_ns = next->sched->timeslice_ns(next);
+	/* see if the remaining runtime in a thread is smaller than the wakeup
+	 * timeout. In this case, we will restrict ourselves to the remaining
+	 * runtime. This is particularly needeed for strictly periodic
+	 * schedulers, e.g. EDF
+	 */
+
+	slot_ns = next->sched->timeslice_ns(next);
+
 	if (wake_ns < slot_ns)
-		slot_ns = wake_ns;
+		slot_ns  = wake_ns;
 
 	/* statistics */
 	next->exec_start = ktime_get();
+//	printk("at %llu\n", next->exec_start);
 
 //		if (next)
 //			printk("real next %s %llu %llu\n", next->name, next->exec_start, slot_ns);
 	/* kthread_unlock(); */
 
 //	printk("wake %llu\n", slot_ns);
+
 	/* subtract readout overhead */
 	tick_set_next_ns(ktime_sub(slot_ns, 1000LL));
-//	tick_set_next_ns(slot_ns);
-
+#if 0
+	if (slot_ns < 20000UL) {
+		printk("wake %llu\n", slot_ns);
+		BUG();
+	}
+#endif
 	prepare_arch_switch(1);
 	switch_to(next);
 

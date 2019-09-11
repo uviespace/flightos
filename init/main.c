@@ -58,8 +58,11 @@ int task1(void *data)
 int task2(void *data)
 {
 	while (1) {
-		printk("-");
-		sched_yield();
+		//printk("x %llu\n", ktime_get());
+		printk("_\n");
+	//	sched_yield();
+//		printk("-");
+	//	sched_yield();
 	}
 }
 static int cnt;
@@ -81,7 +84,9 @@ int task3(void *data)
 		//	sched_yield();
 
 #endif
-		printk("%llu\n", ktime_get());
+		//printk("y %llu\n", ktime_get());
+		printk(".\n");
+
 	//	sched_yield();
 	}
 }
@@ -223,12 +228,21 @@ int kernel_main(void)
 	kthread_wake_up(t);
 #endif
 #if 1
-	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "edfprint");
+	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(3000);
-	attr.deadline_rel = ms_to_ktime(2000);
-	attr.wcet         = ms_to_ktime(1000);
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(200);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+
+	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "print2");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -263,6 +277,7 @@ int kernel_main(void)
 		i++;
 #endif
 	//	sched_yield();
+#if 0
 		if (cnt > 1023) {
 			int i;
 			for (i = 1; i < 1024; i++)
@@ -270,10 +285,12 @@ int kernel_main(void)
 		//	cnt = 0;
 			break;
 		}
-		printk("xxx %llu\n", ktime_get());
+#endif
+//		printk("xxx %llu\n", ktime_get());
 
 		//printk("%d\n", cnt);
 
+		printk("o\n");
 
 	//	sched_yield();
 	//	cpu_relax();

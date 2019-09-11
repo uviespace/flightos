@@ -30,6 +30,10 @@ static struct task_struct *rr_pick_next(struct task_queue *tq)
 			 * round robin
 			 */
 			list_move_tail(&next->node, &tq->run);
+
+			/* reset runtime */
+			next->runtime = (next->attr.priority * tick_get_period_min_ns());
+
 			break;
 		}
 
@@ -68,6 +72,7 @@ static void rr_wake_next(struct task_queue *tq)
 static void rr_enqueue(struct task_queue *tq, struct task_struct *task)
 {
 
+	task->runtime = (task->attr.priority * tick_get_period_min_ns());
 	/** XXX **/
 	if (task->state == TASK_RUN)
 		list_add_tail(&task->node, &tq->run);
@@ -89,7 +94,7 @@ static void rr_enqueue(struct task_queue *tq, struct task_struct *task)
 
 static ktime rr_timeslice_ns(struct task_struct *task)
 {
-	return (ktime) (task->attr.priority * tick_get_period_min_ns() * 1000);
+	return (ktime) (task->attr.priority * tick_get_period_min_ns());
 }
 
 

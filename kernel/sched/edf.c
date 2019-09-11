@@ -148,7 +148,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 	tsk->state = TASK_IDLE;
 
 	tsk->wakeup = ktime_add(tsk->wakeup, tsk->attr.period);
-#if 0
+#if 1
 	if (ktime_after(now, tsk->wakeup))
 		printk("%s delta %lld\n",tsk->name, ktime_us_delta(tsk->wakeup, now));
 
@@ -583,7 +583,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 	static int64_t dmin = 0x7fffffffffffffLL;
 
-	printk("\nvvvv EDF analysis vvvv (%lld) \n\n", p);
+	printk("\nvvvv EDF analysis vvvv (%lld ms) \n\n", ktime_to_ms(p));
 
 	/* list_empty(....) */
 
@@ -615,11 +615,41 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	printk("max UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
 
 
-	list_for_each_entry_safe(tsk, tmp, &tq->new, node) {
+
+	/* add all in wakeup */
+	struct task_struct *tsk2 = NULL;
+	struct task_struct *tmp2;
+	if (!list_empty(&tq->wake)) {
+	list_for_each_entry_safe(tsk2, tmp2, &tq->wake, node) {
+
+		printk("%d\n", __LINE__);
+		if (tsk2->attr.policy != SCHED_EDF)
+			continue;
+
+		u += (double) (int32_t) tsk2->attr.wcet / (double) (int32_t) tsk2->attr.period;
+	}
+	}
+
+	/* add all running */
+	if (!list_empty(&tq->run)) {
+	list_for_each_entry_safe(tsk2, tmp2, &tq->run, node) {
+
+		printk("%d\n", __LINE__);
+		if (tsk2->attr.policy != SCHED_EDF)
+			continue;
+
+		u += (double) (int32_t) tsk2->attr.wcet / (double) (int32_t) tsk2->attr.period;
+	}
+	}
+
+
+	//list_for_each_entry_safe(tsk, tmp, &tq->new, node)
+	{
+		tsk = t0;
 		ktime sh, st;
 
-		if (tsk == t0)
-			continue;
+	//	if (tsk == t0)
+	//		continue;
 
 
 		if (tsk->attr.deadline_rel < t0->attr.deadline_rel) {
@@ -659,16 +689,11 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 		u += (double) (int32_t) task->attr.wcet / (double) (int32_t) task->attr.period;
 
 
-		list_for_each_entry_safe(tsk, tmp, &tq->new, node) {
 
-			if (tsk->attr.policy != SCHED_EDF)
-				continue;
 
-			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
-		}
 
 		if (u > 1.0) {
-			printk("I am NOT schedul-ableh: %g ", u);
+			printk("I am NOT schedul-ableh: %f ", u);
 			return -EINVAL;
 			printk("changed task mode to RR\n", u);
 		} else {
@@ -693,7 +718,7 @@ static int64_t slot;
 
 static struct task_struct *edf_pick_next(struct task_queue *tq)
 {
-#define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 100000LL
+#define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 111111LL
 	int64_t delta;
 
 
@@ -701,23 +726,25 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 	struct task_struct *tsk;
 	struct task_struct *tmp;
 	ktime now = ktime_get();
-slot = SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
+	slot = 1000000000000; //SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 
 
-//	printk("-\n");
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
+
 		if (delta >= 0) {
+
 			/* nope, just update minimum runtime for this slot */
+
 			if (delta < slot) {
 				slot = delta;
-			//	printk("d %lld now: %lld \n", ktime_to_us(delta), now);
+//				printk("d %lld now: %lld \n", ktime_to_us(delta), now);
 			}
-		//	printk("delta %llu %llu\n", delta, tsk->wakeup);
+//			printk("delta %llu %llu\n", delta, tsk->wakeup);
 
-//			continue;
+		//	continue;
 		}
 		if (delta < 0) {
 
@@ -736,10 +763,14 @@ slot = SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 				if (delta < 0) {
 					delta = tsk->attr.wcet;
 					slot = delta;
+			//		printk("NOW!\n");
 				}
 #endif
-				if (delta < slot)
+				if (delta < slot) {
+			//		printk("HERE!\n");
+
 					slot = delta;
+				}
 				if (delta < 0)
 					printk("delta %lld %lld\n", ktime_to_us(delta), ktime_to_us(tick_get_period_min_ns()));
 				BUG_ON(delta < 0);
@@ -748,6 +779,7 @@ slot = SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 			}
 
 			/* move to top */
+			go = tsk;
 			list_move(&tsk->node, &tq->run);
 			continue;
 		}
@@ -758,39 +790,58 @@ slot = SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 			/* move to top */
 			list_move(&tsk->node, &tq->run);
 			go = tsk;
+			break;
 		}
 
 	}
-
+#if 0
 	/** XXX **/
-	//tsk = list_entry(tq->run.next, struct task_struct, node);
+	tsk = list_entry(tq->run.next, struct task_struct, node);
 
 	if (tsk->state == TASK_RUN)
 		return tsk;
 	else
-		return go;
+#endif
+	return go;
 }
 
 
 static void edf_wake_next(struct task_queue *tq)
 {
-
+	struct task_struct *tsk;
+	struct task_struct *tmp;
 	struct task_struct *task;
+
+	ktime last=0;
 
 	if (list_empty(&tq->wake))
 		return;
 
 	task = list_entry(tq->wake.next, struct task_struct, node);
 
-//		if (next->attr.policy == SCHED_EDF)
-//			return;
-		/* initially set current time as wakeup */
-		task->wakeup = ktime_add(ktime_get(), task->attr.period);
-		task->deadline = ktime_add(task->wakeup, task->attr.deadline_rel);
-		task->first_wake = task->wakeup;
-		task->first_dead = task->deadline;
 
-		list_move(&task->node, &tq->run);
+	last = ktime_get();
+
+	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
+		if (tsk->deadline > last)
+			last = tsk->deadline;
+	}
+
+//	if (next->attr.policy == SCHED_EDF)
+//		return;
+//
+	/* initially furthest deadline as wakeup */
+	task->wakeup = ktime_add(last, task->attr.period);
+	/* add overhead */
+	task->wakeup = ktime_add(task->wakeup, 2000UL);
+
+	task->deadline = ktime_add(task->wakeup, task->attr.deadline_rel);
+	task->first_wake = task->wakeup;
+	task->first_dead = task->deadline;
+
+//	printk("---- %s %llu\n", task->name, task->first_wake);
+
+	list_move(&task->node, &tq->run);
 }
 
 
@@ -812,20 +863,23 @@ static void edf_enqueue(struct task_queue *tq, struct task_struct *task)
 		printk("---- NOT SCHEDUL-ABLE---\n");
 		return;
 	}
-
-
+#if 0
 	/** XXX **/
 	if (task->state == TASK_RUN)
-		list_add_tail(&task->node, &tq->run);
+		list_move(&task->node, &tq->run);
 	else
-		list_add_tail(&task->node, &tq->wake);
+
+#endif
+#if 1
+	list_move(&task->node, &tq->wake);
+#endif
 
 }
 
 
 static ktime edf_timeslice_ns(struct task_struct *task)
 {
-	return 0;
+	return (ktime) (task->runtime);
 }
 
 static int edf_check_sched_attr(struct sched_attr *attr)
