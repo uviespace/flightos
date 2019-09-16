@@ -547,6 +547,48 @@ static ktime edf_hyperperiod(struct task_queue *tq)
 		lcm = lcm * (tsk->attr.period / a);
 	}
 
+	/* argh, need to consider everything */
+	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
+
+		a = lcm;
+		b = tsk->attr.period;
+
+		/* already a multiple? */
+		if (a % b == 0)
+			continue;
+
+		while (a != b) {
+			if (a > b)
+				a -= b;
+			else
+				b -= a;
+		}
+
+		lcm = lcm * (tsk->attr.period / a);
+	}
+
+
+	/* meh ... */
+	list_for_each_entry_safe(tsk, tmp, &tq->wake, node) {
+
+		a = lcm;
+		b = tsk->attr.period;
+
+		/* already a multiple? */
+		if (a % b == 0)
+			continue;
+
+		while (a != b) {
+			if (a > b)
+				a -= b;
+			else
+				b -= a;
+		}
+
+		lcm = lcm * (tsk->attr.period / a);
+	}
+
+
 	return lcm;
 }
 
@@ -583,7 +625,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 	static int64_t dmin = 0x7fffffffffffffLL;
 
-	printk("\nvvvv EDF analysis vvvv (%lld ms) \n\n", ktime_to_ms(p));
+//	printk("\nvvvv EDF analysis vvvv (%lld us) \n\n", ktime_to_us(p));
 
 	/* list_empty(....) */
 
@@ -591,7 +633,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 		printk("appears to be empty\n");
 
 	list_for_each_entry_safe(tsk, tmp, &tq->new, node) {
-		printk("%s\n", tsk->name);
+//		printk("%s\n", tsk->name);
 		if (tsk->attr.period > max) {
 			t0 = tsk;
 			max = tsk->attr.period;
@@ -603,7 +645,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	BUG_ON(p < t0->attr.period);
 	h = p / t0->attr.period;
 
-	printk("Period factor %lld, duration %lld actual min period: %lld\n", h, ktime_to_ms(p), ktime_to_ms(t0->attr.period));
+	printk("Period factor %lld, duration %lld actual min period: %lld\n", h, ktime_to_us(p), ktime_to_us(t0->attr.period));
 
 
 
@@ -612,7 +654,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	f1 = ut/h;
 
 
-	printk("max UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
+//	printk("max UH: %lld, UT: %lld\n", ktime_to_us(uh), ktime_to_us(ut));
 
 
 
@@ -622,7 +664,6 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	if (!list_empty(&tq->wake)) {
 	list_for_each_entry_safe(tsk2, tmp2, &tq->wake, node) {
 
-		printk("%d\n", __LINE__);
 		if (tsk2->attr.policy != SCHED_EDF)
 			continue;
 
@@ -634,7 +675,6 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	if (!list_empty(&tq->run)) {
 	list_for_each_entry_safe(tsk2, tmp2, &tq->run, node) {
 
-		printk("%d\n", __LINE__);
 		if (tsk2->attr.policy != SCHED_EDF)
 			continue;
 
@@ -667,7 +707,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 		/* slots after deadline of T0 */
 		st = h * tsk->attr.wcet * f1 / tsk->attr.period;
-		printk("%s tail usage: %lld\n", tsk->name, ktime_to_ms(st));
+//		printk("%s tail usage: %lld\n", tsk->name, ktime_to_ms(st));
 		if (st > ut) {
 			printk("NOT SCHEDULABLE in tail: %s\n", tsk->name);
 			BUG();
@@ -675,7 +715,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 		ut = ut - st;
 
 
-		printk("UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
+//		printk("UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
 
 
 
@@ -697,7 +737,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 			return -EINVAL;
 			printk("changed task mode to RR\n", u);
 		} else {
-			printk("Utilisation: %g\n", u);
+		//	printk("Utilisation: %g\n", u);
 			return 0;
 		}
 	}
@@ -705,7 +745,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 	u = (double) (int32_t) task->attr.wcet / (double) (int32_t) task->attr.period;
 
-	printk("was the first task, utilisation: %g\n", u);
+//	printk("was the first task, utilisation: %g\n", u);
 
 	return 0;
 }

@@ -266,7 +266,7 @@ int kernel_main(void)
 	attr.policy = SCHED_EDF;
 	attr.period       = us_to_ktime(400);
 	attr.deadline_rel = us_to_ktime(200);
-	attr.wcet         = us_to_ktime(90);
+	attr.wcet         = us_to_ktime(100);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 
