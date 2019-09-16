@@ -20,9 +20,9 @@
 #include <kernel/tick.h>
 
 
-#if 0
+#if 1
 
-void sched_print_edf_list_internal(ktime now)
+void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 {
 //	ktime now;
 	char state = 'U';
@@ -40,7 +40,7 @@ void sched_print_edf_list_internal(ktime now)
 	printk("\nt: %lld\n", ktime_to_us(now));
 	printk("S\tDeadline\tWakeup\tdelta W\tdelta P\tt_rem\ttotal\tslices\tName\t\tfirstwake, firstdead, execstart\n");
 	printk("----------------------------------------------\n");
-	list_for_each_entry_safe(tsk, tmp, &_kthreads.run, node) {
+	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
 		if (tsk->attr.policy == SCHED_RR)
 			continue;
@@ -725,6 +725,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 	struct task_struct *go = NULL;
 	struct task_struct *tsk;
 	struct task_struct *tmp;
+	struct task_struct *first;
 	ktime now = ktime_get();
 	slot = 1000000000000; //SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 
@@ -734,7 +735,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
 
-		if (delta >= 0) {
+		if (delta >= 20000) {
 
 			/* nope, just update minimum runtime for this slot */
 
@@ -744,7 +745,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 			}
 //			printk("delta %llu %llu\n", delta, tsk->wakeup);
 
-		//	continue;
+			continue;
 		}
 		if (delta < 0) {
 
@@ -759,18 +760,15 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 				schedule_edf_reinit_task(tsk, now);
 				/* nope, update minimum runtime for this slot */
 				delta = ktime_delta(tsk->wakeup, now);
-#if 1
-				if (delta < 0) {
-					delta = tsk->attr.wcet;
-					slot = delta;
-			//		printk("NOW!\n");
-				}
-#endif
-				if (delta < slot) {
-			//		printk("HERE!\n");
 
+				/* if wakeup must happen earlier than the next
+				 * scheduling event, adjust the slot timeout
+				 */
+				if (delta < slot) {
 					slot = delta;
+				//	printk("slot %lld\n", ktime_to_us(delta));
 				}
+
 				if (delta < 0)
 					printk("delta %lld %lld\n", ktime_to_us(delta), ktime_to_us(tick_get_period_min_ns()));
 				BUG_ON(delta < 0);
@@ -778,9 +776,18 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 				continue;
 			}
 
-			/* move to top */
-			go = tsk;
-			list_move(&tsk->node, &tq->run);
+			/* if our deadline is earlier than the deadline at the
+			 * head of the list, move us to top */
+
+			first = list_first_entry(&tq->run, struct task_struct, node);
+
+			if (ktime_before (tsk->deadline, first->deadline)) {
+			//	go = tsk;
+				list_move(&tsk->node, &tq->run);
+			//	printk("1 to top! %s\n", tsk->name);
+			}
+		//		printk("1 nope %s\n", tsk->name);
+
 			continue;
 		}
 
@@ -788,12 +795,49 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 		if (tsk->state == TASK_IDLE) {
 			tsk->state = TASK_RUN;
 			/* move to top */
-			list_move(&tsk->node, &tq->run);
-			go = tsk;
-			break;
+
+
+
+			/* if our deadline is earlier than the deadline at the
+			 * head of the list, move us to top */
+
+			first = list_first_entry(&tq->run, struct task_struct, node);
+
+			if (ktime_before (tsk->deadline, first->deadline)) {
+			//	go = tsk;
+				list_move(&tsk->node, &tq->run);
+			//	printk("2 to top! %s\n", tsk->name);
+			}
+			//	printk("2 nope %s\n", tsk->name);
+
+			continue;
 		}
 
 	}
+
+	first = list_first_entry(&tq->run, struct task_struct, node);
+	delta = ktime_delta(first->wakeup, now);
+	if (delta <= 0)
+	       if (first->state == TASK_RUN)
+		go = first;
+
+#if 0
+	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
+		printk("%c %s %lld %lld\n",
+		       (tsk->state == TASK_RUN) ? 'R' : 'I',
+			tsk->name,
+			ktime_to_ms(ktime_delta(tsk->wakeup, now)),
+			ktime_to_ms(ktime_delta(tsk->deadline, now))
+		       );
+	}
+#endif
+
+	if (slot < 20000)
+		printk("BUG %lld\n", slot);
+
+//	if (!go)
+//		printk("NULL\n");
+//	printk("in %llu\n", ktime_to_ms(slot));
 #if 0
 	/** XXX **/
 	tsk = list_entry(tq->run.next, struct task_struct, node);
@@ -813,6 +857,7 @@ static void edf_wake_next(struct task_queue *tq)
 	struct task_struct *task;
 
 	ktime last=0;
+	ktime per = 50000;
 
 	if (list_empty(&tq->wake))
 		return;
@@ -825,6 +870,9 @@ static void edf_wake_next(struct task_queue *tq)
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 		if (tsk->deadline > last)
 			last = tsk->deadline;
+
+		if (tsk->attr.period > per)
+			per = tsk->attr.period;
 	}
 
 //	if (next->attr.policy == SCHED_EDF)
@@ -833,7 +881,8 @@ static void edf_wake_next(struct task_queue *tq)
 	/* initially furthest deadline as wakeup */
 	task->wakeup = ktime_add(last, task->attr.period);
 	/* add overhead */
-	task->wakeup = ktime_add(task->wakeup, 2000UL);
+//	task->wakeup = ktime_add(task->wakeup, 50000UL);
+	task->wakeup = ktime_add(task->wakeup, per);
 
 	task->deadline = ktime_add(task->wakeup, task->attr.deadline_rel);
 	task->first_wake = task->wakeup;
@@ -929,7 +978,6 @@ error:
 
 ktime edf_task_ready_ns(struct task_queue *tq)
 {
-	/* now find the closest relative deadline */
 	int64_t delta;
 
 
@@ -945,14 +993,14 @@ ktime edf_task_ready_ns(struct task_queue *tq)
 		if (tsk->state != TASK_RUN)
 			break;
 
-		if (ktime_before(wake, tsk->deadline))
+		if (ktime_before(wake, tsk->wakeup))
 			continue;
 
-		delta = ktime_delta(wake, tsk->deadline);
+		delta = ktime_delta(wake, tsk->wakeup);
 
 		if (delta < 0) {
-			delta = ktime_delta(now, tsk->deadline);
-			printk("\n [%lld] %s deadline violated by %lld us\n", ktime_to_ms(now), tsk->name, ktime_to_us(delta));
+			delta = ktime_delta(now, tsk->wakeup);
+			printk("\n [%lld] %s wakeup violated by %lld us\n", ktime_to_ms(now), tsk->name, ktime_to_us(delta));
 		}
 
 
@@ -961,9 +1009,9 @@ ktime edf_task_ready_ns(struct task_queue *tq)
 				slot = delta;
 			else
 				delta = tsk->runtime;
-			wake = ktime_add(now, slot); /* update next wakeup */
+		//	wake = ktime_add(now, slot); /* update next wakeup */
 			/* move to top */
-			list_move(&tsk->node, &tq->run);
+		//	list_move(&tsk->node, &tq->run);
 			BUG_ON(slot <= 0);
 		}
 	}

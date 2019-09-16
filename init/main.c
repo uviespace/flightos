@@ -45,12 +45,15 @@
 #endif /* GCC_VERSION */
 
 volatile int inc;
-
+volatile int xa, xb, xc;
 int task1(void *data)
 {
 	while (1) {
-		printk(".");
-		sched_yield();
+
+		xa++;
+
+		//printk("#");
+//		sched_yield();
 	}
 }
 
@@ -59,7 +62,8 @@ int task2(void *data)
 {
 	while (1) {
 		//printk("x %llu\n", ktime_get());
-		printk("_\n");
+		//printk("_");
+		xb++;
 	//	sched_yield();
 //		printk("-");
 	//	sched_yield();
@@ -85,14 +89,25 @@ int task3(void *data)
 
 #endif
 		//printk("y %llu\n", ktime_get());
-		printk(".\n");
+		//printk(".");
+		xc++;
 
 	//	sched_yield();
 	}
 }
 
 
-
+int task0(void *data)
+{
+	int a, b, c;
+	while (1) {
+		a = xa;
+		b = xb;
+		c = xc;
+		printk("%d %d %d\n", a, b, c);
+//		sched_yield();
+	}
+}
 
 extern struct task_struct *kernel;
 
@@ -231,20 +246,40 @@ int kernel_main(void)
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(1000);
-	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(200);
+	attr.period       = us_to_ktime(1000);
+	attr.deadline_rel = us_to_ktime(900);
+	attr.wcet         = us_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 
 	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "print2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(1000);
-	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(200);
+	attr.period       = us_to_ktime(800);
+	attr.deadline_rel = us_to_ktime(700);
+	attr.wcet         = us_to_ktime(100);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
+
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print3");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = us_to_ktime(400);
+	attr.deadline_rel = us_to_ktime(200);
+	attr.wcet         = us_to_ktime(90);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+
+	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "res");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(2000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(100);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+
+
 #endif
 
 
@@ -290,7 +325,8 @@ int kernel_main(void)
 
 		//printk("%d\n", cnt);
 
-		printk("o\n");
+	//	printk("o");
+	//	printk("\n");
 
 	//	sched_yield();
 	//	cpu_relax();

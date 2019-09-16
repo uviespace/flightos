@@ -146,13 +146,13 @@ void schedule(void)
 //			printk("real next %s %llu %llu\n", next->name, next->exec_start, slot_ns);
 	/* kthread_unlock(); */
 
-//	printk("wake %llu\n", slot_ns);
+//	printk("wake %llu\n", ktime_to_us(slot_ns));
 
 	/* subtract readout overhead */
-	tick_set_next_ns(ktime_sub(slot_ns, 1000LL));
-#if 0
+	tick_set_next_ns(ktime_sub(slot_ns, 2000LL));
+#if 1
 	if (slot_ns < 20000UL) {
-		printk("wake %llu\n", slot_ns);
+		printk("wake %llu slot %llu %s\n", wake_ns, slot_ns, next->name);
 		BUG();
 	}
 #endif

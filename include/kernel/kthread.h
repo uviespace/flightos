@@ -111,7 +111,6 @@ void switch_to(struct task_struct *next);
 void schedule(void);
 void sched_yield(void);
 
-void sched_print_edf_list_internal(ktime now);
 void sched_print_edf_list(void);
 
 void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
