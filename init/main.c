@@ -104,8 +104,8 @@ int task0(void *data)
 		a = xa;
 		b = xb;
 		c = xc;
-		printk("%d %d %d\n", a, b, c);
-//		sched_yield();
+		printk("%d %d %d %llu\n", a, b, c, ktime_get());
+		sched_yield();
 	}
 }
 

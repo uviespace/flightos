@@ -60,6 +60,7 @@ void schedule(void)
 	current->runtime = ktime_sub(current->exec_start, ktime_get());
 
 
+retry:
 	/* XXX: for now, try to wake up any threads not running
 	 * this is a waste of cycles and instruction space; should be
 	 * done in the scheduler's code (somewhere) */
@@ -152,6 +153,7 @@ void schedule(void)
 	tick_set_next_ns(ktime_sub(slot_ns, 2000LL));
 #if 1
 	if (slot_ns < 20000UL) {
+		goto retry;
 		printk("wake %llu slot %llu %s\n", wake_ns, slot_ns, next->name);
 		BUG();
 	}

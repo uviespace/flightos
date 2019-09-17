@@ -1,4 +1,4 @@
-TARGETS += sysctl
+TARGETS += edf sysctl
 
 #Please keep the TARGETS list alphabetically sorted
 
