@@ -59,7 +59,7 @@ static void sched_edf_create_tasks_test(void)
 	struct task_struct *t;
 	struct sched_attr attr;
 
-
+#if 0
 	/* create task 1 */
 	t = kmalloc(sizeof(struct task_struct));
 	KSFT_ASSERT_PTR_NOT_NULL(t);
@@ -73,7 +73,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.policy       = SCHED_EDF;
 	t->attr.period       = us_to_ktime(1000);
 	t->attr.deadline_rel = us_to_ktime(900);
-	t->attr.wcet         = us_to_ktime(255);
+	t->attr.wcet         = us_to_ktime(250);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -90,7 +90,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.policy       = SCHED_EDF;
 	t->attr.period       = us_to_ktime(800);
 	t->attr.deadline_rel = us_to_ktime(700);
-	t->attr.wcet         = us_to_ktime(89);
+	t->attr.wcet         = us_to_ktime(90);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -124,7 +124,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.policy       = SCHED_EDF;
 	t->attr.period       = us_to_ktime(2000);
 	t->attr.deadline_rel = us_to_ktime(900);
-	t->attr.wcet         = us_to_ktime(125);
+	t->attr.wcet         = us_to_ktime(202);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -142,8 +142,94 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.policy       = SCHED_EDF;
 	t->attr.period       = us_to_ktime(1000);
 	t->attr.deadline_rel = us_to_ktime(900);
-	t->attr.wcet         = us_to_ktime(99);
+	t->attr.wcet         = us_to_ktime(199);
 	edf_enqueue(&t->sched->tq, t);
+
+
+	/* create task 6 */
+	t = kmalloc(sizeof(struct task_struct));
+	KSFT_ASSERT_PTR_NOT_NULL(t);
+
+	t->name = kmalloc(32);
+	KSFT_ASSERT_PTR_NOT_NULL(t->name);
+
+	snprintf(t->name, 32, "task_6");
+
+	t->sched = &sched_edf;
+	t->attr.policy       = SCHED_EDF;
+	t->attr.period       = us_to_ktime(24960);
+	t->attr.deadline_rel = us_to_ktime(11000);
+	t->attr.wcet         = us_to_ktime(104);
+	edf_enqueue(&t->sched->tq, t);
+#else
+
+	/* create task 1 */
+	t = kmalloc(sizeof(struct task_struct));
+	KSFT_ASSERT_PTR_NOT_NULL(t);
+
+	t->name = kmalloc(32);
+	KSFT_ASSERT_PTR_NOT_NULL(t->name);
+
+	snprintf(t->name, 32, "task_1");
+
+	t->sched = &sched_edf;
+	t->attr.policy       = SCHED_EDF;
+	t->attr.period       = us_to_ktime(1000);
+	t->attr.deadline_rel = us_to_ktime(900);
+	t->attr.wcet         = us_to_ktime(250);
+	edf_enqueue(&t->sched->tq, t);
+
+
+	/* create task 2 */
+	t = kmalloc(sizeof(struct task_struct));
+	KSFT_ASSERT_PTR_NOT_NULL(t);
+
+	t->name = kmalloc(32);
+	KSFT_ASSERT_PTR_NOT_NULL(t->name);
+
+	snprintf(t->name, 32, "task_2");
+
+	t->sched = &sched_edf;
+	t->attr.policy       = SCHED_EDF;
+	t->attr.period       = us_to_ktime(1500);
+	t->attr.deadline_rel = us_to_ktime(400);
+	t->attr.wcet         = us_to_ktime(300);
+	edf_enqueue(&t->sched->tq, t);
+
+
+	/* create task 3 */
+	t = kmalloc(sizeof(struct task_struct));
+	KSFT_ASSERT_PTR_NOT_NULL(t);
+
+	t->name = kmalloc(32);
+	KSFT_ASSERT_PTR_NOT_NULL(t->name);
+
+	snprintf(t->name, 32, "task_3");
+
+	t->sched = &sched_edf;
+	t->attr.policy       = SCHED_EDF;
+	t->attr.period       = us_to_ktime(30);
+	t->attr.deadline_rel = us_to_ktime(20);
+	t->attr.wcet         = us_to_ktime(10);
+	edf_enqueue(&t->sched->tq, t);
+
+	/* create task 4 */
+	t = kmalloc(sizeof(struct task_struct));
+	KSFT_ASSERT_PTR_NOT_NULL(t);
+
+	t->name = kmalloc(32);
+	KSFT_ASSERT_PTR_NOT_NULL(t->name);
+
+	snprintf(t->name, 32, "task_3");
+
+	t->sched = &sched_edf;
+	t->attr.policy       = SCHED_EDF;
+	t->attr.period       = us_to_ktime(3000);
+	t->attr.deadline_rel = us_to_ktime(900);
+	t->attr.wcet         = us_to_ktime(100);
+	edf_enqueue(&t->sched->tq, t);
+#endif
+
 
 }
 
@@ -152,7 +238,7 @@ static void sched_edf_create_tasks_test(void)
  * @test sched_edf_create_tasks_test
  */
 
-#define CYCLES 20000
+#define CYCLES 2000000
 
 static void sched_edf_schedule_test(void)
 {
@@ -169,31 +255,31 @@ static void sched_edf_schedule_test(void)
 		curr = next;
 
 		if (curr) {
-			printk("started: %lld now %lld\n", curr->exec_start, ktime_get());
+		//	printk("started: %lld now %lld\n", curr->exec_start, ktime_get());
 			/* remove runtime of slice from curr */
 			curr->runtime = ktime_sub(curr->runtime, ktime_sub(ktime_get(), curr->exec_start));
 		}
 
 		edf_wake_next(&sched_edf.tq);
 
-		sched_print_edf_list_internal(&sched_edf.tq, ktime_get());
+	//	sched_print_edf_list_internal(&sched_edf.tq, ktime_get());
 
 		next = edf_pick_next(&sched_edf.tq);
-		sched_print_edf_list_internal(&sched_edf.tq, ktime_get());
+	//	sched_print_edf_list_internal(&sched_edf.tq, ktime_get());
 
 		if (next) {
 			slice = next->runtime;
-			printk("Next: %s slice %lld\n", next->name, ktime_to_us(slice));
+		//	printk("Next: %s slice %lld\n", next->name, ktime_to_us(slice));
 		} else {
 			slice = 1000000000; /* retry in 1 second */
-			printk("Next: NONE\n");
+		//	printk("Next: NONE\n");
 		}
 
 		wake = edf_task_ready_ns(&sched_edf.tq);
-		printk("New task ready in %llu\n", ktime_to_us(wake));
+//		printk("New task ready in %llu\n", ktime_to_us(wake));
 
 		if (wake < slice) {
-			printk("reducing slice from %lld to %lld (%lld)\n", ktime_to_us(slice), ktime_to_us(wake), ktime_to_us(wake - slice));
+//			printk("reducing slice from %lld to %lld (%lld)\n", ktime_to_us(slice), ktime_to_us(wake), ktime_to_us(wake - slice));
 			slice = wake;
 		}
 
@@ -206,7 +292,7 @@ static void sched_edf_schedule_test(void)
 
 		/* our timeslice has passed: assume we return in time */
 		kernel_time += slice;
-		printk("\npretending slice of %lld\n", ktime_to_us(slice));
+//		printk("\npretending slice of %lld\n", ktime_to_us(slice));
 		ktime_wrap_set_time(kernel_time);
 
 	}
