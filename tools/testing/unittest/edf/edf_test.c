@@ -88,9 +88,9 @@ static void sched_edf_create_tasks_test(void)
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
-	t->attr.period       = us_to_ktime(800);
-	t->attr.deadline_rel = us_to_ktime(700);
-	t->attr.wcet         = us_to_ktime(200);
+	t->attr.period       = us_to_ktime(1500);
+	t->attr.deadline_rel = us_to_ktime(400);
+	t->attr.wcet         = us_to_ktime(300);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -105,9 +105,9 @@ static void sched_edf_create_tasks_test(void)
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
-	t->attr.period       = us_to_ktime(300);
-	t->attr.deadline_rel = us_to_ktime(200);
-	t->attr.wcet         = us_to_ktime(100);
+	t->attr.period       = us_to_ktime(30);
+	t->attr.deadline_rel = us_to_ktime(20);
+	t->attr.wcet         = us_to_ktime(10);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -122,7 +122,7 @@ static void sched_edf_create_tasks_test(void)
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
-	t->attr.period       = us_to_ktime(2000);
+	t->attr.period       = us_to_ktime(3000);
 	t->attr.deadline_rel = us_to_ktime(900);
 	t->attr.wcet         = us_to_ktime(100);
 	edf_enqueue(&t->sched->tq, t);
@@ -133,7 +133,7 @@ static void sched_edf_create_tasks_test(void)
  * @test sched_edf_create_tasks_test
  */
 
-#define CYCLES 1
+#define CYCLES 10000
 
 static void sched_edf_schedule_test(void)
 {

@@ -930,18 +930,11 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 
 			/* nope, just update minimum runtime for this slot */
 
-			if (delta < slot) {
+			if (delta < slot)
 				slot = delta;
-//				printk("d %lld now: %lld \n", ktime_to_us(delta), now);
-			}
-		//	printk("delta %llu %llu\n", delta, tsk->wakeup);
+
 
 			continue;
-		}
-		if (delta < 0) {
-
-		//	printk("\n%lld %d\n", ktime_to_us(delta), tsk->state);
-		//	printk("%s: %lld (%lld) deadline: %lld now: %lld state %d\n", tsk->name, ktime_to_ms(delta), tsk->wakeup, tsk->deadline, now, tsk->state);
 		}
 
 		/* if it's already running, see if there is time remaining */
@@ -949,20 +942,16 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 
 			if (!schedule_edf_can_execute(tsk, now)) {
 				schedule_edf_reinit_task(tsk, now);
-			//	printk("reinit %s\n", tsk->name);
+
 				/* nope, update minimum runtime for this slot */
 				delta = ktime_delta(tsk->wakeup, now);
 
 				/* if wakeup must happen earlier than the next
 				 * scheduling event, adjust the slot timeout
 				 */
-				if (delta < slot) {
+				if (delta < slot)
 					slot = delta;
-				//	printk("slot %lld\n", ktime_to_us(delta));
-				}
 
-				if (delta < 0)
-					printk("delta %lld %lld\n", ktime_to_us(delta), ktime_to_us(tick_get_period_min_ns()));
 				BUG_ON(delta < 0);
 
 				list_move_tail(&tsk->node, &tq->run);
@@ -1024,15 +1013,21 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 		slot = first->runtime;
        }
 
-#if 0
-	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
-		printk("%c %s %lld %lld\n",
-		       (tsk->state == TASK_RUN) ? 'R' : 'I',
-			tsk->name,
-			ktime_to_ms(ktime_delta(tsk->wakeup, now)),
-			ktime_to_ms(ktime_delta(tsk->deadline, now))
-		       );
-	}
+#if 1
+       if (!go) {
+	       list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
+
+		       if (tsk->state != TASK_RUN)
+			       continue;
+
+		       if (ktime_before (tsk->wakeup, now)) {
+			       go = tsk;
+			       slot = tsk->runtime;
+			       break;
+
+		       }
+	       }
+       }
 #endif
 //	if (!go)
 //		printk("NULL\n");
@@ -1137,6 +1132,7 @@ static ktime edf_timeslice_ns(struct task_struct *task)
 
 static int edf_check_sched_attr(struct sched_attr *attr)
 {
+	return 0; /* XXX */
 	if (!attr)
 		goto error;
 
