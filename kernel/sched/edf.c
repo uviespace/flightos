@@ -646,7 +646,12 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 	ktime uh, ut, f1;
 
-		ktime sh = 0, st = 0;
+	ktime sh = 0, st = 0;
+
+
+	ktime stmin = 0x7fffffffffffffULL;
+	ktime shmin = 0x7fffffffffffffULL;
+
 	struct task_struct *t0 = NULL;
 	struct task_struct *tsk = NULL;
 	struct task_struct *tmp;
@@ -717,55 +722,114 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	 * be used before the deadline
 	 */
 	sh = h * t0->attr.wcet * t0->attr.deadline_rel / t0->attr.period;
+	if (sh < shmin)
+		shmin = sh;
 	uh = uh - sh;
 	printk("%s UH: %lld, UT: %lld\n", t0->name, ktime_to_us(uh), ktime_to_us(ut));
 	printk("%s SH: %lld, ST: %lld\n", t0->name, ktime_to_us(sh), ktime_to_us(st));
 
 
-	/* add all in wakeup */
-	struct task_struct *tmp2;
-	if (!list_empty(&tq->wake)) {
-	list_for_each_entry_safe(tsk, tmp, &tq->wake, node) {
+	/* add all in new */
+	if (!list_empty(&tq->new)) {
+		list_for_each_entry_safe(tsk, tmp, &tq->new, node) {
 
-		if (tsk == t0)
-			continue;
+			if (tsk == t0)
+				continue;
 
-		if (tsk->attr.policy != SCHED_EDF)
-			continue;
+			if (tsk->attr.policy != SCHED_EDF)
+				continue;
 
-		u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
+			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
 
 
-		if (tsk->attr.deadline_rel <= t0->attr.deadline_rel) {
+			if (tsk->attr.deadline_rel <= t0->attr.deadline_rel) {
 
-			/* slots before deadline of  T0 */
-			sh = h * tsk->attr.wcet * t0->attr.deadline_rel / tsk->attr.period;
+				/* slots before deadline of  T0 */
+				sh = h * tsk->attr.wcet * t0->attr.deadline_rel / tsk->attr.period;
+
+				if (sh < shmin)
+					shmin = sh;
 #if 0
-			if (sh > uh) {
-				printk("NOT SCHEDULABLE in head: %s\n", tsk->name);
+				if (sh > uh) {
+					printk("NOT SCHEDULABLE in head: %s\n", tsk->name);
+					BUG();
+				}
+#endif
+				uh = uh - sh;
+
+			}
+
+			/* slots after deadline of T0 */
+			st = h * tsk->attr.wcet * f1 / tsk->attr.period;
+			if (st < stmin)
+				stmin = st;
+			//		printk("%s tail usage: %lld\n", tsk->name, ktime_to_ms(st));
+
+#if 0
+			if (st > ut) {
+				printk("NOT SCHEDULABLE in tail: %s\n", tsk->name);
 				BUG();
 			}
 #endif
-			uh = uh - sh;
+			ut = ut - st;
 
+
+			printk("w %s UH: %lld, UT: %lld\n", tsk->name, ktime_to_us(uh), ktime_to_us(ut));
+			printk("w %s SH: %lld, ST: %lld\n", tsk->name, ktime_to_us(sh), ktime_to_us(st));
 		}
+	}
 
-		/* slots after deadline of T0 */
-		st = h * tsk->attr.wcet * f1 / tsk->attr.period;
-//		printk("%s tail usage: %lld\n", tsk->name, ktime_to_ms(st));
+
+
+	/* add all in wakeup */
+	struct task_struct *tmp2;
+	if (!list_empty(&tq->wake)) {
+		list_for_each_entry_safe(tsk, tmp, &tq->wake, node) {
+
+			if (tsk == t0)
+				continue;
+
+			if (tsk->attr.policy != SCHED_EDF)
+				continue;
+
+			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
+
+
+			if (tsk->attr.deadline_rel <= t0->attr.deadline_rel) {
+
+				/* slots before deadline of  T0 */
+				sh = h * tsk->attr.wcet * t0->attr.deadline_rel / tsk->attr.period;
+
+				if (sh < shmin)
+					shmin = sh;
+#if 0
+				if (sh > uh) {
+					printk("NOT SCHEDULABLE in head: %s\n", tsk->name);
+					BUG();
+				}
+#endif
+				uh = uh - sh;
+
+			}
+
+			/* slots after deadline of T0 */
+			st = h * tsk->attr.wcet * f1 / tsk->attr.period;
+			if (st < stmin)
+				stmin = st;
+			//		printk("%s tail usage: %lld\n", tsk->name, ktime_to_ms(st));
 
 #if 0
-		if (st > ut) {
-			printk("NOT SCHEDULABLE in tail: %s\n", tsk->name);
-			BUG();
-		}
+			if (st > ut) {
+				printk("NOT SCHEDULABLE in tail: %s\n", tsk->name);
+				BUG();
+			}
 #endif
-		ut = ut - st;
+			ut = ut - st;
 
 
-		printk("w %s UH: %lld, UT: %lld\n", tsk->name, ktime_to_us(uh), ktime_to_us(ut));
-		printk("w %s SH: %lld, ST: %lld\n", tsk->name, ktime_to_us(sh), ktime_to_us(st));
-	}
+			printk("w %s UH: %lld, UT: %lld\n", tsk->name, ktime_to_us(uh), ktime_to_us(ut));
+			printk("w %s SH: %lld, ST: %lld\n", tsk->name, ktime_to_us(sh), ktime_to_us(st));
+		}
 	}
 
 	/* add all running */
@@ -785,6 +849,9 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 			/* slots before deadline of  T0 */
 			sh = h * tsk->attr.wcet * t0->attr.deadline_rel / tsk->attr.period;
+
+			if (sh < shmin)
+				shmin = sh;
 #if 0
 			if (sh > uh) {
 				printk("NOT SCHEDULABLE in head: %s\n", tsk->name);
@@ -797,6 +864,8 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 		/* slots after deadline of T0 */
 		st = h * tsk->attr.wcet * f1 / tsk->attr.period;
+		if (st < stmin)
+			stmin = st;
 //		printk("%s tail usage: %lld\n", tsk->name, ktime_to_ms(st));
 //
 #if 0
@@ -813,21 +882,37 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	}
 	}
 
-	printk("r SH: %lld, ST: %lld\n", ktime_to_us(uh / h), ktime_to_us(ut / h));
+	printk("r SH: %lld (%lld), ST: %lld (%lld)\n", ktime_to_us(uh / h), uh, ktime_to_us(ut / h), ut);
 
-	if (ut < 0) {
-		printk("NOT SCHEDULABLE in tail: %s\n", task->name);
+	if (ut <= 0) {
+		printk("NOT SCHEDULABLE in tail: %s %lld\n", task->name, ut);
 		BUG();
 	}
 
-	if (uh < 0) {
-		printk("NOT SCHEDULABLE in head: %s\n", task->name);
+	if (uh <= 0) {
+		printk("NOT SCHEDULABLE in head: %s %lld\n", task->name, uh);
 		BUG();
 	}
 
 
+	static int cnt;
 
+	if (cnt) {
+#if 1
+		if (ut <= stmin) {
+			printk("xx NOT SCHEDULABLE in tail: %s %lld vs %lld\n", task->name, ut, stmin);
+		//	BUG();
+		}
+#endif
+#if 0
+		if (uh <= shmin) {
+			printk("xx NOT SCHEDULABLE in head: %s %lld vs %lld \n", task->name, uh, shmin);
+		//	BUG();
+		}
+#endif
+	}
 
+	cnt++;
 
 
 
@@ -968,7 +1053,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 			first = list_first_entry(&tq->run, struct task_struct, node);
 
 			if (ktime_before (tsk->wakeup, now)) {
-				if (ktime_before (tsk->deadline, first->deadline)) {
+				if (ktime_before (tsk->deadline - tsk->runtime, first->deadline)) {
 					tsk->state = TASK_RUN;
 				//	go = tsk;
 					list_move(&tsk->node, &tq->run);
@@ -993,7 +1078,8 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 
 			first = list_first_entry(&tq->run, struct task_struct, node);
 
-			if (ktime_before (tsk->deadline, first->deadline)) {
+			//if (ktime_before (tsk->deadline, first->deadline)) {
+			if (ktime_before (tsk->deadline - tsk->runtime, first->deadline)) {
 			//	go = tsk;
 				list_move(&tsk->node, &tq->run);
 		//		printk("%s has earlier deadline, moved to top\n", tsk->name);

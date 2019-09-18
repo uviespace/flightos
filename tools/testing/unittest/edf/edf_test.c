@@ -88,9 +88,9 @@ static void sched_edf_create_tasks_test(void)
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
-	t->attr.period       = us_to_ktime(1500);
-	t->attr.deadline_rel = us_to_ktime(400);
-	t->attr.wcet         = us_to_ktime(300);
+	t->attr.period       = us_to_ktime(800);
+	t->attr.deadline_rel = us_to_ktime(700);
+	t->attr.wcet         = us_to_ktime(89);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -105,9 +105,9 @@ static void sched_edf_create_tasks_test(void)
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
-	t->attr.period       = us_to_ktime(30);
-	t->attr.deadline_rel = us_to_ktime(20);
-	t->attr.wcet         = us_to_ktime(10);
+	t->attr.period       = us_to_ktime(3);
+	t->attr.deadline_rel = us_to_ktime(2);
+	t->attr.wcet         = us_to_ktime(1);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -122,10 +122,29 @@ static void sched_edf_create_tasks_test(void)
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
-	t->attr.period       = us_to_ktime(3000);
+	t->attr.period       = us_to_ktime(2000);
 	t->attr.deadline_rel = us_to_ktime(900);
-	t->attr.wcet         = us_to_ktime(100);
+	t->attr.wcet         = us_to_ktime(125);
 	edf_enqueue(&t->sched->tq, t);
+
+
+
+	/* create task 5 */
+	t = kmalloc(sizeof(struct task_struct));
+	KSFT_ASSERT_PTR_NOT_NULL(t);
+
+	t->name = kmalloc(32);
+	KSFT_ASSERT_PTR_NOT_NULL(t->name);
+
+	snprintf(t->name, 32, "task_5");
+
+	t->sched = &sched_edf;
+	t->attr.policy       = SCHED_EDF;
+	t->attr.period       = us_to_ktime(1000);
+	t->attr.deadline_rel = us_to_ktime(900);
+	t->attr.wcet         = us_to_ktime(99);
+	edf_enqueue(&t->sched->tq, t);
+
 }
 
 
@@ -133,7 +152,7 @@ static void sched_edf_create_tasks_test(void)
  * @test sched_edf_create_tasks_test
  */
 
-#define CYCLES 10000
+#define CYCLES 20000
 
 static void sched_edf_schedule_test(void)
 {
