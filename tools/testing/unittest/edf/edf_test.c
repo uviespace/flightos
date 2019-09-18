@@ -73,7 +73,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.policy       = SCHED_EDF;
 	t->attr.period       = us_to_ktime(1000);
 	t->attr.deadline_rel = us_to_ktime(900);
-	t->attr.wcet         = us_to_ktime(300);
+	t->attr.wcet         = us_to_ktime(255);
 	edf_enqueue(&t->sched->tq, t);
 
 
@@ -133,7 +133,7 @@ static void sched_edf_create_tasks_test(void)
  * @test sched_edf_create_tasks_test
  */
 
-#define CYCLES 10
+#define CYCLES 1
 
 static void sched_edf_schedule_test(void)
 {
