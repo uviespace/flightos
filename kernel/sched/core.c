@@ -36,7 +36,9 @@ void schedule(void)
 
 	struct task_struct *current;
 	int64_t slot_ns;
-	int64_t wake_ns = 0;
+	int64_t wake_ns = 1000000000;
+
+	ktime rt;
 
 
 	static int once;
@@ -55,12 +57,20 @@ void schedule(void)
 	/* get the current task for this CPU */
 	current = current_set[0]->task;
 
+
+	rt = ktime_sub(ktime_get(), current->exec_start);
+
 	/** XXX need timeslice_update callback for schedulers */
 	/* update remaining runtime of current thread */
-	current->runtime = ktime_sub(current->exec_start, ktime_get());
+
+	current->runtime = ktime_sub(current->runtime, rt);
+	current->total = ktime_add(current->total, rt);
+
 
 
 retry:
+	next = NULL;
+	wake_ns = 1000000000;
 	/* XXX: for now, try to wake up any threads not running
 	 * this is a waste of cycles and instruction space; should be
 	 * done in the scheduler's code (somewhere) */
@@ -82,12 +92,14 @@ retry:
 		 * next is non-NULL
 		 */
 		next = sched->pick_next_task(&sched->tq);
+
 #if 0
 		if (next)
 			printk("next %s %llu %llu\n", next->name, next->first_wake, ktime_get());
 		else
-			printk("NULL\n");
+			printk("NULL %llu\n", ktime_get());
 #endif
+
 
 		/* check if we need to limit the next tasks timeslice;
 		 * since our scheduler list is sorted by scheduler priority,
@@ -109,22 +121,17 @@ retry:
 		 * the corresponding scheduler
 		 */
 
-		if (!wake_ns)
-			wake_ns = sched->task_ready_ns(&sched->tq);
-
-		/* we found something to execute, off we go */
-		if (next)
+		if (next) {
+			slot_ns = next->sched->timeslice_ns(next);
+			/* we found something to execute, off we go */
 			break;
+		}
 	}
 
 
 	if (!next) {
 		/* there is absolutely nothing nothing to do, check again later */
-		if (wake_ns)
-			tick_set_next_ns(wake_ns);
-		else
-			tick_set_next_ns(1e9);	/* XXX pause for a second, there are no threads in any scheduler */
-
+		tick_set_next_ns(wake_ns);
 		goto exit;
 	}
 
@@ -134,7 +141,7 @@ retry:
 	 * schedulers, e.g. EDF
 	 */
 
-	slot_ns = next->sched->timeslice_ns(next);
+	wake_ns = sched->task_ready_ns(&sched->tq);
 
 	if (wake_ns < slot_ns)
 		slot_ns  = wake_ns;
@@ -152,9 +159,9 @@ retry:
 	/* subtract readout overhead */
 	tick_set_next_ns(ktime_sub(slot_ns, 2000LL));
 #if 1
-	if (slot_ns < 20000UL) {
+	if (slot_ns < 19000UL) {
+	//	printk("wake %llu slot %llu %s\n", wake_ns, slot_ns, next->name);
 		goto retry;
-		printk("wake %llu slot %llu %s\n", wake_ns, slot_ns, next->name);
 		BUG();
 	}
 #endif

@@ -107,6 +107,7 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 	if (tsk->runtime <= 0)
 		return false;
 	if (ktime_before(tsk->deadline, now))  {
+		sched_print_edf_list_internal(&tsk->sched->tq, ktime_get());
 		printk("%s violated, %lld %lld, dead %lld wake %lld now %lld start %lld\n", tsk->name,
 		       tsk->runtime, ktime_us_delta(tsk->deadline, now),
 		       tsk->deadline, tsk->wakeup, now, tsk->exec_start);
@@ -153,6 +154,8 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 	tsk->deadline = ktime_add(tsk->wakeup, tsk->attr.deadline_rel);
 
 	tsk->runtime = tsk->attr.wcet;
+
+	tsk->slices++;
 }
 
 
@@ -242,7 +245,6 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 		return 0;
 	}
 
-	u = (double) (int32_t) task->attr.wcet / (double) (int32_t) task->attr.period;
 
 	return 0;
 }
@@ -346,7 +348,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 		slot = first->runtime;
        }
 
-#if 0 /* XXX should not be needed, but needs verification! */
+#if 1 /* XXX should not be needed, but needs verification! */
        if (!go) {
 	       list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 

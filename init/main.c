@@ -251,7 +251,7 @@ int kernel_main(void)
 	attr.wcet         = us_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
-
+#if 1
 	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "print2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
@@ -260,7 +260,8 @@ int kernel_main(void)
 	attr.wcet         = us_to_ktime(100);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
-
+#endif
+#if 1
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
@@ -269,7 +270,8 @@ int kernel_main(void)
 	attr.wcet         = us_to_ktime(100);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
-
+#endif
+#if 1
 	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "res");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
@@ -278,7 +280,7 @@ int kernel_main(void)
 	attr.wcet         = ms_to_ktime(100);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
-
+#endif
 
 #endif
 
