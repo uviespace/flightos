@@ -111,6 +111,7 @@ static unsigned int leon_eirq;
 #ifdef CONFIG_IRQ_STATS_COLLECT
 
 #include <kernel/string.h>
+#include <kernel/init.h>
 #include <kernel/sysctl.h>
 
 static struct {
@@ -909,10 +910,7 @@ static int irq_dispatch_init(void)
 {
 	size_t i;
 
-#ifdef CONFIG_IRQ_STATS_COLLECT
-	struct sysset *sset;
-	struct sysobj *sobj;
-#endif /* CONFIG_IRQ_STATS_COLLECT */
+
 
 
 	irl_vector = (struct list_head *)
@@ -956,7 +954,19 @@ static int irq_dispatch_init(void)
 		list_add_tail(&irl_queue_pool[i].handler_node,
 			      &irq_queue_pool_head);
 
+
+
+	return 0;
+}
+
+
 #ifdef CONFIG_IRQ_STATS_COLLECT
+static int irq_dispatch_init_sysctl(void)
+{
+	struct sysset *sset;
+	struct sysobj *sobj;
+
+
 	sset = sysset_create_and_add("irl", NULL, sys_set);
 
 	sobj = sysobj_create();
@@ -974,10 +984,11 @@ static int irq_dispatch_init(void)
 
 	sobj->sattr = eirl_attributes;
 	sysobj_add(sobj, NULL, sset, "secondary");
-#endif /* CONFIG_IRQ_STATS_COLLECT */
 
 	return 0;
 }
+fs_initcall(irq_dispatch_init_sysctl);
+#endif /* CONFIG_IRQ_STATS_COLLECT */
 
 
 /**
