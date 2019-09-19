@@ -1290,7 +1290,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 
 		/* have we arrived at the end? */
 		if (!(*format))
-		    break;
+			break;
 
 		/* we have encountered a format specifier, try to evaluate it */
 		format++;
@@ -1310,7 +1310,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 	if (size) {
 		if (str) {
 			if (buf < end)
-				buf[0]  = '\0';
+				buf[-1] = '\0';
 			else
 				end[-1] = '\0';
 		}
