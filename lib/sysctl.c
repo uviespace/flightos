@@ -512,7 +512,7 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 			if (!sysobj_name(s))
 				return ret;
 
-			if (strcmp(sysobj_name(s), token))
+			if (strncmp(sysobj_name(s), token, strlen(sysobj_name(s))))
 				continue;
 
 			if (!s->child)
