@@ -100,6 +100,8 @@ void clockevents_set_handler(struct clock_event_device *dev,
 
 void clockevents_register_device(struct clock_event_device *dev);
 
+int clockevents_offer_device(void);
+
 void clockevents_exchange_device(struct clock_event_device *old,
 				 struct clock_event_device *new);
 
@@ -108,6 +110,7 @@ int clockevents_program_event(struct clock_event_device *dev,
 
 int clockevents_program_timeout_ns(struct clock_event_device *dev,
 				   unsigned long nanoseconds);
+
 
 
 #endif /* _KERNEL_CLOCKEVENT_H_ */

@@ -64,14 +64,14 @@ struct scheduler {
 
 	const enum sched_policy policy;
 
-	struct task_struct *(*pick_next_task)(struct task_queue *tq);
+	struct task_struct *(*pick_next_task)(struct task_queue *tq, ktime now);
 
 	/* XXX: sucks */
-	void (*wake_next_task)(struct task_queue *tq);
+	void (*wake_next_task)(struct task_queue *tq, ktime now);
 	void (*enqueue_task)  (struct task_queue *tq, struct task_struct *task);
 
 	ktime (*timeslice_ns) (struct task_struct *task);
-	ktime (*task_ready_ns) (struct task_queue *tq);
+	ktime (*task_ready_ns) (struct task_queue *tq, ktime now);
 
 	int (*check_sched_attr) (struct sched_attr *attr);
 

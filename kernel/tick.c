@@ -16,16 +16,18 @@
 #include <kernel/export.h>
 #include <kernel/clockevent.h>
 #include <kernel/kthread.h>
+#include <kernel/irq.h>
 
 #define MSG "TICK: "
 
 /* the minimum effective tick period; default to 1 ms */
 static unsigned long tick_period_min_ns = 1000000UL;
 
-static struct clock_event_device *tick_device;
+/* XXX */
+static struct clock_event_device *tick_device[2];
 
 
-
+#include <asm/processor.h>
 
 static void tick_event_handler(struct clock_event_device *dev)
 {
@@ -35,13 +37,13 @@ static void tick_event_handler(struct clock_event_device *dev)
 
 struct clock_event_device *tick_get_device(__attribute__((unused)) int cpu)
 {
-	return tick_device;
+	return tick_device[cpu];
 }
 
 void tick_set_device(struct clock_event_device *dev,
 					   __attribute__((unused)) int cpu)
 {
-	tick_device = dev;
+	tick_device[cpu] = dev;
 }
 
 /**
@@ -134,7 +136,7 @@ static void tick_calibrate_min(struct clock_event_device *dev)
  * @brief configure the tick device
  */
 
-static void tick_setup_device(struct clock_event_device *dev)
+static void tick_setup_device(struct clock_event_device *dev, int cpu)
 {
 	tick_calibrate_min(dev);
 
@@ -160,7 +162,7 @@ void tick_check_device(struct clock_event_device *dev)
 		return;
 
 	/* XXX need per-cpu selection later */
-	cur = tick_get_device(0);
+	cur = tick_get_device(leon3_cpuid());
 
 	if (!tick_check_preferred(cur, dev))
 		return;
@@ -168,9 +170,12 @@ void tick_check_device(struct clock_event_device *dev)
 	clockevents_exchange_device(cur, dev);
 
 	/* XXX as above */
-	tick_set_device(dev, 0);
+	tick_set_device(dev, leon3_cpuid());
 
-	tick_setup_device(dev);
+	/* XXX as above */
+	tick_setup_device(dev, leon3_cpuid());
+
+	irq_set_affinity(dev->irq, leon3_cpuid());
 
 	/* XXX should inform scheduler to recalculate any deadline-related
 	 * timeouts of tasks */
@@ -180,7 +185,8 @@ void tick_check_device(struct clock_event_device *dev)
 /**
  * @brief configure the mode of the ticker
  *
- * @returns 0 on success, -EINVAL if mode not available
+ * @returns 0 on success, -EINVAL if mode not available,
+ *	   -ENODEV if no device is available for the current CPU
  */
 
 int tick_set_mode(enum tick_mode mode)
@@ -189,7 +195,9 @@ int tick_set_mode(enum tick_mode mode)
 
 
 	/* XXX need per-cpu selection later */
-	dev = tick_get_device(0);
+	dev = tick_get_device(leon3_cpuid());
+	if (!dev)
+		return -ENODEV;
 
 	switch(mode) {
 		case TICK_MODE_PERIODIC:
@@ -221,7 +229,8 @@ unsigned long tick_get_period_min_ns(void)
 /**
  * @brief configure next tick period in nanoseconds
  *
- * returns 0 on success, 1 if nanoseconds range was clamped to clock range
+ * returns 0 on success, 1 if nanoseconds range was clamped to clock range,
+ *	   -ENODEV if no device is available for the current CPU
  */
 
 
@@ -231,7 +240,9 @@ int tick_set_next_ns(unsigned long nanoseconds)
 
 
 	/* XXX need per-cpu selection later */
-	dev = tick_get_device(0);
+	dev = tick_get_device(leon3_cpuid());
+	if (!dev)
+		return -ENODEV;
 
 	return clockevents_program_timeout_ns(dev, nanoseconds);
 }
@@ -255,7 +266,9 @@ int tick_set_next_ktime(struct timespec expires)
 
 
 	/* XXX need per-cpu selection later */
-	dev = tick_get_device(0);
+	dev = tick_get_device(leon3_cpuid());
+	if (!dev)
+		return -ENODEV;
 
 	return clockevents_program_event(dev, expires);
 }

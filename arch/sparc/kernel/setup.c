@@ -14,6 +14,7 @@
 #include <asm/irq.h>
 #include <asm/time.h>
 #include <asm/clockevent.h>
+#include <kernel/clockevent.h>
 #include <compiler.h>
 
 #include <page.h>
@@ -55,6 +56,8 @@ static void reserve_kernel_stack(void)
 	/* the (aligned) top of the stack */
 	_kernel_stack_top = (void *) (char *) _kernel_stack_bottom + k_stack_sz;
 	_kernel_stack_top = ALIGN_PTR(_kernel_stack_top, STACK_ALIGN);
+
+	printk("xxxxx reserved %p to %p\n", _kernel_stack_top, _kernel_stack_bottom);
 }
 
 
@@ -86,6 +89,59 @@ static void mem_init(void)
 }
 
 
+int cpu1_ready;
+
+
+#include <asm/io.h>
+/* wake a cpu by writing to the multiprocessor status register */
+void cpu_wake(uint32_t cpu_id)
+{
+	iowrite32be(cpu_id, (uint32_t *) 0x80000210);
+}
+
+/** XXX crappy */
+static void boot_cpus(void)
+{
+	printk("booting cpu1\n");
+	cpu_wake(0x2); /*cpu 1 */
+
+        while (!ioread32be(&cpu1_ready));
+	printk("cpu1 booted\n");
+}
+
+
+#include <asm/processor.h>
+#include <kernel/kthread.h>
+extern struct task_struct *kernel[];
+void smp_cpu_entry(void)
+{
+
+     reserve_kernel_stack();
+     BUG_ON(stack_migrate(NULL, _kernel_stack_top));
+
+     printk("hi i'm cpu %d\n", leon3_cpuid());
+
+     BUG_ON(!leon3_cpuid());
+      /* signal ready */
+      iowrite32be(0x1, &cpu1_ready);
+
+	while (ioread32be(&cpu1_ready) != 0x2);
+	BUG_ON(clockevents_offer_device());
+	kthread_init_main();
+
+      iowrite32be(0x3, &cpu1_ready);
+	while (ioread32be(&cpu1_ready) != 0x4);
+      while(1) {
+	  //   printk("x");
+//	      cpu_relax();
+      }
+//	      printk("1\n");
+}
+
+
+
+
+
 /**
  * @brief architecture setup entry point
  */
@@ -107,4 +163,6 @@ void setup_arch(void)
 	sparc_uptime_init();
 
 	sparc_clockevent_init();
+
+	boot_cpus();
 }

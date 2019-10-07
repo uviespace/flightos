@@ -12,10 +12,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @todo eventually replace catch_interrupt() libgloss/newlib functionality
- *       with local/custom code and rework the globals
  * @todo irq configuration should only be done through a syscall,
  *       so traps are disabled
+ *
+ * @todo this needs locking for all resouces shared between CPUs
  *
  * @brief an IRQ manager that dispatches interrupts to registered
  *	  handler functions
@@ -74,7 +74,6 @@ struct irl_vector_elem {
 #define IRL_QUEUE_SIZE	64
 
 
-
 #ifdef CONFIG_LEON2
 #define IRL_SIZE	LEON2_IRL_SIZE
 #define EIRL_SIZE	LEON2_EIRL_SIZE
@@ -93,6 +92,9 @@ static struct leon3_irqctrl_registermap *leon_irqctrl_regs;
 
 #endif /* CONFIG_LEON3 */
 
+#define CPU_AFFINITY_NONE (-1)
+
+static int irq_cpu_affinity[IRL_SIZE + EIRL_SIZE];
 
 static struct list_head	irl_pool_head;
 static struct list_head	irl_queue_head;
@@ -394,7 +396,7 @@ static void leon_clear_irq(unsigned int irq)
  * @param cpu the cpu for which the interrupt is to be unmasked
  */
 
-static void leon_unmask_irq(unsigned int irq, unsigned int cpu)
+static void leon_unmask_irq(unsigned int irq, int cpu)
 {
 	uint32_t mask;
 
@@ -426,7 +428,7 @@ static void leon_unmask_irq(unsigned int irq, unsigned int cpu)
  * @param cpu the cpu for which the interrupt is to be masked
  */
 
-static void leon_mask_irq(unsigned int irq, unsigned int cpu)
+static void leon_mask_irq(unsigned int irq, int cpu)
 {
 	uint32_t mask;
 
@@ -459,7 +461,7 @@ static void leon_mask_irq(unsigned int irq, unsigned int cpu)
  * @param cpu the cpu for which the interrupt is to be enabled
  */
 
-static void leon_enable_irq(unsigned int irq, unsigned int cpu)
+static void leon_enable_irq(unsigned int irq, int cpu)
 {
 	leon_clear_irq(irq);
 
@@ -474,7 +476,7 @@ static void leon_enable_irq(unsigned int irq, unsigned int cpu)
  * @param cpu the cpu for which the interrupt is to be disabled
  */
 
-static void leon_disable_irq(unsigned int irq, unsigned int cpu)
+static void leon_disable_irq(unsigned int irq, int cpu)
 {
 	leon_clear_irq(irq);
 
@@ -598,7 +600,7 @@ static int leon_eirq_dispatch(unsigned int irq)
 {
 	unsigned int eirq;
 #ifdef CONFIG_LEON3
-	unsigned int cpu;
+	int cpu;
 #endif /* CONFIG_LEON3 */
 
 	struct irl_vector_elem *p_elem;
@@ -682,6 +684,8 @@ int irl_register_handler(unsigned int irq,
 			  irq_handler_t handler,
 			  void *data)
 {
+	int cpu;
+
 	uint32_t psr_flags;
 
 	struct irl_vector_elem *p_elem;
@@ -711,8 +715,16 @@ int irl_register_handler(unsigned int irq,
 	spin_lock_restore_irq(psr_flags);
 
 #ifdef CONFIG_LEON3
-	/* XXX for now, just register to the current CPU */
-	leon_enable_irq(irq, leon3_cpuid());
+	/* XXX for now, just register to the current CPU if no affinity is set */
+	cpu = irq_cpu_affinity[irq];
+
+	if (cpu == CPU_AFFINITY_NONE) {
+		cpu = leon3_cpuid();
+		irq_cpu_affinity[irq] = cpu;
+	}
+
+	leon_enable_irq(irq, cpu);
+
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
 	leon_enable_irq(irq, 0);
@@ -749,6 +761,8 @@ static int eirl_register_handler(unsigned int irq,
 				 irq_handler_t handler,
 				 void *data)
 {
+	int cpu;
+
 	uint32_t psr_flags;
 
 	struct irl_vector_elem *p_elem;
@@ -781,8 +795,15 @@ static int eirl_register_handler(unsigned int irq,
 
 	spin_lock_restore_irq(psr_flags);
 #ifdef CONFIG_LEON3
-	/* XXX for now, just register to the current CPU */
-	leon_enable_irq(irq, leon3_cpuid());
+	/* XXX for now, just register to the current CPU if no affinity is set */
+	cpu = irq_cpu_affinity[irq];
+
+	if (cpu == CPU_AFFINITY_NONE) {
+		cpu = leon3_cpuid();
+		irq_cpu_affinity[irq] = cpu;
+	}
+
+	leon_enable_irq(irq, cpu);
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
 	leon_enable_irq(irq, 0);
@@ -954,7 +975,8 @@ static int irq_dispatch_init(void)
 		list_add_tail(&irl_queue_pool[i].handler_node,
 			      &irq_queue_pool_head);
 
-
+	for (i = 0; i < IRL_SIZE + EIRL_SIZE; i++)
+		irq_cpu_affinity[i] = CPU_AFFINITY_NONE;
 
 	return 0;
 }
@@ -1026,8 +1048,9 @@ static void leon_setup_eirq(void)
 #endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
 
 #ifdef CONFIG_LEON3
-	/* XXX for now, just register to the current CPU */
-	leon_enable_irq(leon_eirq, leon3_cpuid());
+	/* XXX enable for all cpus in the system */
+	leon_enable_irq(leon_eirq, 0);
+	leon_enable_irq(leon_eirq, 1);
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
 	leon_enable_irq(leon_eirq, 0);
@@ -1134,6 +1157,24 @@ static void execute_deferred_irq(void)
 	leon_irq_queue_execute();
 }
 
+/**
+ * @brief set IRQ affinity to a certain CPU
+ */
+
+static void set_affinity(unsigned int irq, int cpu)
+{
+	/* XXX need CPU range check */
+
+	if (irq_cpu_affinity[irq] == cpu)
+		return;
+
+	if (irq_cpu_affinity[irq] != CPU_AFFINITY_NONE)
+		leon_mask_irq(irq, irq_cpu_affinity[irq]);
+
+	leon_enable_irq(irq, cpu);
+
+	irq_cpu_affinity[irq] = cpu;
+}
 
 
 /**
@@ -1141,11 +1182,12 @@ static void execute_deferred_irq(void)
  */
 
 static struct irq_dev leon_irq = {
-	.irq_enable	= enable_irq,
-	.irq_disable	= disable_irq,
-	.irq_mask	= mask_irq,
-	.irq_unmask	= unmask_irq,
-	.irq_deferred	= execute_deferred_irq,
+	.irq_enable		= enable_irq,
+	.irq_disable		= disable_irq,
+	.irq_mask		= mask_irq,
+	.irq_unmask		= unmask_irq,
+	.irq_deferred		= execute_deferred_irq,
+	.irq_set_affinity	= set_affinity,
 };
 
 
@@ -1162,6 +1204,10 @@ void leon_irq_init(void)
 
 	/* mask all interrupts on this (boot) CPU */
 	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[leon3_cpuid()]);
+
+	/* XXX MASK FOR ALL CPUS CONFIGURED FOR THE SYSTEM (dummy for N==2)*/
+	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[1]);
+
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
 	leon_irqctrl_regs  = (struct leon2_irqctrl_registermap *)

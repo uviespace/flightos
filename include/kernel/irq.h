@@ -42,11 +42,12 @@ struct irq_data {
 };
 
 struct irq_dev {
-        unsigned int (*irq_enable)   (struct irq_data *data);
-        void         (*irq_disable)  (struct irq_data *data);
-        void         (*irq_mask)     (struct irq_data *data);
-        void         (*irq_unmask)   (struct irq_data *data);
-        void         (*irq_deferred) (void);
+        unsigned int (*irq_enable)        (struct irq_data *data);
+        void         (*irq_disable)       (struct irq_data *data);
+        void         (*irq_mask)          (struct irq_data *data);
+        void         (*irq_unmask)        (struct irq_data *data);
+        void         (*irq_deferred)      (void);
+        void         (*irq_set_affinity)  (unsigned int irq, int cpu);
 };
 
 
@@ -59,5 +60,7 @@ int irq_request(unsigned int irq, enum isr_exec_priority priority,
 		irq_handler_t handler, void *data);
 
 int irq_exec_deferred(void);
+
+int irq_set_affinity(unsigned int irq, int cpu);
 
 #endif /* _KERNEL_IRQ_H_ */

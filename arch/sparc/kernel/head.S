@@ -40,6 +40,13 @@ kernel_entry:
 	 * inserting (3) nops.
 	 */
 
+	/* get our cpu id */
+        rd     %asr17, %g3
+	srl	%g3, 28, %g3
+
+	cmp %g3, %g0
+	bne setup_wim
+	 nop
 
 	/* Clear the .bss section or we'll be in trouble later. This section
 	 * is supposed to be double-word aligned (see kernel.lds.S), so we
@@ -63,7 +70,7 @@ zero_bss:
 	/* Now we initialise the window invalid mask to detect under/overflows.
 	 * We set the highest-value window to be invalid.
 	 */
-
+setup_wim:
         mov     (1 << (NWINDOWS - 1)), %g1
         mov     %g1, %wim	! delayed-write instruction
 
@@ -102,8 +109,17 @@ zero_bss:
 	nop
 	nop
 
+	cmp %g3, %g0
+	bne slavego
+	 nop
+
+
 	call do_basic_setup
 	 nop
 
 	call kernel_main
+	 nop
+
+slavego:
+	call smp_cpu_entry
 	 nop

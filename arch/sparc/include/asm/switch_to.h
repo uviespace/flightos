@@ -187,7 +187,7 @@ __asm__ __volatile__(							\
 	" nop\n\t"						\
 	"here:\n\t"						\
 	:							\
-	: "r" (&(current_set[0])),				\
+	: "r" (&(current_set[leon3_cpuid()])),			\
 	  "r" (&(next->thread_info)),				\
 	  "i" (TI_KSP),						\
 	  "i" (TI_KPC),						\

@@ -37,7 +37,7 @@ int islower(int c);
 
 int atoi(const char *nptr);
 long int strtol(const char *nptr, char **endptr, int base);
-
+long long int strtoll(const char *nptr, char **endptr, int base);
 
 int vprintf(const char *format, va_list ap);
 int vsprintf(char *str, const char *format, va_list ap);

@@ -721,3 +721,118 @@ long int strtol(const char *nptr, char **endptr, int base)
 }
 
 
+/**
+ * @brief convert a string to a long long integer
+ *
+ * @param nptr	the pointer to a string (possibly) representing a number
+ * @param endptr if not NULL, stores the pointer to the first character not part
+ *		 of the number
+ * @param base  the base of the number string
+ *
+ * @return the converted number
+ *
+ * @note A base of 0 defaults to 10 unless the first character after
+ *	 ' ', '+' or '-' is a '0', which will default it to base 8, unless
+ *	 it is followed by 'x' or 'X'  which defaults to base 16.
+ *	 If a number is not preceeded by a sign, it is assumed to be a unsigned
+ *	 type and may therefore assume the size of ULLONG_MAX.
+ *	 If no number has been found, the function will return 0 and
+ *	 nptr == endptr
+ *
+ * @note if the value would over-/underflow, LLONG_MAX/MIN is returned
+ */
+
+long long int strtoll(const char *nptr, char **endptr, int base)
+{
+	int neg = 0;
+
+	unsigned long long res = 0;
+	unsigned long long clamp = (unsigned long) ULONG_LONG_MAX;
+
+
+
+	if (endptr)
+		(*endptr) = (char *) nptr;
+
+	for (; isspace(*nptr); nptr++);
+
+
+	if ((*nptr) == '-') {
+		nptr++;
+		neg = 1;
+		clamp = -(unsigned long long) LONG_LONG_MIN;
+	} else if ((*nptr) == '+') {
+		clamp =  (unsigned long long) LONG_LONG_MAX;
+		nptr++;
+	}
+
+	if (!base || base == 16) {
+		if ((*nptr) == '0') {
+			switch (nptr[1]) {
+			case 'x':
+			case 'X':
+				nptr += 2;
+				base = 16;
+				break;
+			default:
+				nptr++;
+				base = 8;
+				break;
+			}
+		} else {
+			/* default */
+			base = 10;
+		}
+	}
+
+
+	/* Now iterate over the string and add up the digits. We convert
+	 * any A-Z to a-z (offset == 32 in ASCII) to check if the string
+	 * contains letters representing values (A=10...Z=35). We abort if
+	 * the computed digit value exceeds the given base or on overflow.
+	 */
+
+	while (1) {
+		unsigned int c = (*nptr);
+		unsigned int l = c | 0x20;
+		unsigned int val;
+
+		if (isdigit(c))
+			val = c - '0';
+		else if (islower(l))
+		       val = l - 'a' + 10;
+		else
+			break;
+
+		if (val >= base)
+			break;
+
+		/* Check for overflow only if result is approximately within
+		 * range of it, given the base. If we overflow, set result
+		 * to clamp (LLONG_MAX or LLONG_MIN)
+		 */
+
+		if (res & (~0ULL << (BITS_PER_LONG_LONG - fls(base)))) {
+	               if (res > (clamp - val) / base) {
+			       res = clamp;
+			       break;
+		       }
+		}
+
+		res = res * base + val;
+		nptr++;
+	}
+
+
+	/* update endptr if a value was found */
+	if (res)
+		if (endptr)
+			(*endptr) = (char *) nptr;
+
+
+	if (neg)
+		return - (long long int) res;
+
+	return (long long int) res;
+}
+

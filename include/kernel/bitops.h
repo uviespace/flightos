@@ -17,6 +17,11 @@
 #define BITS_PER_LONG __WORDSIZE
 #endif
 
+#ifndef BITS_PER_LONG_LONG
+#define BITS_PER_LONG_LONG (__WORDSIZE * 2)
+#endif
+
+
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 
 

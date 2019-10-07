@@ -52,8 +52,8 @@ int task1(void *data)
 
 		xa++;
 
-		//printk("#");
-//		sched_yield();
+	//	printk("# %d #\n", leon3_cpuid());
+	//	sched_yield();
 	}
 }
 
@@ -65,7 +65,7 @@ int task2(void *data)
 		//printk("_");
 		xb++;
 	//	sched_yield();
-//		printk("-");
+	//	printk("-");
 	//	sched_yield();
 	}
 }
@@ -89,27 +89,51 @@ int task3(void *data)
 
 #endif
 		//printk("y %llu\n", ktime_get());
-		//printk(".");
+	//	printk(".");
 		xc++;
 
 	//	sched_yield();
 	}
 }
-
-
+#include <kernel/sysctl.h>
+extern ktime sched_last_time;
+extern uint32_t sched_ev;
 int task0(void *data)
 {
+	int last = 0;
+	int curr = 0;
+	char buf1[64];
+
+	uint32_t last_call = 0;
+
+	ktime sched_time;
+	struct sysobj *sys_irq = NULL;
+
+
+
+	printk("HELLO! %d\n", leon3_cpuid());
+	bzero(buf1, 64);
+	sys_irq = sysset_find_obj(sys_set, "/sys/irl/primary");
+
+
 	int a, b, c;
 	while (1) {
+
+
+		if (sys_irq)
+			sysobj_show_attr(sys_irq, "irl", buf1);
+
 		a = xa;
 		b = xb;
 		c = xc;
-		printk("%d %d %d %llu\n", a, b, c, ktime_get());
-		sched_yield();
+		sched_time = sched_last_time;
+		curr = atoi(buf1)/2;
+		printk("%d %d %d %llu irq: %s %d per sec; sched %llu us %llu per call, calls %d cpu %d\n", a, b, c, ktime_get(), buf1, (curr -last), ktime_to_us(sched_last_time), sched_last_time /sched_ev, sched_ev - last_call, leon3_cpuid());
+		last = curr;
+		last_call = sched_ev;
+//		sched_yield();
 	}
 }
-
-extern struct task_struct *kernel;
 
 
 /**
@@ -129,6 +153,8 @@ arch_initcall(kernel_init);
 
 
 
+/** XXX dummy **/
+extern int cpu1_ready;
 /**
  * @brief kernel main functionputchar( *((char *) data) );
  */
@@ -193,7 +219,7 @@ int kernel_main(void)
 
 
 	/* elevate boot thread */
-	kernel = kthread_init_main();
+	kthread_init_main();
 #if 0
 	/*
 	 *  T1: (P=50, D=20, R=10)
@@ -225,7 +251,7 @@ int kernel_main(void)
 
 
 
-
+	cpu1_ready = 2;
 #if 1
 {
 	struct sched_attr attr;
@@ -243,21 +269,22 @@ int kernel_main(void)
 	kthread_wake_up(t);
 #endif
 #if 1
+#if 0
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = us_to_ktime(1000);
-	attr.deadline_rel = us_to_ktime(900);
-	attr.wcet         = us_to_ktime(200);
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #if 1
 	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "print2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = us_to_ktime(800);
-	attr.deadline_rel = us_to_ktime(700);
-	attr.wcet         = us_to_ktime(100);
+	attr.period       = ms_to_ktime(800);
+	attr.deadline_rel = ms_to_ktime(700);
+	attr.wcet         = ms_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -265,19 +292,32 @@ int kernel_main(void)
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = us_to_ktime(400);
-	attr.deadline_rel = us_to_ktime(200);
-	attr.wcet         = us_to_ktime(100);
+	attr.period       = ms_to_ktime(400);
+	attr.deadline_rel = ms_to_ktime(200);
+	attr.wcet         = ms_to_ktime(100);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
+
+#endif
+#if 1
+
+	t = kthread_create(task0, NULL, 0, "res");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(800);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
 #if 1
-	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "res");
+	t = kthread_create(task1, NULL, 1, "print3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(2000);
-	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(100);
+	attr.period       = ms_to_ktime(500);
+	attr.deadline_rel = ms_to_ktime(300);
+	attr.wcet         = ms_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -289,6 +329,9 @@ int kernel_main(void)
 
 }
 #endif
+
+	while (ioread32be(&cpu1_ready) != 0x3);
+      iowrite32be(0x4, &cpu1_ready);
 	while(1) {
 #if 0
 		int val = inc;
@@ -331,7 +374,8 @@ int kernel_main(void)
 	//	printk("\n");
 
 	//	sched_yield();
-	//	cpu_relax();
+//		printk("cpu1\n");
+//		cpu_relax();
 	}
 
 		//printk("%lld\n", buf[i]);

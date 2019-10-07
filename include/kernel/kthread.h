@@ -34,6 +34,7 @@ struct remove_this_declaration {
 #define TASK_IDLE	0x0001
 #define TASK_NEW	0x0002
 #define TASK_DEAD	0x0004
+#define TASK_BUSY	0x0005
 
 
 

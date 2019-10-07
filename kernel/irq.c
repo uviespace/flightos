@@ -84,7 +84,25 @@ int irq_exec_deferred(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(irq_exec_deferred);
 
+
+/**
+ * @brief set CPU affinity to a particular CPU (in SMP)
+ */
+
+int irq_set_affinity(unsigned int irq, int cpu)
+{
+	if (!irq_ctrl)
+		return -EINVAL;
+
+	if (irq_ctrl->irq_set_affinity)
+		irq_ctrl->irq_set_affinity(irq, cpu);
+
+	return 0;
+
+}
+EXPORT_SYMBOL(irq_set_affinity);
 
 /**
  * @brief initialise the IRQ system

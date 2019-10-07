@@ -24,12 +24,11 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 	struct task_struct *tmp;
 
 
-//	now = ktime_get();
 	ktime prev = 0;
 	ktime prevd = 0;
 
 	printk("\nktime: %lld\n", ktime_to_us(now));
-	printk("S\tDeadline\tWakeup\tdelta W\tdelta P\tt_rem\ttotal\tslices\tName\t|\tdeltaw\tdeltad\twake0\tdead0\texecstart\n");
+	printk("S\tDeadline\tWakeup\t\tdelta W\tdelta P\tt_rem\ttotal\tslices\tName\twcet\tavg\n");
 	printk("---------------------------------------------------------------------------------------------------------------------------------\n");
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
@@ -46,15 +45,16 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 		if (tsk->state == TASK_RUN)
 			state = 'R';
 
-		printk("%c\t%lld\t\t%lld\t%lld\t%lld\t%lld\t%lld\t%d\t%s\t|\t%lld\t%lld\t%lld\t%lld\t%lld\n",
-		       state, ktime_to_us(tsk->deadline), ktime_to_us(tsk->wakeup),
-		       ktime_to_us(rel_wait), ktime_to_us(rel_deadline), ktime_to_us(tsk->runtime), ktime_to_us(tsk->total),
+		if (tsk->slices == 0)
+			tsk->slices = 1;
+
+		printk("%c\t%lld\t%lld\t\t%lld\t%lld\t%lld\t%lld\t%d\t%s\t|\t%lld\t%lld\n",
+		       state, ktime_to_ms(tsk->deadline), ktime_to_ms(tsk->wakeup),
+		       ktime_to_ms(rel_wait), ktime_to_ms(rel_deadline), ktime_to_ms(tsk->runtime), ktime_to_ms(tsk->total),
 		       tsk->slices, tsk->name,
-		       ktime_us_delta(prev, tsk->wakeup),
-		       ktime_us_delta(prevd, tsk->deadline),
-		       ktime_to_us(tsk->first_wake),
-		       ktime_to_us(tsk->first_dead),
-		       ktime_to_us(tsk->exec_start));
+		       ktime_to_ms(tsk->attr.wcet),
+		       ktime_to_ms(tsk->total/tsk->slices));
+
 		prev = tsk->wakeup;
 		prevd = tsk->deadline;
 	}
@@ -106,8 +106,9 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 
 	if (tsk->runtime <= 0)
 		return false;
+
 	if (ktime_before(tsk->deadline, now))  {
-		sched_print_edf_list_internal(&tsk->sched->tq, ktime_get());
+		sched_print_edf_list_internal(&tsk->sched->tq, now);
 		printk("%s violated, %lld %lld, dead %lld wake %lld now %lld start %lld\n", tsk->name,
 		       tsk->runtime, ktime_us_delta(tsk->deadline, now),
 		       tsk->deadline, tsk->wakeup, now, tsk->exec_start);
@@ -125,9 +126,6 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 
 	if (tsk->attr.wcet * to_deadline < tsk->attr.period * tsk->runtime)
 		return true;
-
-
-
 
 
 	return false;
@@ -216,10 +214,8 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 
 	/* add all in wakeup */
-	struct task_struct *tmp2;
 	if (!list_empty(&tq->wake)) {
 		list_for_each_entry_safe(tsk, tmp, &tq->wake, node)
-
 			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
 
 
@@ -228,14 +224,13 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	/* add all running */
 	if (!list_empty(&tq->run)) {
 		list_for_each_entry_safe(tsk, tmp, &tq->run, node)
-
 			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
 	}
 
 
 
 
-	if (u > 1.0) {
+	if (u > 1.9) {
 		printk("I am NOT schedul-ableh: %f ", u);
 		BUG();
 		return -EINVAL;
@@ -246,60 +241,55 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 	}
 
 
+	/* TODO check against projected interrupt rate, we really need a limit
+	 * there */
+
 	return 0;
 }
 
-/** XXX **/
-static int64_t slot;
-
-
-
-
-static struct task_struct *edf_pick_next(struct task_queue *tq)
+#include <asm/processor.h>
+static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 {
-#define SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE 111111LL
 	int64_t delta;
 
 
-	struct task_struct *go = NULL;
 	struct task_struct *tsk;
 	struct task_struct *tmp;
 	struct task_struct *first;
-	ktime now = ktime_get();
-	slot = 1000000000000; //SOME_DEFAULT_TICK_PERIOD_FOR_SCHED_MODE;
 
+	static int cnt;
+
+	if (list_empty(&tq->run))
+		return NULL;
 
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
 
-		if (delta > 0) {
-
-			/* nope, optionally adjust slice */
-
-			if (delta < slot)
-				slot = delta;
-
+		if (delta > 0)
 			continue;
-		}
+
+		/* XXX ok: what we need here: are multiple queues: one
+		 * where tasks are stored which are currently able to
+		 * run, here we need one per affinity and one generic one
+		 *
+		 * one where tasks are stored which are currently idle.
+		 * tasks move to the idle queue when they cannot execute anymore
+		 * and are moved from idle to run when their wakeup time has
+		 * passed
+		 */
 
 		/* if it's already running, see if there is time remaining */
 		if (tsk->state == TASK_RUN) {
-
+#if 0
+			if (cnt++ > 10) {
+				sched_print_edf_list_internal(&tsk->sched->tq, now);
+				BUG();
+			}
+#endif
 			if (!schedule_edf_can_execute(tsk, now)) {
 				schedule_edf_reinit_task(tsk, now);
-
-				delta = ktime_delta(tsk->wakeup, now);
-
-				/* if wakeup must happen earlier than the next
-				 * scheduling event, adjust the slice
-				 */
-
-				if (delta < slot)
-					slot = delta;
-
-				BUG_ON(delta < 0);
 
 				/* always queue it up at the tail */
 				list_move_tail(&tsk->node, &tq->run);
@@ -312,11 +302,14 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 
 			first = list_first_entry(&tq->run, struct task_struct, node);
 
+			if (tsk->on_cpu == KTHREAD_CPU_AFFINITY_NONE
+			    || tsk->on_cpu == leon3_cpuid()) {
 			if (ktime_before (tsk->wakeup, now)) {
 				if (ktime_before (tsk->deadline - tsk->runtime, first->deadline)) {
 					tsk->state = TASK_RUN;
 					list_move(&tsk->node, &tq->run);
 				}
+			}
 			}
 
 			continue;
@@ -326,69 +319,121 @@ static struct task_struct *edf_pick_next(struct task_queue *tq)
 		if (tsk->state == TASK_IDLE) {
 			tsk->state = TASK_RUN;
 
+			BUG_ON(ktime_delta(tsk->wakeup, now) > 0);
+
 			/* if our deadline is earlier than the deadline at the
 			 * head of the list, move us to top */
 
+			if (tsk->on_cpu == KTHREAD_CPU_AFFINITY_NONE
+			    || tsk->on_cpu == leon3_cpuid()) {
 			first = list_first_entry(&tq->run, struct task_struct, node);
+
+			if (first->on_cpu != KTHREAD_CPU_AFFINITY_NONE
+			    || tsk->on_cpu != leon3_cpuid()) {
+				list_move(&tsk->node, &tq->run);
+			}
 
 			if (ktime_before (tsk->deadline - tsk->runtime, first->deadline))
 				list_move(&tsk->node, &tq->run);
+			}
 
 			continue;
 		}
 
 	}
 
+/* XXX argh, need cpu affinity run lists */
+	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
+
+		if (tsk->state == TASK_RUN) {
+
+			if (tsk->on_cpu == KTHREAD_CPU_AFFINITY_NONE
+			    || tsk->on_cpu == leon3_cpuid()) {
+				tsk->state = TASK_BUSY;
+				return tsk;
+			} else {
+				continue;
+			}
+		}
+	}
+
+#if 0
 	first = list_first_entry(&tq->run, struct task_struct, node);
 	delta = ktime_delta(first->wakeup, now);
 
 
+
        if (first->state == TASK_RUN) {
-		go = first;
-		slot = first->runtime;
-       }
-
-#if 1 /* XXX should not be needed, but needs verification! */
-       if (!go) {
-	       list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
-
-		       if (tsk->state != TASK_RUN)
-			       continue;
-
-		       if (ktime_before (tsk->wakeup, now)) {
-			       go = tsk;
-			       slot = tsk->runtime;
-			       break;
-
-		       }
-	       }
+	     //  printk("c %d\n", leon3_cpuid());
+		first->state = TASK_BUSY;
+	       return first;
        }
 #endif
 
-	return go;
+	return NULL;
 }
 
 
-static void edf_wake_next(struct task_queue *tq)
+static void edf_wake_next(struct task_queue *tq, ktime now)
 {
 	ktime last;
 
 	struct task_struct *tmp;
 	struct task_struct *task;
+	struct task_struct *first = NULL;
+	struct task_struct *t;
+	struct task_struct *prev = NULL;
+
+	ktime wake;
 
 
 
 	if (list_empty(&tq->wake))
 		return;
 
-	last = ktime_get();
-
+	last = now;
+#if 0 /* OK */
 	list_for_each_entry_safe(task, tmp, &tq->run, node) {
 		if (last < task->deadline)
 			last = task->deadline;
 	}
+#endif
 
+#if 1 /* better */
 	task = list_entry(tq->wake.next, struct task_struct, node);
+
+
+	list_for_each_entry_safe(t, tmp, &tq->run, node) {
+
+		first = list_first_entry(&tq->run, struct task_struct, node);
+		if (ktime_before (t->wakeup, now)) {
+			if (ktime_before (t->deadline - t->runtime, first->deadline)) {
+				list_move(&t->node, &tq->run);
+			}
+		}
+	}
+
+	list_for_each_entry_safe(t, tmp, &tq->run, node) {
+
+		/* if the relative deadline of task-to-wake can fit in between the unused
+		 * timeslice of this running task, insert after the next wakeup
+		 */
+		if (task->attr.deadline_rel < ktime_sub(t->deadline, t->wakeup)) {
+		    //last = ktime_add(t->deadline, t->attr.period);
+		    last = t->wakeup;
+
+
+		    break;
+		}
+
+		if (task->attr.wcet < ktime_sub(t->deadline, t->wakeup)) {
+		    //last = ktime_add(t->deadline, t->attr.period);
+		    last = t->deadline;
+
+		    break;
+		}
+	}
+#endif
 
 	task->state = TASK_IDLE;
 
@@ -490,19 +535,31 @@ error:
 /* called after pick_next() */
 
 
-ktime edf_task_ready_ns(struct task_queue *tq)
+ktime edf_task_ready_ns(struct task_queue *tq, ktime now)
 {
 	int64_t delta;
 
+	struct task_struct *first;
 	struct task_struct *tsk;
 	struct task_struct *tmp;
-	ktime wake = 123456789123LL;
-	ktime now = ktime_get();
+	ktime slice = 12345679123ULL;
+	ktime wake = 123456789123ULL;
 
 
+
+	list_for_each_entry_safe(first, tmp, &tq->run, node) {
+		if (first->state != TASK_RUN)
+			continue;
+
+		slice = first->runtime;
+		break;
+	}
 
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
-
+#if 0
+		if (tsk->state == TASK_BUSY)
+			continue; /*meh */
+#endif
 		delta = ktime_delta(tsk->wakeup, now);
 
 		if (delta <= 0)
@@ -512,13 +569,12 @@ ktime edf_task_ready_ns(struct task_queue *tq)
 			wake = delta;
 	}
 
-	if (slot > wake)
-		slot = wake;
+	if (slice > wake)
+		slice = wake;
 
+	BUG_ON(slice <= 0);
 
-	BUG_ON(slot <= 0);
-
-	return slot;
+	return slice;
 }
 
 

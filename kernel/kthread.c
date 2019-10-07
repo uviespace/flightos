@@ -39,18 +39,16 @@ struct remove_this_declaration /*{
 static struct spinlock kthread_spinlock;
 
 
-/** XXX dummy **/
-struct task_struct *kernel;
 
-
-struct thread_info *current_set[1];
+#include <asm/processor.h>
+struct thread_info *current_set[2]; /* XXX */
 
 
 /**
  * @brief lock critical kthread section
  */
 
-static inline void kthread_lock(void)
+ void kthread_lock(void)
 {
 	spin_lock(&kthread_spinlock);
 }
@@ -60,7 +58,7 @@ static inline void kthread_lock(void)
  * @brief unlock critical kthread section
  */
 
-static inline void kthread_unlock(void)
+void kthread_unlock(void)
 {
 	spin_unlock(&kthread_spinlock);
 }
@@ -91,9 +89,9 @@ void sched_yield(void)
 {
 	struct task_struct *tsk;
 
-	tsk = current_set[0]->task;
-	if (tsk->attr.policy == SCHED_EDF)
-		tsk->runtime = 0;
+	tsk = current_set[leon3_cpuid()]->task;
+//	if (tsk->attr.policy == SCHED_EDF)
+	tsk->runtime = 0;
 
 	schedule();
 }
@@ -129,12 +127,14 @@ void kthread_wake_up(struct task_struct *task)
 }
 
 
-
+#include <asm/processor.h>
 struct task_struct *kthread_init_main(void)
 {
 	struct task_struct *task;
 
 	task = kmalloc(sizeof(*task));
+
+//	printk("hi there, someone called %d from %lx\n", leon3_cpuid(), __builtin_return_address(0));
 
 	if (!task)
 		return ERR_PTR(-ENOMEM);
@@ -142,6 +142,7 @@ struct task_struct *kthread_init_main(void)
 	/* XXX accessors */
 	task->attr.policy = SCHED_RR; /* default */
 	task->attr.priority = 1;
+	task->on_cpu = leon3_cpuid();
 
 	arch_promote_to_task(task);
 
@@ -151,9 +152,7 @@ struct task_struct *kthread_init_main(void)
 	arch_local_irq_disable();
 	kthread_lock();
 
-	kernel = task;
-	/*** XXX dummy **/
-	current_set[0] = &kernel->thread_info;
+	current_set[leon3_cpuid()] = &task->thread_info;
 
 
 	task->state = TASK_RUN;
@@ -226,6 +225,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 	task->total = 0;
 	task->slices = 0;
+	task->on_cpu = cpu;
 	arch_init_task(task, thread_fn, data);
 
 	task->state = TASK_NEW;

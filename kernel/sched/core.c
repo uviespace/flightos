@@ -16,6 +16,7 @@
 #include <asm/switch_to.h>
 #include <string.h>
 
+#include <asm/leon.h>
 
 
 #define MSG "SCHEDULER: "
@@ -24,41 +25,56 @@ static LIST_HEAD(kernel_schedulers);
 
 
 /* XXX: per-cpu */
-extern struct thread_info *current_set[1];
+extern struct thread_info *current_set[];
 
+ktime sched_last_time;
+uint32_t sched_ev;
 
-
+ void kthread_lock(void);
+ void kthread_unlock(void);
 void schedule(void)
 {
 	struct scheduler *sched;
 
 	struct task_struct *next = NULL;
+	struct task_struct *prev = NULL;
 
 	struct task_struct *current;
-	int64_t slot_ns;
+	int64_t slot_ns = 1000000LL;
 	int64_t wake_ns = 1000000000;
 
 	ktime rt;
+	ktime now;
 
 
-	static int once;
-	if (!once) {
+	static int once[2];
+	if (!once[leon3_cpuid()]) {
 
 //	tick_set_mode(TICK_MODE_PERIODIC);
 	tick_set_next_ns(1e9);	/* XXX default to 1s ticks initially */
-	once = 1;
+	once[leon3_cpuid()] = 1;
 	return;
 	}
 
 
+
 	arch_local_irq_disable();
-	/* kthread_lock(); */
+//	if (leon3_cpuid() != 0)
+//	printk("cpu %d\n", leon3_cpuid());
+kthread_lock();
 
 	/* get the current task for this CPU */
-	current = current_set[0]->task;
+	/* XXX leon3_cpuid() should be smp_cpu_id() arch call*/
+	current = current_set[leon3_cpuid()]->task;
 
 
-	rt = ktime_sub(ktime_get(), current->exec_start);
+//	if (leon3_cpuid() != 0)
+//	if (current)
+//		printk("current %s\n", current->name);
+
+	now = ktime_get();
+
+	rt = ktime_sub(now, current->exec_start);
 
 	/** XXX need timeslice_update callback for schedulers */
 	/* update remaining runtime of current thread */
@@ -66,6 +82,8 @@ void schedule(void)
 	current->runtime = ktime_sub(current->runtime, rt);
 	current->total = ktime_add(current->total, rt);
 
+       current->state = TASK_RUN;
+//	current->runtime = 0;
 
 
 retry:
@@ -74,9 +92,8 @@ retry:
 	/* XXX: for now, try to wake up any threads not running
 	 * this is a waste of cycles and instruction space; should be
 	 * done in the scheduler's code (somewhere) */
-	list_for_each_entry(sched, &kernel_schedulers, node) {
-		sched->wake_next_task(&sched->tq);
-	}
+	list_for_each_entry(sched, &kernel_schedulers, node)
+		sched->wake_next_task(&sched->tq, now);
 
 
 	/* XXX need sorted list: highest->lowest scheduler priority, e.g.:
@@ -91,7 +108,8 @@ retry:
 		/* if one of the schedulers have a task which needs to run now,
 		 * next is non-NULL
 		 */
-		next = sched->pick_next_task(&sched->tq);
+retry2:
+		next = sched->pick_next_task(&sched->tq, now);
 
 #if 0
 		if (next)
@@ -122,7 +140,31 @@ retry:
 		 */
 
 		if (next) {
-			slot_ns = next->sched->timeslice_ns(next);
+#if 0
+			if (next->on_cpu != KTHREAD_CPU_AFFINITY_NONE) {
+				if (next->on_cpu != leon3_cpuid()) {
+				//	printk("%s on_cpu: %d but am %d\n", next->name, next->on_cpu, leon3_cpuid());
+
+					if (prev == next)
+						continue;
+
+					prev = next;
+					next = NULL;
+					goto retry2;
+				}
+			//	else
+			//		printk("yay %s on_cpu: %d and am %d\n", next->name, next->on_cpu, leon3_cpuid());
+			}
+
+			if (next->sched) {
+#endif
+				slot_ns = next->sched->timeslice_ns(next);
+#if 0
+				if (slot_ns < 0)
+					printk("<0 ! %s\n", next->name);
+			}
+			else continue;
+#endif
 			/* we found something to execute, off we go */
 			break;
 		}
@@ -132,39 +174,42 @@ retry:
 	if (!next) {
 		/* there is absolutely nothing nothing to do, check again later */
 		tick_set_next_ns(wake_ns);
+		kthread_unlock();
 		goto exit;
 	}
 
+//	if (leon3_cpuid() != 0)
+//	printk("next %s\n", next->name);
 	/* see if the remaining runtime in a thread is smaller than the wakeup
 	 * timeout. In this case, we will restrict ourselves to the remaining
 	 * runtime. This is particularly needeed for strictly periodic
 	 * schedulers, e.g. EDF
 	 */
 
-	wake_ns = sched->task_ready_ns(&sched->tq);
+	wake_ns = sched->task_ready_ns(&sched->tq, now);
 
-	if (wake_ns < slot_ns)
-		slot_ns  = wake_ns;
+	if (wake_ns > 0)
+		if (wake_ns < slot_ns)
+			slot_ns  = wake_ns;
 
-	/* statistics */
+	/* ALWAYS get current time here */
 	next->exec_start = ktime_get();
-//	printk("at %llu\n", next->exec_start);
 
-//		if (next)
-//			printk("real next %s %llu %llu\n", next->name, next->exec_start, slot_ns);
-	/* kthread_unlock(); */
-
-//	printk("wake %llu\n", ktime_to_us(slot_ns));
 
 	/* subtract readout overhead */
-	tick_set_next_ns(ktime_sub(slot_ns, 2000LL));
+	tick_set_next_ns(ktime_sub(slot_ns, 1000LL));
+
 #if 1
 	if (slot_ns < 19000UL) {
-	//	printk("wake %llu slot %llu %s\n", wake_ns, slot_ns, next->name);
+		printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
+		now = ktime_get();
 		goto retry;
 		BUG();
 	}
+	sched_ev++;
+	sched_last_time = ktime_add(sched_last_time, ktime_delta(ktime_get(), now));
 #endif
+	kthread_unlock(); 
 	prepare_arch_switch(1);
 	switch_to(next);
 

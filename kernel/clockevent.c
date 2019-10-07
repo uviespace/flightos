@@ -252,6 +252,32 @@ EXPORT_SYMBOL(clockevents_register_device);
 
 
 /**
+ * @brief if an unused clock event device is available, offer it to the ticker
+ *
+ * @returns 0 on success, -ENODEV if no unused device was available
+ */
+
+int clockevents_offer_device(void)
+{
+	struct clock_event_device *dev;
+
+	list_for_each_entry(dev, &clockevent_devices, node) {
+
+		if (dev->state != CLOCK_EVT_STATE_UNUSED)
+			continue;
+
+		arch_local_irq_disable();
+		tick_check_device(dev);
+		arch_local_irq_enable();
+
+		return 0;
+	}
+
+	return -ENODEV;
+}
+
+
+/**
  * @brief program a clock event
  *
  * returns 0 on success, -ETIME if expiration time is in the past

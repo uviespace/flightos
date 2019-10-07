@@ -12,17 +12,21 @@
 
 #define MSG "SCHED_RR: "
 
-
-static struct task_struct *rr_pick_next(struct task_queue *tq)
+#include <asm/processor.h>
+static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 {
 	struct task_struct *next = NULL;
+	struct task_struct *tmp;
 
 
-	while (!list_empty(&tq->run)) {
+	if (list_empty(&tq->run))
+		return NULL;
 
-		next = list_entry(tq->run.next, struct task_struct, node);
+	list_for_each_entry_safe(next, tmp, &tq->run, node) {
 
-		BUG_ON(!next);
+
+		if (next->on_cpu == KTHREAD_CPU_AFFINITY_NONE
+		    || next->on_cpu == leon3_cpuid()) {
 
 		if (next->state == TASK_RUN) {
 			/* XXX: must pick head first, then move tail on put()
@@ -34,7 +38,8 @@ static struct task_struct *rr_pick_next(struct task_queue *tq)
 			/* reset runtime */
 			next->runtime = (next->attr.priority * tick_get_period_min_ns());
 
-			break;
+
+
 		}
 
 		if (next->state == TASK_IDLE)
@@ -42,6 +47,17 @@ static struct task_struct *rr_pick_next(struct task_queue *tq)
 
 		if (next->state == TASK_DEAD)
 			list_move_tail(&next->node, &tq->dead);
+
+		break;
+
+
+		} else {
+			next = NULL;
+			continue;
+		}
+
+
+
 
 	}
 
@@ -51,7 +67,7 @@ static struct task_struct *rr_pick_next(struct task_queue *tq)
 
 
 /* this sucks, wrong place. keep for now */
-static void rr_wake_next(struct task_queue *tq)
+static void rr_wake_next(struct task_queue *tq, ktime now)
 {
 
 	struct task_struct *task;
@@ -94,7 +110,7 @@ static void rr_enqueue(struct task_queue *tq, struct task_struct *task)
 
 static ktime rr_timeslice_ns(struct task_struct *task)
 {
-	return (ktime) (task->attr.priority * tick_get_period_min_ns());
+	return (ktime) (task->attr.priority * tick_get_period_min_ns() * 50);
 }
 
 
@@ -129,7 +145,7 @@ static int rr_check_sched_attr(struct sched_attr *attr)
  *	 so this function always returns 0
  */
 
-ktime rr_task_ready_ns(struct task_queue *tq)
+ktime rr_task_ready_ns(struct task_queue *tq, ktime now)
 {
 	return (ktime) 0ULL;
 }

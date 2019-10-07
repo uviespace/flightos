@@ -40,7 +40,7 @@ extern struct thread_info *current_set[];
 #include <kernel/time.h>
 static void th_starter(void)
 {
-	struct task_struct *task = current_set[0]->task;
+	struct task_struct *task = current_set[leon3_cpuid()]->task;
 
 	struct timespec ts;
 	double start;
@@ -112,7 +112,7 @@ void arch_promote_to_task(struct task_struct *task)
 	task->data      = NULL;
 
 
-	printk(MSG "kernel stack %x\n", leon_get_fp());
+	printk(MSG "kernel stack %x %x\n", leon_get_fp(), leon_get_sp());
 
 	printk(MSG "is next at %p stack %p\n", &task->thread_info, task->stack);
 
