@@ -46,8 +46,46 @@
 
 volatile int inc;
 volatile int xa, xb, xc;
+
+#define BUFLEN	1024*1024
+uint32_t *common;
+uint32_t *cpu[4];
+
+ktime per_loop_avg[4];
+
+int copytask(void *data)
+{
+	int i;
+	ktime cnt = 0;
+	ktime start, stop;
+	ktime total = 0;
+
+
+//	printk("CPU %d\n", leon3_cpuid());
+	cpu[leon3_cpuid()] = kmalloc(BUFLEN * sizeof(uint32_t));
+
+	if (!cpu[leon3_cpuid()])
+		return;
+
+	while (1) {
+		start = ktime_get();
+		for (i = 0 ; i < BUFLEN; i++)
+			cpu[leon3_cpuid()][i] = cpu[3-leon3_cpuid()][i];
+
+		stop = ktime_get();
+
+		total += stop - start;
+		cnt++;
+
+		per_loop_avg[leon3_cpuid()] = (total / cnt) / (ktime) (BUFLEN);
+	}
+}
+
 int task1(void *data)
 {
+
+
+
 	while (1) {
 
 		xa++;
@@ -71,11 +109,19 @@ int task2(void *data)
 }
 static int cnt;
 static	ktime buf[1024];
-int task3(void *data)
+int res(void *data)
 {
 	ktime last = 0;
 
 	while (1) {
+
+		printk("%llu %llu %llu %llu %llu\n",
+		       ktime_to_ms(ktime_get()),
+		       per_loop_avg[0],
+		       per_loop_avg[1],
+		       per_loop_avg[2],
+		       per_loop_avg[3]);
+		sched_yield();
 #if 0
 		ktime now;
 		if (cnt < 1024) {
@@ -131,7 +177,7 @@ int task0(void *data)
 		printk("%d %d %d %llu irq: %s %d per sec; sched %llu us %llu per call, calls %d cpu %d\n", a, b, c, ktime_get(), buf1, (curr -last), ktime_to_us(sched_last_time), sched_last_time /sched_ev, sched_ev - last_call, leon3_cpuid());
 		last = curr;
 		last_call = sched_ev;
-//		sched_yield();
+		sched_yield();
 	}
 }
 
@@ -154,7 +200,7 @@ arch_initcall(kernel_init);
 
 
 /** XXX dummy **/
-extern int cpu1_ready;
+extern int cpu_ready[4];
 /**
  * @brief kernel main functionputchar( *((char *) data) );
  */
@@ -251,7 +297,6 @@ int kernel_main(void)
 
 
 
-	cpu1_ready = 2;
 #if 1
 {
 	struct sched_attr attr;
@@ -300,18 +345,18 @@ int kernel_main(void)
 #endif
 
 #endif
-#if 1
+#if 0
 
 	t = kthread_create(task0, NULL, 0, "res");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(1000);
 	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(800);
+	attr.wcet         = ms_to_ktime(500);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
-#if 1
+#if 0
 	t = kthread_create(task1, NULL, 1, "print3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
@@ -322,16 +367,91 @@ int kernel_main(void)
 	kthread_wake_up(t);
 #endif
 
+
+	cpu_ready[1] = 2;
+	while (ioread32be(&cpu_ready[1]) != 0x3);
+	iowrite32be(0x4, &cpu_ready[1]);
+
+	cpu_ready[2] = 2;
+	while (ioread32be(&cpu_ready[2]) != 0x3);
+	iowrite32be(0x4, &cpu_ready[2]);
+
+	cpu_ready[3] = 2;
+	while (ioread32be(&cpu_ready[3]) != 0x3);
+	iowrite32be(0x4, &cpu_ready[3]);
+
+
+
 #endif
 
+	printk("requesting common\n");
+	common = kmalloc (BUFLEN * sizeof(uint32_t));
+	printk("starting threads\n");
+#if 1
+	t = kthread_create(res, NULL, 3, "cpu0");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(990);
+	attr.wcet         = ms_to_ktime(50);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
+#if 1
+	t = kthread_create(copytask, NULL, 0, "cpu0");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(800);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
+#if 1
+	t = kthread_create(copytask, NULL, 1, "cpu1");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(800);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
+#if 1
+	t = kthread_create(copytask, NULL, 2, "cpu2");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(800);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
+#if 1
+	t = kthread_create(copytask, NULL, 3, "cpu3");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_EDF;
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(900);
+	attr.wcet         = ms_to_ktime(800);
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
 
 
 
 }
 #endif
 
-	while (ioread32be(&cpu1_ready) != 0x3);
-      iowrite32be(0x4, &cpu1_ready);
+
+
+    while (1) {
+	//   res(NULL);
+	    cpu_relax();
+    }
+
+
+
 	while(1) {
 #if 0
 		int val = inc;

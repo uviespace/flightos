@@ -61,7 +61,13 @@ struct fmt_spec {
 
 #define TREADY 4
 
+#if defined(CONFIG_LEON3)
 static volatile int *console = (int *)0x80000100;
+#endif
+
+#if defined(CONFIG_LEON4)
+static volatile int *console = (int *)0xFF900000;
+#endif
 
 static int putchar(int c)
 {

@@ -230,7 +230,7 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 
 
-	if (u > 1.9) {
+	if (u > 3.9) {
 		printk("I am NOT schedul-ableh: %f ", u);
 		BUG();
 		return -EINVAL;

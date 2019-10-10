@@ -1,5 +1,7 @@
 # gcc (7.2.0)
-ARCH_CFLAGS = -mcpu=leon3 -mfix-gr712rc
+#
+#ARCH_CFLAGS = -mcpu=leon3 -mfix-gr712rc
+ARCH_CFLAGS = -mcpu=leon3 -mhard-float
 # gcc (4.x)
 #ARCH_CFLAGS = -mcpu=v8 -mfix-gr712rc
 # clang

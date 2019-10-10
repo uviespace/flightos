@@ -41,7 +41,7 @@ static struct spinlock kthread_spinlock;
 
 
 #include <asm/processor.h>
-struct thread_info *current_set[2]; /* XXX */
+struct thread_info *current_set[4]; /* XXX */
 
 
 /**

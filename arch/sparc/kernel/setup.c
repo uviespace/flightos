@@ -56,8 +56,6 @@ static void reserve_kernel_stack(void)
 	/* the (aligned) top of the stack */
 	_kernel_stack_top = (void *) (char *) _kernel_stack_bottom + k_stack_sz;
 	_kernel_stack_top = ALIGN_PTR(_kernel_stack_top, STACK_ALIGN);
-
-	printk("xxxxx reserved %p to %p\n", _kernel_stack_top, _kernel_stack_bottom);
 }
 
 
@@ -74,6 +72,9 @@ static void mem_init(void)
 #ifdef CONFIG_MPPB
 	sp_banks[0].base_addr = 0x40000000;
 	sp_banks[0].num_bytes = 0x10000000;
+#elif CONFIG_LEON4
+	sp_banks[0].base_addr = 0x00000000;
+	sp_banks[0].num_bytes = 0x10000000;
 #else /* e.g. GR712 eval */
 	sp_banks[0].base_addr = 0x40000000;
 	sp_banks[0].num_bytes = 0x00800000;
@@ -89,14 +90,19 @@ static void mem_init(void)
 }
 
 
-int cpu1_ready;
+int cpu_ready[4];
 
 
 #include <asm/io.h>
 /* wake a cpu by writing to the multiprocessor status register */
 void cpu_wake(uint32_t cpu_id)
 {
+#ifdef CONFIG_LEON3
 	iowrite32be(cpu_id, (uint32_t *) 0x80000210);
+#endif
+#ifdef CONFIG_LEON4
+	iowrite32be(cpu_id, (uint32_t *) 0xFF904010);
+#endif
 }
 
 /** XXX crappy */
@@ -105,14 +111,26 @@ static void boot_cpus(void)
 	printk("booting cpu1\n");
 	cpu_wake(0x2); /*cpu 1 */
 
-        while (!ioread32be(&cpu1_ready));
+        while (!ioread32be(&cpu_ready[1]));
 	printk("cpu1 booted\n");
+
+	printk("booting cpu2\n");
+	cpu_wake(0x4); /*cpu 2 */
+
+        while (!ioread32be(&cpu_ready[2]));
+	printk("cpu2 booted\n");
+
+
+	printk("booting cpu3\n");
+	cpu_wake(0x8); /*cpu 3 */
+
+        while (!ioread32be(&cpu_ready[3]));
+	printk("cpu3 booted\n");
 }
 
 
 #include <asm/processor.h>
 #include <kernel/kthread.h>
-extern struct task_struct *kernel[];
 void smp_cpu_entry(void)
 {
 
@@ -123,17 +141,18 @@ void smp_cpu_entry(void)
 
      BUG_ON(!leon3_cpuid());
       /* signal ready */
-      iowrite32be(0x1, &cpu1_ready);
+      iowrite32be(0x1, &cpu_ready[leon3_cpuid()]);
 
-	while (ioread32be(&cpu1_ready) != 0x2);
-	BUG_ON(clockevents_offer_device());
+	while (ioread32be(&cpu_ready[leon3_cpuid()]) != 0x2);
+	BUG_ON(clockevents_offer_device()); /* XXX CLOCK */
 	kthread_init_main();
 
-      iowrite32be(0x3, &cpu1_ready);
-	while (ioread32be(&cpu1_ready) != 0x4);
+      iowrite32be(0x3, &cpu_ready[leon3_cpuid()]);
+	while (ioread32be(&cpu_ready[leon3_cpuid()]) != 0x4);
+
       while(1) {
 	  //   printk("x");
-//	      cpu_relax();
+	      cpu_relax();
       }
 //	      printk("1\n");
 }
@@ -165,4 +184,5 @@ void setup_arch(void)
 	sparc_clockevent_init();
 
 	boot_cpus();
+
 }

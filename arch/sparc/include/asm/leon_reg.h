@@ -24,6 +24,13 @@
 #include <kernel/types.h>
 
 
+#define LEON4_BASE_ADDRESS_IRQAMP	0xFF904000
+#define LEON4_BASE_ADDRESS_GPTIMER	0xFF908000
+#define LEON4_BASE_ADDRESS_GPTIMER1	0xFF909000
+#define LEON4_BASE_ADDRESS_GPTIMER2	0xFF90A000
+#define LEON4_BASE_ADDRESS_GPTIMER3	0xFF90B000
+#define LEON4_BASE_ADDRESS_GPTIMER4	0xFF90C000
+
 
 #define LEON3_BASE_ADDRESS_APB		0x80000000
 
@@ -164,6 +171,84 @@ struct leon3_irqctrl_registermap {
 						/* 0xC4 CPU 1*/
 };
 
+
+/* XXX */
+struct leon4_irqctrl_registermap {
+	uint32_t irq_level;			/* 0x00	*/
+	uint32_t irq_pending;			/* 0x04 */
+	uint32_t irq_force;			/* 0x08 */
+	uint32_t irq_clear;			/* 0x0C */
+	uint32_t mp_status;			/* 0x10 */
+	uint32_t mp_broadcast;			/* 0x14 */
+	uint32_t error_mode_status;		/* 0x18 */
+	uint32_t watchdog_control;		/* 0x1C */
+	uint32_t asym_mp_control;		/* 0x20 */
+	uint32_t irq_ctrl_select;		/* 0x24 */
+	uint32_t unused01;			/* 0x28 */
+	uint32_t unused02;			/* 0x2C */
+	uint32_t unused03;			/* 0x30 */
+	uint32_t unused04;			/* 0x34 */
+	uint32_t unused05;			/* 0x38 */
+	uint32_t unused06;			/* 0x3C */
+	uint32_t irq_mpmask[4];			/* 0x40 CPU 0 */
+						/* 0x44 CPU 1 */
+						/* 0x48 CPU 2 */
+						/* 0x4C CPU 3 */
+	uint32_t unused13;			/* 0x50 */
+	uint32_t unused14;			/* 0x54 */
+	uint32_t unused15;			/* 0x58 */
+	uint32_t unused16;			/* 0x5C */
+	uint32_t unused17;			/* 0x60 */
+	uint32_t unused18;			/* 0x64 */
+	uint32_t unused19;			/* 0x68 */
+	uint32_t unused20;			/* 0x6C */
+	uint32_t unused21;			/* 0x70 */
+	uint32_t unused22;			/* 0x74 */
+	uint32_t unused23;			/* 0x78 */
+	uint32_t unused24;			/* 0x7C */
+	uint32_t irq_mpforce[4];		/* 0x80 CPU 0*/
+						/* 0x84 CPU 1*/
+						/* 0x88 CPU 2*/
+						/* 0x8C CPU 3*/
+	uint32_t unused27;			/* 0x90 */
+	uint32_t unused28;			/* 0x94 */
+	uint32_t unused29;			/* 0x98 */
+	uint32_t unused30;			/* 0x9C */
+	uint32_t unused31;			/* 0xA0 */
+	uint32_t unused32;			/* 0xA4 */
+	uint32_t unused33;			/* 0xA8 */
+	uint32_t unused34;			/* 0xAC */
+	uint32_t unused35;			/* 0xB0 */
+	uint32_t unused36;			/* 0xB4 */
+	uint32_t unused37;			/* 0xB8 */
+	uint32_t unused38;			/* 0xBC */
+	uint32_t extended_irq_id[4];		/* 0xC0 CPU 0*/
+						/* 0xC4 CPU 1*/
+						/* 0xC8 CPU 2*/
+						/* 0xCC CPU 3*/
+	uint32_t unused39;			/* 0xD0 */
+	uint32_t unused40;			/* 0xD4 */
+	uint32_t unused41;			/* 0xD8 */
+	uint32_t unused42;			/* 0xDC */
+	uint32_t unused43;			/* 0xE0 */
+	uint32_t unused44;			/* 0xE4 */
+	uint32_t unused45;			/* 0xE8 */
+	uint32_t unused46;			/* 0xEC */
+	uint32_t unused47;			/* 0xF0 */
+	uint32_t unused48;			/* 0xF4 */
+	uint32_t unused49;			/* 0xF8 */
+	uint32_t unused50;			/* 0xFC */
+	uint32_t irq_timestamp0_cntr;		/* 0x100 */	/* XXX rework these */
+	uint32_t irq_timestamp0_ctrl;		/* 0x104 */
+	uint32_t irq_assert_timestamp0_ctrl;	/* 0x108 */
+	uint32_t irq_ack_timestamp0_ctrl;	/* 0x10C */
+	uint32_t irq_timestamp1_cntr;		/* 0x110 */
+	uint32_t irq_timestamp1_ctrl;		/* 0x114 */
+	uint32_t irq_assert_timestamp1_ctrl;	/* 0x118 */
+	uint32_t irq_ack_timestamp1_ctrl;	/* 0x11C */
+	uint32_t unused51[60];			/* 0x120 */
+	/* XXX missing */
+};
 
 
 struct leon3_ahbstat_registermap {

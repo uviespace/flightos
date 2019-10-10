@@ -24,7 +24,7 @@
 static unsigned long tick_period_min_ns = 1000000UL;
 
 /* XXX */
-static struct clock_event_device *tick_device[2];
+static struct clock_event_device *tick_device[4];
 
 
 #include <asm/processor.h>

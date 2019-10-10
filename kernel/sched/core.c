@@ -47,7 +47,7 @@ void schedule(void)
 	ktime now;
 
 
-	static int once[2];
+	static int once[4];
 	if (!once[leon3_cpuid()]) {
 
 //	tick_set_mode(TICK_MODE_PERIODIC);

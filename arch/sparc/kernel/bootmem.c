@@ -57,7 +57,8 @@ static void *bootmem_alloc_internal(size_t size)
 #endif
 
 #if (BOOTMEM_CHUNKSIZE > PAGE_SIZE)
-	return page_map_reserve_chunk(BOOTMEM_CHUNKSIZE);
+	return page_map_reserve_chunk(size); /* XXX patched for 740 test */
+	//return page_map_reserve_chunk(BOOTMEM_CHUNKSIZE);
 #else
 	return page_alloc();
 #endif
