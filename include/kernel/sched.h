@@ -6,6 +6,7 @@
 #ifndef _KERNEL_SCHED_H_
 #define _KERNEL_SCHED_H_
 
+#include <generated/autoconf.h>	/*XXX */
 
 
 
@@ -46,7 +47,7 @@ struct rq {
 
 struct task_queue {
 	struct list_head new;
-	struct list_head run;
+	struct list_head run[CONFIG_SMP_CPUS_MAX];
 	struct list_head wake;
 	struct list_head dead;
 };

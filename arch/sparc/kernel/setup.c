@@ -132,7 +132,7 @@ void smp_cpu_entry(void)
       iowrite32be(0x3, &cpu1_ready);
 	while (ioread32be(&cpu1_ready) != 0x4);
       while(1) {
-	  //   printk("x");
+	     //printk(".");
 //	      cpu_relax();
       }
 //	      printk("1\n");

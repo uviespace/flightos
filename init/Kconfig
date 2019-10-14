@@ -10,6 +10,16 @@ config KERNELVERSION
 
 menu "General Setup"
 
+config SMP_CPUS_MAX
+	int "Number of supported CPUs"
+	default 2
+	range 0 16
+	help
+	 Set maximum number of CPUs supported at runtime. Note that this
+	 configures the upper limit, if the number of CPUs present in a system
+	 is smaller or larger than this number, either the former or the latter
+	 will determine the actual number of CPUs used at runtime.
+
 config KALLSYMS
 	bool "Generate a kernel symbol table"
 	default y

@@ -19,6 +19,8 @@
 
 #include <kernel/tick.h>
 
+#include <generated/autoconf.h> /* XXX need common CPU include */
+
 
 
 #define MSG "KTHREAD: "
@@ -41,7 +43,7 @@ static struct spinlock kthread_spinlock;
 
 
 #include <asm/processor.h>
-struct thread_info *current_set[2]; /* XXX */
+struct thread_info *current_set[CONFIG_SMP_CPUS_MAX]; /* XXX */
 
 
 /**
@@ -50,7 +52,7 @@ struct thread_info *current_set[2]; /* XXX */
 
  void kthread_lock(void)
 {
-	spin_lock(&kthread_spinlock);
+	spin_lock_raw(&kthread_spinlock);
 }
 
 

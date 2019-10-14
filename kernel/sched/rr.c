@@ -19,10 +19,10 @@ static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 	struct task_struct *tmp;
 
 
-	if (list_empty(&tq->run))
+	if (list_empty(&tq->run[leon3_cpuid()]))
 		return NULL;
 
-	list_for_each_entry_safe(next, tmp, &tq->run, node) {
+	list_for_each_entry_safe(next, tmp, &tq->run[leon3_cpuid()], node) {
 
 
 		if (next->on_cpu == KTHREAD_CPU_AFFINITY_NONE
@@ -33,7 +33,7 @@ static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 			 * following a scheduling event. for now, just force
 			 * round robin
 			 */
-			list_move_tail(&next->node, &tq->run);
+			list_move_tail(&next->node, &tq->run[leon3_cpuid()]);
 
 			/* reset runtime */
 			next->runtime = (next->attr.priority * tick_get_period_min_ns());
@@ -43,7 +43,7 @@ static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 		}
 
 		if (next->state == TASK_IDLE)
-			list_move_tail(&next->node, &tq->run);
+			list_move_tail(&next->node, &tq->run[leon3_cpuid()]);
 
 		if (next->state == TASK_DEAD)
 			list_move_tail(&next->node, &tq->dead);
@@ -81,7 +81,7 @@ static void rr_wake_next(struct task_queue *tq, ktime now)
 	BUG_ON(task->attr.policy != SCHED_RR);
 	/** XXX NO LOCKS */
 	task->state = TASK_RUN;
-	list_move(&task->node, &tq->run);
+	list_move(&task->node, &tq->run[leon3_cpuid()]);
 }
 
 
@@ -91,7 +91,7 @@ static void rr_enqueue(struct task_queue *tq, struct task_struct *task)
 	task->runtime = (task->attr.priority * tick_get_period_min_ns());
 	/** XXX **/
 	if (task->state == TASK_RUN)
-		list_add_tail(&task->node, &tq->run);
+		list_add_tail(&task->node, &tq->run[leon3_cpuid()]);
 	else
 		list_add_tail(&task->node, &tq->wake);
 }
@@ -168,11 +168,16 @@ static struct scheduler sched_rr = {
 
 static int sched_rr_init(void)
 {
+	int i;
+
 	/* XXX */
 	INIT_LIST_HEAD(&sched_rr.tq.new);
-	INIT_LIST_HEAD(&sched_rr.tq.run);
 	INIT_LIST_HEAD(&sched_rr.tq.wake);
 	INIT_LIST_HEAD(&sched_rr.tq.dead);
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++)
+		INIT_LIST_HEAD(&sched_rr.tq.run[i]);
+
 
 	sched_register(&sched_rr);
 

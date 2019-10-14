@@ -61,7 +61,6 @@ void schedule(void)
 	arch_local_irq_disable();
 //	if (leon3_cpuid() != 0)
 //	printk("cpu %d\n", leon3_cpuid());
-kthread_lock();
 
 	/* get the current task for this CPU */
 	/* XXX leon3_cpuid() should be smp_cpu_id() arch call*/
@@ -92,8 +91,10 @@ retry:
 	/* XXX: for now, try to wake up any threads not running
 	 * this is a waste of cycles and instruction space; should be
 	 * done in the scheduler's code (somewhere) */
+	kthread_lock();
 	list_for_each_entry(sched, &kernel_schedulers, node)
 		sched->wake_next_task(&sched->tq, now);
+	kthread_unlock();
 
 
 	/* XXX need sorted list: highest->lowest scheduler priority, e.g.:
@@ -108,7 +109,6 @@ retry:
 		/* if one of the schedulers have a task which needs to run now,
 		 * next is non-NULL
 		 */
-retry2:
 		next = sched->pick_next_task(&sched->tq, now);
 
 #if 0
@@ -174,7 +174,6 @@ retry2:
 	if (!next) {
 		/* there is absolutely nothing nothing to do, check again later */
 		tick_set_next_ns(wake_ns);
-		kthread_unlock();
 		goto exit;
 	}
 
@@ -209,7 +208,6 @@ retry2:
 	sched_ev++;
 	sched_last_time = ktime_add(sched_last_time, ktime_delta(ktime_get(), now));
 #endif
-	kthread_unlock(); 
 	prepare_arch_switch(1);
 	switch_to(next);
 

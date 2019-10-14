@@ -112,9 +112,9 @@ void arch_promote_to_task(struct task_struct *task)
 	task->data      = NULL;
 
 
-	printk(MSG "kernel stack %x %x\n", leon_get_fp(), leon_get_sp());
+	pr_debug(MSG "kernel stack %x %x\n", leon_get_fp(), leon_get_sp());
 
-	printk(MSG "is next at %p stack %p\n", &task->thread_info, task->stack);
+	pr_debug(MSG "is next at %p stack %p\n", &task->thread_info, task->stack);
 
 
 	/* and set the new thread as current */

@@ -141,11 +141,12 @@ static void spin_lock(struct spinlock *lock)
 __attribute__((unused))
 static void spin_lock_raw(struct spinlock *lock)
 {
+#if 0
 	if (unlikely(lock->lock_recursion))
 		return;
 
 	lock->lock_recursion = 1;
-
+#endif
 	__asm__ __volatile__(
 			"1:                      \n\t"
 			"ldstub [%0], %%g2       \n\t"
@@ -155,8 +156,9 @@ static void spin_lock_raw(struct spinlock *lock)
 			:
 			: "r" (&lock->lock)
 			: "g2", "memory", "cc");
-
+#if 0
 	lock->lock_recursion = 0;
+#endif
 }
 
 /**
