@@ -52,7 +52,7 @@ int task1(void *data)
 
 		xa++;
 
-	//	printk("# %d #\n", leon3_cpuid());
+	//	printk("t1 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
 	//	sched_yield();
 	}
 }
@@ -64,6 +64,7 @@ int task2(void *data)
 		//printk("x %llu\n", ktime_get());
 		//printk("_");
 		xb++;
+	//	printk("t2 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
 	//	sched_yield();
 	//	printk("-");
 	//	sched_yield();
@@ -90,6 +91,7 @@ int task3(void *data)
 #endif
 		//printk("y %llu\n", ktime_get());
 	//	printk(".");
+//		printk("t3 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
 		xc++;
 
 	//	sched_yield();
@@ -279,6 +281,8 @@ int kernel_main(void)
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
+
+
 #if 1
 
 	t = kthread_create(task0, NULL, 0, "res");
@@ -286,12 +290,15 @@ int kernel_main(void)
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(1000);
 	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(800);
+	attr.wcet         = ms_to_ktime(200);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
+
+
+
 #if 1
-	t = kthread_create(task1, NULL, 0, "task1");
+	t = kthread_create(task1, NULL, 1, "task1");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(500);
@@ -313,16 +320,15 @@ int kernel_main(void)
 #endif
 
 #if 1
-	t = kthread_create(task3, NULL, 1, "task3");
+	t = kthread_create(task3, NULL, 0, "task3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(800);
 	attr.deadline_rel = ms_to_ktime(700);
-	attr.wcet         = ms_to_ktime(200);
+	attr.wcet         = ms_to_ktime(100);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
-
 
 
 

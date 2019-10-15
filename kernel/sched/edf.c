@@ -33,7 +33,7 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 	printk("\nktime: %lld\n", ktime_to_us(now));
 	printk("S\tDeadline\tWakeup\t\tdelta W\tdelta P\tt_rem\ttotal\tslices\tName\twcet\tavg\n");
 	printk("---------------------------------------------------------------------------------------------------------------------------------\n");
-	list_for_each_entry_safe(tsk, tmp, &tq->run[cpu], node) {
+	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
 		if (tsk->attr.policy == SCHED_RR)
 			continue;
@@ -102,6 +102,7 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 
 static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 {
+	int cpu = leon3_cpuid();
 	int64_t to_deadline;
 
 
@@ -111,12 +112,14 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 		return false;
 
 	if (ktime_before(tsk->deadline, now))  {
-		sched_print_edf_list_internal(&tsk->sched->tq, now);
+#if 1
+		sched_print_edf_list_internal(&tsk->sched->tq[cpu], now);
 		printk("%s violated, %lld %lld, dead %lld wake %lld now %lld start %lld\n", tsk->name,
 		       tsk->runtime, ktime_us_delta(tsk->deadline, now),
 		       tsk->deadline, tsk->wakeup, now, tsk->exec_start);
 	//	sched_print_edf_list_internal(now);
 		BUG();
+#endif
 		return false;
 	}
 
@@ -165,10 +168,81 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 #define MSG "SCHED_EDF: "
 
 
+
+static ktime edf_hyperperiod(struct task_queue tq[], int cpu, const struct task_struct *task)
+{
+       ktime lcm = 1;
+
+       ktime a,b;
+
+       struct task_struct *t0 = NULL;
+       struct task_struct *tsk;
+       struct task_struct *tmp;
+
+
+	lcm = task->attr.period;
+
+       /* argh, need to consider everything */
+       list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
+
+               a = lcm;
+               b = tsk->attr.period;
+
+               /* already a multiple? */
+               if (a % b == 0)
+                       continue;
+
+               while (a != b) {
+                       if (a > b)
+                               a -= b;
+                       else
+                               b -= a;
+               }
+
+               lcm = lcm * (tsk->attr.period / a);
+       }
+
+
+       /* meh ... */
+       list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
+
+               a = lcm;
+               b = tsk->attr.period;
+
+               /* already a multiple? */
+               if (a % b == 0)
+                       continue;
+
+               while (a != b) {
+                       if (a > b)
+                               a -= b;
+                       else
+                               b -= a;
+               }
+
+               lcm = lcm * (tsk->attr.period / a);
+       }
+
+
+       return lcm;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * @brief EDF schedulability test
  *
- * @returns 0 if schedulable, <0 otherwise
+ * @returns the cpu to run on if schedulable, -EINVAL otherwise
  *
  *
  * * 1) determine task with longest period
@@ -178,7 +252,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
  * 2) calculate unused head and tail (before and after deadline)
  *
  *	UH = D1 - R1				(= 20) (Hyperperiod)
- *	UT = P1 - D1				(= 60) 
+ *	UT = P1 - D1				(= 60)
  *
  * 3) loop over other tasks (Period < Deadline of Task 1)
  *
@@ -211,7 +285,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
  *	 XXX function needs adaptation
  */
 
-static int edf_schedulable(struct task_queue *tq, const struct task_struct *task)
+static int edf_schedulable(struct task_queue tq[], const struct task_struct *task)
 {
 	struct task_struct *tsk = NULL;
 	struct task_struct *tmp;
@@ -222,62 +296,250 @@ static int edf_schedulable(struct task_queue *tq, const struct task_struct *task
 
 
 
-	/* add all in new */
-	if (!list_empty(&tq->new)) {
-		list_for_each_entry_safe(tsk, tmp, &tq->new, node) {
 
-			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
+
+	if (task->on_cpu == KTHREAD_CPU_AFFINITY_NONE) {
+		int i;
+		double util_max = 0.0;
+		double util;
+
+		for (i = 0; i < 2; i++) {
+			/* XXX look for best fit */
+			double util;
+			/* add new task */
+			util= (double) (int32_t) task->attr.wcet / (double) (int32_t) task->attr.period;
+
+
+			/* add tasks queued in wakeup */
+			if (!list_empty(&tq[i].wake)) {
+				list_for_each_entry_safe(tsk, tmp, &tq[i].wake, node) {
+					util += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
+				}
+
+			}
+
+			/* add all running */
+			if (!list_empty(&tq[i].run)) {
+				list_for_each_entry_safe(tsk, tmp, &tq[i].run, node)
+					util += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
+			}
+
+
+			if (util > 0.9)
+				continue;
+
+			if (util > util_max) {
+				util_max = util;
+				cpu = i;
+			}
+
+		}
+		printk("best fit is %d\n", cpu);
+	} else {
+		cpu = task->on_cpu;
+	}
+
+
+	/******/
+if (0)
+{
+	printk("\n\n\n");
+	ktime p;
+	ktime h;
+	ktime max = 0;
+
+	ktime uh, ut, f1;
+	ktime sh = 0, st = 0;
+        ktime stmin = 0x7fffffffffffffULL;
+        ktime shmin = 0x7fffffffffffffULL;
+
+	struct task_struct *t0;
+
+	printk("hyper? %s %lld\n", task->name, ktime_to_ms(task->attr.period));
+	p = edf_hyperperiod(tq, cpu, task);
+	printk("hyper %llu\n", ktime_to_ms(p));
+
+
+	/* new */
+	t0 = (struct task_struct *) task;
+	max = task->attr.period;
+
+	/* add tasks queued in wakeup */
+	if (!list_empty(&tq[cpu].wake)) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
+			 if (tsk->attr.period > max) {
+				 t0 = tsk;
+				 max = tsk->attr.period;
+			 }
+		}
+	}
+
+	/* add tasks queued in run */
+	if (!list_empty(&tq[cpu].wake)) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
+			 if (tsk->attr.period > max) {
+				 t0 = tsk;
+				 max = tsk->attr.period;
+			 }
+		}
+	}
+
+	h = p / t0->attr.period;
+
+	printk("Period factor %lld, duration %lld actual period: %lld\n", h, ktime_to_ms(p), ktime_to_ms(t0->attr.period));
+
+
+	uh = h * (t0->attr.deadline_rel - t0->attr.wcet);
+	ut = h * (t0->attr.period - t0->attr.deadline_rel);
+	f1 = ut/h;
+
+	printk("max UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
+
+
+
+	/* subtract longest period thread from head, its slices must always
+	 * be used before the deadline
+	 */
+	sh = h * t0->attr.wcet * t0->attr.deadline_rel / t0->attr.period;
+
+	if (sh < shmin)
+		shmin = sh;
+
+	uh = uh - sh;
+	printk("%s UH: %lld, UT: %lld\n", t0->name, ktime_to_ms(uh), ktime_to_ms(ut));
+	printk("%s SH: %lld, ST: %lld\n", t0->name, ktime_to_ms(sh), ktime_to_ms(st));
+
+
+
+	/* tasks queued in wakeup */
+	if (!list_empty(&tq[cpu].wake)) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
+
+			if (tsk == t0)
+				continue;
+
+			if (tsk->attr.deadline_rel <= t0->attr.deadline_rel) {
+
+				/* slots before deadline of  T0 */
+				sh = h * tsk->attr.wcet * t0->attr.deadline_rel / tsk->attr.period;
+				if (sh < shmin)
+					shmin = sh;
+				if (sh > uh) {
+					printk("WARN: NOT SCHEDULABLE in head: %s\n", tsk->name);
+				}
+				uh = uh - sh;
+			}
+
+			/* slots after deadline of T0 */
+			st = h * tsk->attr.wcet * f1 / tsk->attr.period;
+			if (st < stmin)
+				stmin = st;
+
+			if (st > ut) {
+				printk("WARN: NOT SCHEDULABLE in tail: %s\n", tsk->name);
+			}
+
+			ut = ut - st;
+
+			printk("w %s UH: %lld, UT: %lld\n", tsk->name, ktime_to_ms(uh), ktime_to_ms(ut));
+
+			printk("w %s SH: %lld, ST: %lld\n", tsk->name, ktime_to_ms(sh), ktime_to_ms(st));
+
+		}
+	}
+
+
+	/* tasks queued in run */
+	if (!list_empty(&tq[cpu].run)) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
+
+			if (tsk == t0)
+				continue;
+
+			if (tsk->attr.deadline_rel <= t0->attr.deadline_rel) {
+
+				/* slots before deadline of  T0 */
+				sh = h * tsk->attr.wcet * t0->attr.deadline_rel / tsk->attr.period;
+				if (sh < shmin)
+					shmin = sh;
+				if (sh > uh) {
+					printk("WARN: NOT SCHEDULABLE in head: %s\n", tsk->name);
+				}
+				uh = uh - sh;
+			}
+
+			/* slots after deadline of T0 */
+			st = h * tsk->attr.wcet * f1 / tsk->attr.period;
+			if (st < stmin)
+				stmin = st;
+
+			if (st > ut) {
+				printk("WARN: NOT SCHEDULABLE in tail: %s\n", tsk->name);
+			}
+
+			ut = ut - st;
+
+			printk("w %s UH: %lld, UT: %lld\n", tsk->name, ktime_to_ms(uh), ktime_to_ms(ut));
+
+			printk("w %s SH: %lld, ST: %lld\n", tsk->name, ktime_to_ms(sh), ktime_to_ms(st));
 
 		}
 	}
 
 
 
-	/* add all in wakeup */
-	if (!list_empty(&tq->wake)) {
-		list_for_each_entry_safe(tsk, tmp, &tq->wake, node) {
 
 
+
+	printk("\n\n\n");
+}
+	/*******/
+
+
+
+
+	/* add new task */
+	u += (double) (int32_t) task->attr.wcet / (double) (int32_t) task->attr.period;
+
+
+
+	/* add tasks queued in wakeup */
+	if (!list_empty(&tq[cpu].wake)) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
 			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
 		}
 
 	}
 
 	/* add all running */
-
-	for (cpu = 0; cpu < 2; cpu++) {
-		if (!list_empty(&tq->run[cpu])) {
-			list_for_each_entry_safe(tsk, tmp, &tq->run[cpu], node)
-				u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
-		}
+	if (!list_empty(&tq[cpu].run)) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node)
+			u += (double) (int32_t) tsk->attr.wcet / (double) (int32_t) tsk->attr.period;
 	}
 
-
-
-
-	if (u >= 1.9) {
+	if (u > 0.9) {
 		printk("I am NOT schedul-ableh: %f ", u);
 		BUG();
 		return -EINVAL;
 		printk("changed task mode to RR\n", u);
-	} else {
-		printk("Utilisation: %g\n", u);
-		return 0;
 	}
+
+	printk("Utilisation: %g\n", u);
 
 
 	/* TODO check against projected interrupt rate, we really need a limit
 	 * there */
 
-	return 0;
+	return cpu;
 }
 
+ void kthread_lock(void);
+ void kthread_unlock(void);
 #include <asm/processor.h>
-static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
+static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
+					 ktime now)
 {
 	int64_t delta;
-
-	int cpu = leon3_cpuid();
 
 	struct task_struct *tsk;
 	struct task_struct *tmp;
@@ -285,10 +547,11 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 
 	static int cnt;
 
-	if (list_empty(&tq->run[cpu]))
+	if (list_empty(&tq[cpu].run))
 		return NULL;
 
-	list_for_each_entry_safe(tsk, tmp, &tq->run[cpu], node) {
+	kthread_lock();
+	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
@@ -318,7 +581,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 				schedule_edf_reinit_task(tsk, now);
 
 				/* always queue it up at the tail */
-				list_move_tail(&tsk->node, &tq->run[cpu]);
+				list_move_tail(&tsk->node, &tq[cpu].run);
 			}
 
 
@@ -326,12 +589,12 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 			 * head of the list, we become the new head
 			 */
 
-			first = list_first_entry(&tq->run[cpu], struct task_struct, node);
+			first = list_first_entry(&tq[cpu].run, struct task_struct, node);
 
 			if (ktime_before (tsk->wakeup, now)) {
 				if (ktime_before (tsk->deadline - tsk->runtime, first->deadline)) {
 					tsk->state = TASK_RUN;
-					list_move(&tsk->node, &tq->run[cpu]);
+					list_move(&tsk->node, &tq[cpu].run);
 				}
 			}
 
@@ -347,12 +610,12 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 			/* if our deadline is earlier than the deadline at the
 			 * head of the list, move us to top */
 
-			first = list_first_entry(&tq->run[cpu], struct task_struct, node);
+			first = list_first_entry(&tq[cpu].run, struct task_struct, node);
 
-			list_move(&tsk->node, &tq->run[cpu]);
+			list_move(&tsk->node, &tq[cpu].run);
 
 			if (ktime_before (tsk->deadline - tsk->runtime, first->deadline))
-				list_move(&tsk->node, &tq->run[cpu]);
+				list_move(&tsk->node, &tq[cpu].run);
 
 			continue;
 		}
@@ -360,11 +623,12 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 	}
 
 	/* XXX argh, need cpu affinity run lists */
-	list_for_each_entry_safe(tsk, tmp, &tq->run[cpu], node) {
+	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
 		if (tsk->state == TASK_RUN) {
 
 			tsk->state = TASK_BUSY;
+			kthread_unlock();
 			return tsk;
 		}
 	}
@@ -381,15 +645,14 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, ktime now)
 	       return first;
        }
 #endif
+	kthread_unlock();
 
 	return NULL;
 }
 
 
-static void edf_wake_next(struct task_queue *tq, ktime now)
+static void edf_wake_next(struct task_queue *tq, int cpu, ktime now)
 {
-	int cpu = leon3_cpuid();
-
 	ktime last;
 
 	struct task_struct *tmp;
@@ -402,9 +665,10 @@ static void edf_wake_next(struct task_queue *tq, ktime now)
 
 
 
-	if (list_empty(&tq->wake))
+	if (list_empty(&tq[cpu].wake))
 		return;
 
+	kthread_lock();
 	last = now;
 #if 0 /* OK */
 	list_for_each_entry_safe(task, tmp, &tq->run, node) {
@@ -414,24 +678,23 @@ static void edf_wake_next(struct task_queue *tq, ktime now)
 #endif
 
 #if 1 /* better */
-	task = list_entry(tq->wake.next, struct task_struct, node);
+	task = list_first_entry(&tq[cpu].wake, struct task_struct, node);
 
 
-	BUG_ON(task->on_cpu == KTHREAD_CPU_AFFINITY_NONE); 
+	BUG_ON(task->on_cpu == KTHREAD_CPU_AFFINITY_NONE);
 
-	cpu = task->on_cpu;
-
-	list_for_each_entry_safe(t, tmp, &tq->run[cpu], node) {
-
-		first = list_first_entry(&tq->run[cpu], struct task_struct, node);
+	if (!list_empty(&tq[cpu].run)) {
+	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
+		first = list_first_entry(&tq[cpu].run, struct task_struct, node);
 		if (ktime_before (t->wakeup, now)) {
 			if (ktime_before (t->deadline - t->runtime, first->deadline)) {
-				list_move(&t->node, &tq->run[cpu]);
+				list_move(&t->node, &tq[cpu].run);
 			}
 		}
 	}
+	}
 
-	list_for_each_entry_safe(t, tmp, &tq->run[cpu], node) {
+	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
 
 		/* if the relative deadline of task-to-wake can fit in between the unused
 		 * timeslice of this running task, insert after the next wakeup
@@ -464,28 +727,35 @@ static void edf_wake_next(struct task_queue *tq, ktime now)
 	task->first_dead = task->deadline;
 
 
-	list_move_tail(&task->node, &tq->run[cpu]);
+	list_move_tail(&task->node, &tq[cpu].run);
+	kthread_unlock();
 }
 
 
 
 
-static void edf_enqueue(struct task_queue *tq, struct task_struct *task)
+static void edf_enqueue(struct task_queue tq[], struct task_struct *task)
 {
+	int cpu;
+
+
 	/* reset runtime to full */
 	task->runtime = task->attr.wcet;
 
 	/* XXX */
-	list_add_tail(&task->node, &tq->new);
+	list_add_tail(&task->node, &tq[leon3_cpuid()].new);
 
 
 	if (task->sched->check_sched_attr(&task->attr))
 		return;
 
-	if (edf_schedulable(tq, task)) {
+	cpu = edf_schedulable(tq, task);
+
+	if (cpu < 0) {
 		printk("---- NOT SCHEDUL-ABLE---\n");
 		return;
 	}
+	task->on_cpu = cpu;
 #if 0
 	/** XXX **/
 	if (task->state == TASK_RUN)
@@ -494,7 +764,7 @@ static void edf_enqueue(struct task_queue *tq, struct task_struct *task)
 
 #endif
 #if 1
-	list_move_tail(&task->node, &tq->wake);
+	list_move_tail(&task->node, &tq[cpu].wake);
 #endif
 
 }
@@ -553,11 +823,9 @@ error:
 /* called after pick_next() */
 
 
-ktime edf_task_ready_ns(struct task_queue *tq, ktime now)
+ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)
 {
 	int64_t delta;
-
-	int cpu = leon3_cpuid();
 
 	struct task_struct *first;
 	struct task_struct *tsk;
@@ -567,7 +835,7 @@ ktime edf_task_ready_ns(struct task_queue *tq, ktime now)
 
 
 
-	list_for_each_entry_safe(first, tmp, &tq->run[cpu], node) {
+	list_for_each_entry_safe(first, tmp, &tq[cpu].run, node) {
 		if (first->state != TASK_RUN)
 			continue;
 
@@ -575,7 +843,7 @@ ktime edf_task_ready_ns(struct task_queue *tq, ktime now)
 		break;
 	}
 
-	list_for_each_entry_safe(tsk, tmp, &tq->run[cpu], node) {
+	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 #if 0
 		if (tsk->state == TASK_BUSY)
 			continue; /*meh */
@@ -615,12 +883,13 @@ static int sched_edf_init(void)
 {
 	int i;
 
-	INIT_LIST_HEAD(&sched_edf.tq.new);
-	INIT_LIST_HEAD(&sched_edf.tq.wake);
-	INIT_LIST_HEAD(&sched_edf.tq.dead);
 
-	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++)
-		INIT_LIST_HEAD(&sched_edf.tq.run[i]);
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+		INIT_LIST_HEAD(&sched_edf.tq[i].new);
+		INIT_LIST_HEAD(&sched_edf.tq[i].wake);
+		INIT_LIST_HEAD(&sched_edf.tq[i].run);
+		INIT_LIST_HEAD(&sched_edf.tq[i].dead);
+	}
 
 	sched_register(&sched_edf);
 

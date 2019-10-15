@@ -91,10 +91,8 @@ retry:
 	/* XXX: for now, try to wake up any threads not running
 	 * this is a waste of cycles and instruction space; should be
 	 * done in the scheduler's code (somewhere) */
-	kthread_lock();
 	list_for_each_entry(sched, &kernel_schedulers, node)
-		sched->wake_next_task(&sched->tq, now);
-	kthread_unlock();
+		sched->wake_next_task(sched->tq, leon3_cpuid(), now);
 
 
 	/* XXX need sorted list: highest->lowest scheduler priority, e.g.:
@@ -109,7 +107,7 @@ retry:
 		/* if one of the schedulers have a task which needs to run now,
 		 * next is non-NULL
 		 */
-		next = sched->pick_next_task(&sched->tq, now);
+		next = sched->pick_next_task(sched->tq, leon3_cpuid(), now);
 
 #if 0
 		if (next)
@@ -185,7 +183,7 @@ retry:
 	 * schedulers, e.g. EDF
 	 */
 
-	wake_ns = sched->task_ready_ns(&sched->tq, now);
+	wake_ns = sched->task_ready_ns(sched->tq, leon3_cpuid(), now);
 
 	if (wake_ns > 0)
 		if (wake_ns < slot_ns)
@@ -233,7 +231,7 @@ int sched_enqueue(struct task_struct *task)
 	if (task->sched->check_sched_attr(&task->attr))
 		return -EINVAL;
 
-	task->sched->enqueue_task(&task->sched->tq, task);
+	task->sched->enqueue_task(task->sched->tq, task);
 
 	return 0;
 }

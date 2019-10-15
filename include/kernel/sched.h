@@ -47,7 +47,7 @@ struct rq {
 
 struct task_queue {
 	struct list_head new;
-	struct list_head run[CONFIG_SMP_CPUS_MAX];
+	struct list_head run;
 	struct list_head wake;
 	struct list_head dead;
 };
@@ -61,18 +61,20 @@ struct task_queue {
 #if 1
 struct scheduler {
 
-	struct task_queue	tq;
+	struct task_queue	tq[CONFIG_SMP_CPUS_MAX]; /* XXX */
 
 	const enum sched_policy policy;
 
-	struct task_struct *(*pick_next_task)(struct task_queue *tq, ktime now);
+	struct task_struct *(*pick_next_task)(struct task_queue tq[], int cpu,
+					      ktime now);
 
 	/* XXX: sucks */
-	void (*wake_next_task)(struct task_queue *tq, ktime now);
-	void (*enqueue_task)  (struct task_queue *tq, struct task_struct *task);
+	void (*wake_next_task)  (struct task_queue tq[], int cpu, ktime now);
+	void (*enqueue_task)    (struct task_queue tq[],
+			         struct task_struct *task);
 
-	ktime (*timeslice_ns) (struct task_struct *task);
-	ktime (*task_ready_ns) (struct task_queue *tq, ktime now);
+	ktime (*timeslice_ns)   (struct task_struct *task);
+	ktime (*task_ready_ns)  (struct task_queue tq[], int cpu, ktime now);
 
 	int (*check_sched_attr) (struct sched_attr *attr);
 

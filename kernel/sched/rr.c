@@ -13,27 +13,28 @@
 #define MSG "SCHED_RR: "
 
 #include <asm/processor.h>
-static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
+static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
+					ktime now)
 {
 	struct task_struct *next = NULL;
 	struct task_struct *tmp;
 
 
-	if (list_empty(&tq->run[leon3_cpuid()]))
+	if (list_empty(&tq[0].run))
 		return NULL;
 
-	list_for_each_entry_safe(next, tmp, &tq->run[leon3_cpuid()], node) {
+	list_for_each_entry_safe(next, tmp, &tq[0].run, node) {
 
 
 		if (next->on_cpu == KTHREAD_CPU_AFFINITY_NONE
-		    || next->on_cpu == leon3_cpuid()) {
+		    || next->on_cpu == cpu) {
 
 		if (next->state == TASK_RUN) {
 			/* XXX: must pick head first, then move tail on put()
 			 * following a scheduling event. for now, just force
 			 * round robin
 			 */
-			list_move_tail(&next->node, &tq->run[leon3_cpuid()]);
+			list_move_tail(&next->node, &tq[0].run);
 
 			/* reset runtime */
 			next->runtime = (next->attr.priority * tick_get_period_min_ns());
@@ -43,10 +44,10 @@ static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 		}
 
 		if (next->state == TASK_IDLE)
-			list_move_tail(&next->node, &tq->run[leon3_cpuid()]);
+			list_move_tail(&next->node, &tq[0].run);
 
 		if (next->state == TASK_DEAD)
-			list_move_tail(&next->node, &tq->dead);
+			list_move_tail(&next->node, &tq[0].dead);
 
 		break;
 
@@ -57,8 +58,6 @@ static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 		}
 
 
-
-
 	}
 
 
@@ -67,33 +66,33 @@ static struct task_struct *rr_pick_next(struct task_queue *tq, ktime now)
 
 
 /* this sucks, wrong place. keep for now */
-static void rr_wake_next(struct task_queue *tq, ktime now)
+static void rr_wake_next(struct task_queue tq[], int cpu, ktime now)
 {
 
 	struct task_struct *task;
 
-	if (list_empty(&tq->wake))
+	if (list_empty(&tq[0].wake))
 		return;
 
 
-	task = list_entry(tq->wake.next, struct task_struct, node);
+	task = list_entry(tq[0].wake.next, struct task_struct, node);
 
 	BUG_ON(task->attr.policy != SCHED_RR);
 	/** XXX NO LOCKS */
 	task->state = TASK_RUN;
-	list_move(&task->node, &tq->run[leon3_cpuid()]);
+	list_move(&task->node, &tq[0].run);
 }
 
 
-static void rr_enqueue(struct task_queue *tq, struct task_struct *task)
+static void rr_enqueue(struct task_queue tq[], struct task_struct *task)
 {
 
 	task->runtime = (task->attr.priority * tick_get_period_min_ns());
 	/** XXX **/
 	if (task->state == TASK_RUN)
-		list_add_tail(&task->node, &tq->run[leon3_cpuid()]);
+		list_add_tail(&task->node, &tq[0].run);
 	else
-		list_add_tail(&task->node, &tq->wake);
+		list_add_tail(&task->node, &tq[0].wake);
 }
 
 /**
@@ -145,7 +144,7 @@ static int rr_check_sched_attr(struct sched_attr *attr)
  *	 so this function always returns 0
  */
 
-ktime rr_task_ready_ns(struct task_queue *tq, ktime now)
+ktime rr_task_ready_ns(struct task_queue tq[], int cpu, ktime now)
 {
 	return (ktime) 0ULL;
 }
@@ -171,12 +170,13 @@ static int sched_rr_init(void)
 	int i;
 
 	/* XXX */
-	INIT_LIST_HEAD(&sched_rr.tq.new);
-	INIT_LIST_HEAD(&sched_rr.tq.wake);
-	INIT_LIST_HEAD(&sched_rr.tq.dead);
 
-	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++)
-		INIT_LIST_HEAD(&sched_rr.tq.run[i]);
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+		INIT_LIST_HEAD(&sched_rr.tq[i].new);
+		INIT_LIST_HEAD(&sched_rr.tq[i].wake);
+		INIT_LIST_HEAD(&sched_rr.tq[i].run);
+		INIT_LIST_HEAD(&sched_rr.tq[i].dead);
+	}
 
 
 	sched_register(&sched_rr);
