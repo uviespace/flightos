@@ -12,9 +12,8 @@
 #include <kernel/tick.h>
 
 #include <generated/autoconf.h> /* XXX need common CPU include */
-#include <asm/processor.h>
 
-void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
+void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now)
 {
 //	ktime now;
 	char state = 'U';
@@ -23,8 +22,6 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 
 	struct task_struct *tsk;
 	struct task_struct *tmp;
-
-	int cpu = leon3_cpuid();
 
 
 	ktime prev = 0;
@@ -47,16 +44,18 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
 			state = 'I';
 		if (tsk->state == TASK_RUN)
 			state = 'R';
+		if (tsk->state == TASK_BUSY)
+			state = 'B';
 
 		if (tsk->slices == 0)
 			tsk->slices = 1;
 
-		printk("%c\t%lld\t%lld\t\t%lld\t%lld\t%lld\t%lld\t%d\t%s\t|\t%lld\t%lld\n",
-		       state, ktime_to_ms(tsk->deadline), ktime_to_ms(tsk->wakeup),
-		       ktime_to_ms(rel_wait), ktime_to_ms(rel_deadline), ktime_to_ms(tsk->runtime), ktime_to_ms(tsk->total),
+		printk("%c\t%lld\t\t%lld\t\t%lld\t%lld\t%lld\t%lld\t%d\t%s\t|\t%lld\t%lld\n",
+		       state, ktime_to_us(tsk->deadline), ktime_to_us(tsk->wakeup),
+		       ktime_to_us(rel_wait), ktime_to_us(rel_deadline), ktime_to_us(tsk->runtime), ktime_to_us(tsk->total),
 		       tsk->slices, tsk->name,
-		       ktime_to_ms(tsk->attr.wcet),
-		       ktime_to_ms(tsk->total/tsk->slices));
+		       ktime_to_us(tsk->attr.wcet),
+		       ktime_to_us(tsk->total/tsk->slices));
 
 		prev = tsk->wakeup;
 		prevd = tsk->deadline;
@@ -100,9 +99,8 @@ void sched_print_edf_list_internal(struct task_queue *tq, ktime now)
  * @returns true if can still execute before deadline
  */
 
-static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
+static inline bool schedule_edf_can_execute(struct task_struct *tsk, int cpu, ktime now)
 {
-	int cpu = leon3_cpuid();
 	int64_t to_deadline;
 
 
@@ -113,7 +111,7 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, ktime now)
 
 	if (ktime_before(tsk->deadline, now))  {
 #if 1
-		sched_print_edf_list_internal(&tsk->sched->tq[cpu], now);
+		sched_print_edf_list_internal(&tsk->sched->tq[cpu], cpu, now);
 		printk("%s violated, %lld %lld, dead %lld wake %lld now %lld start %lld\n", tsk->name,
 		       tsk->runtime, ktime_us_delta(tsk->deadline, now),
 		       tsk->deadline, tsk->wakeup, now, tsk->exec_start);
@@ -535,7 +533,7 @@ if (0)
 
  void kthread_lock(void);
  void kthread_unlock(void);
-#include <asm/processor.h>
+
 static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 					 ktime now)
 {
@@ -577,7 +575,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 				BUG();
 			}
 #endif
-			if (!schedule_edf_can_execute(tsk, now)) {
+			if (!schedule_edf_can_execute(tsk, cpu, now)) {
 				schedule_edf_reinit_task(tsk, now);
 
 				/* always queue it up at the tail */
@@ -684,34 +682,43 @@ static void edf_wake_next(struct task_queue *tq, int cpu, ktime now)
 	BUG_ON(task->on_cpu == KTHREAD_CPU_AFFINITY_NONE);
 
 	if (!list_empty(&tq[cpu].run)) {
-	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
-		first = list_first_entry(&tq[cpu].run, struct task_struct, node);
-		if (ktime_before (t->wakeup, now)) {
-			if (ktime_before (t->deadline - t->runtime, first->deadline)) {
-				list_move(&t->node, &tq[cpu].run);
+
+		/* reorder */
+
+		list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
+			first = list_first_entry(&tq[cpu].run, struct task_struct, node);
+			if (ktime_before (t->wakeup, now)) {
+				if (ktime_before (t->deadline - t->runtime, first->deadline)) {
+					list_move(&t->node, &tq[cpu].run);
+				}
 			}
 		}
-	}
-	}
 
-	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
+		list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
 
-		/* if the relative deadline of task-to-wake can fit in between the unused
-		 * timeslice of this running task, insert after the next wakeup
-		 */
-		if (task->attr.deadline_rel < ktime_sub(t->deadline, t->wakeup)) {
-		    //last = ktime_add(t->deadline, t->attr.period);
-		    last = t->wakeup;
+			if (t->state == TASK_BUSY)
+				continue;
+
+			if (ktime_before (t->wakeup, now))
+				continue;
+
+			/* if the relative deadline of task-to-wake can fit in between the unused
+			 * timeslice of this running task, insert after the next wakeup
+			 */
+			if (task->attr.deadline_rel < ktime_sub(t->deadline, t->wakeup)) {
+				//last = ktime_add(t->deadline, t->attr.period);
+				last = t->wakeup;
 
 
-		    break;
-		}
+				break;
+			}
 
-		if (task->attr.wcet < ktime_sub(t->deadline, t->wakeup)) {
-		    //last = ktime_add(t->deadline, t->attr.period);
-		    last = t->deadline;
+			if (task->attr.wcet < ktime_sub(t->deadline, t->wakeup)) {
+				//last = ktime_add(t->deadline, t->attr.period);
+				last = t->deadline;
 
-		    break;
+				break;
+			}
 		}
 	}
 #endif
@@ -726,6 +733,7 @@ static void edf_wake_next(struct task_queue *tq, int cpu, ktime now)
 	task->first_wake = task->wakeup;
 	task->first_dead = task->deadline;
 
+	printk("%s now %lld, last %lld, wake at %lld dead at %lld\n", task->name, now, last, task->wakeup, task->deadline);
 
 	list_move_tail(&task->node, &tq[cpu].run);
 	kthread_unlock();
@@ -741,9 +749,6 @@ static void edf_enqueue(struct task_queue tq[], struct task_struct *task)
 
 	/* reset runtime to full */
 	task->runtime = task->attr.wcet;
-
-	/* XXX */
-	list_add_tail(&task->node, &tq[leon3_cpuid()].new);
 
 
 	if (task->sched->check_sched_attr(&task->attr))
@@ -764,7 +769,7 @@ static void edf_enqueue(struct task_queue tq[], struct task_struct *task)
 
 #endif
 #if 1
-	list_move_tail(&task->node, &tq[cpu].wake);
+	list_add_tail(&task->node, &tq[cpu].wake);
 #endif
 
 }

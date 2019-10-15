@@ -36,6 +36,13 @@ int sched_register(struct scheduler *sched)
 {
 }
 
+void kthread_lock(void)
+{
+}
+
+void kthread_unlock(void)
+{
+}
 
 /* tests */
 
@@ -177,7 +184,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.period       = us_to_ktime(1000);
 	t->attr.deadline_rel = us_to_ktime(900);
 	t->attr.wcet         = us_to_ktime(250);
-	edf_enqueue(&t->sched->tq, t);
+	edf_enqueue(t->sched->tq, t);
 
 
 	/* create task 2 */
@@ -194,7 +201,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.period       = us_to_ktime(1500);
 	t->attr.deadline_rel = us_to_ktime(400);
 	t->attr.wcet         = us_to_ktime(300);
-	edf_enqueue(&t->sched->tq, t);
+	edf_enqueue(t->sched->tq, t);
 
 
 	/* create task 3 */
@@ -211,7 +218,7 @@ static void sched_edf_create_tasks_test(void)
 	t->attr.period       = us_to_ktime(30);
 	t->attr.deadline_rel = us_to_ktime(20);
 	t->attr.wcet         = us_to_ktime(10);
-	edf_enqueue(&t->sched->tq, t);
+	edf_enqueue(t->sched->tq, t);
 
 	/* create task 4 */
 	t = kmalloc(sizeof(struct task_struct));
@@ -220,14 +227,14 @@ static void sched_edf_create_tasks_test(void)
 	t->name = kmalloc(32);
 	KSFT_ASSERT_PTR_NOT_NULL(t->name);
 
-	snprintf(t->name, 32, "task_3");
+	snprintf(t->name, 32, "task_4");
 
 	t->sched = &sched_edf;
 	t->attr.policy       = SCHED_EDF;
 	t->attr.period       = us_to_ktime(3000);
 	t->attr.deadline_rel = us_to_ktime(900);
 	t->attr.wcet         = us_to_ktime(100);
-	edf_enqueue(&t->sched->tq, t);
+	edf_enqueue(t->sched->tq, t);
 #endif
 
 
@@ -238,13 +245,16 @@ static void sched_edf_create_tasks_test(void)
  * @test sched_edf_create_tasks_test
  */
 
-#define CYCLES 2000000
+#define CYCLES 1000000
+#define VERBOSE 0
 
 static void sched_edf_schedule_test(void)
 {
 	int i;
 	int64_t wake;
 	int64_t slice;
+
+	int cpu = 0;
 
 	struct task_struct *next = NULL;
 	struct task_struct *curr = NULL;
@@ -258,14 +268,18 @@ static void sched_edf_schedule_test(void)
 		//	printk("started: %lld now %lld\n", curr->exec_start, ktime_get());
 			/* remove runtime of slice from curr */
 			curr->runtime = ktime_sub(curr->runtime, ktime_sub(ktime_get(), curr->exec_start));
+			curr->state = TASK_RUN;
 		}
 
-		edf_wake_next(&sched_edf.tq);
+		edf_wake_next(sched_edf.tq, cpu, ktime_get());
+#if (VERBOSE)
+		sched_print_edf_list_internal(sched_edf.tq, cpu, ktime_get());
+#endif
 
-	//	sched_print_edf_list_internal(&sched_edf.tq, ktime_get());
-
-		next = edf_pick_next(&sched_edf.tq);
-	//	sched_print_edf_list_internal(&sched_edf.tq, ktime_get());
+		next = edf_pick_next(sched_edf.tq, cpu, ktime_get());
+#if (VERBOSE)
+		sched_print_edf_list_internal(sched_edf.tq, cpu, ktime_get());
+#endif
 
 		if (next) {
 			slice = next->runtime;
@@ -275,7 +289,7 @@ static void sched_edf_schedule_test(void)
 		//	printk("Next: NONE\n");
 		}
 
-		wake = edf_task_ready_ns(&sched_edf.tq);
+		wake = edf_task_ready_ns(sched_edf.tq, cpu, ktime_get());
 //		printk("New task ready in %llu\n", ktime_to_us(wake));
 
 		if (wake < slice) {
