@@ -910,7 +910,7 @@ static double get_exp_float_val_param(double value, int *exp,
 			e++;
 		}
 
-	} else if (value < 1e-4) {
+	} else if ((value < 1e-4) && (value != 0.0)) {
 		while (value < 1.0) {
 			value *= 10.0;
 			e--;
