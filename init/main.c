@@ -45,7 +45,19 @@
 #endif /* GCC_VERSION */
 
 volatile int inc;
-volatile int xa, xb, xc;
+volatile unsigned int xa, xb, xc, xd;
+
+int task0(void *data)
+{
+	while (1) {
+
+		xd++;
+
+	//	printk("t1 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
+	//	sched_yield();
+	}
+}
+
 int task1(void *data)
 {
 	while (1) {
@@ -70,12 +82,8 @@ int task2(void *data)
 	//	sched_yield();
 	}
 }
-static int cnt;
-static	ktime buf[1024];
 int task3(void *data)
 {
-	ktime last = 0;
-
 	while (1) {
 #if 0
 		ktime now;
@@ -99,14 +107,19 @@ int task3(void *data)
 }
 #include <kernel/sysctl.h>
 extern ktime sched_last_time;
+	void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now);
 extern uint32_t sched_ev;
-int task0(void *data)
+
+
+extern struct scheduler sched_edf;
+int task_rr(void *data)
 {
 	int last = 0;
 	int curr = 0;
 	char buf1[64];
 
 	uint32_t last_call = 0;
+	int a, b, c, d;
 
 	ktime sched_time;
 	struct sysobj *sys_irq = NULL;
@@ -117,20 +130,19 @@ int task0(void *data)
 	sys_irq = sysset_find_obj(sys_set, "/sys/irl/primary");
 
 
-	int a, b, c;
 	while (1) {
 
-
+#if 0
 		if (sys_irq)
 			sysobj_show_attr(sys_irq, "irl", buf1);
 
 		a = xa;
 		b = xb;
 		c = xc;
+		d = xd;
 		sched_time = sched_last_time;
 		curr = atoi(buf1)/2;
-		printk("%d %d %d %llu ", a, b, c, ktime_get());
-		printk("irq: %s %d per sec; ", buf1, (curr -last));
+		printk("%u %u %u %u %llu ", a, b, c, d, ktime_get());
 //		printk("sched %llu us ", ktime_to_us(sched_last_time));
 		printk("%llu per call ", sched_last_time /sched_ev);
 //		printk("calls %d ", sched_ev - last_call);
@@ -140,6 +152,14 @@ int task0(void *data)
 
 		last = curr;
 		last_call = sched_ev;
+#endif
+
+		sched_print_edf_list_internal(&sched_edf.tq[0], 0, ktime_get());
+		sched_print_edf_list_internal(&sched_edf.tq[1], 1, ktime_get());
+
+
+
+
 		sched_yield();
 	}
 }
@@ -290,14 +310,14 @@ int kernel_main(void)
 #endif
 
 
-#if 1
+#if 0
 
-	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "res");
+	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "task0");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(100);
 	attr.deadline_rel = ms_to_ktime(90);
-	attr.wcet         = ms_to_ktime(30);
+	attr.wcet         = ms_to_ktime(39);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -310,18 +330,18 @@ int kernel_main(void)
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(50);
 	attr.deadline_rel = ms_to_ktime(40);
-	attr.wcet         = ms_to_ktime(31);
+	attr.wcet         = ms_to_ktime(33);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
 
-#if 1
+#if 0
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(40);
-	attr.deadline_rel = ms_to_ktime(25);
-	attr.wcet         = ms_to_ktime(20);
+	attr.deadline_rel = ms_to_ktime(22);
+	attr.wcet         = ms_to_ktime(17);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -332,12 +352,20 @@ int kernel_main(void)
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(80);
 	attr.deadline_rel = ms_to_ktime(70);
-	attr.wcet         = ms_to_ktime(10);
+	attr.wcet         = ms_to_ktime(13);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
 
 
+#if 0
+	t = kthread_create(task_rr, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_rr");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_RR;
+	attr.priority = 1;
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
+#endif
 
 #endif
 

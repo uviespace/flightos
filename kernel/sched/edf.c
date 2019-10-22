@@ -27,8 +27,8 @@ void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now)
 	ktime prev = 0;
 	ktime prevd = 0;
 
-	printk("\nktime: %lld\n", ktime_to_ms(now));
-	printk("S\tDeadline\tWakeup\t\tdelta W\tdelta P\tt_rem\ttotal\tslices\tName\twcet\tavg\n");
+	printk("\nktime: %lld CPU %d\n", ktime_to_ms(now), cpu);
+	printk("S\tDeadline\tWakeup\t\tdelta W\tdelta P\tt_rem\ttotal\tslices\tName\t\twcet\tavg\n");
 	printk("---------------------------------------------------------------------------------------------------------------------------------\n");
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
@@ -104,11 +104,16 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, int cpu, kt
 
 
 	/* should to consider twice the min tick period for overhead */
+	if (tsk->runtime < 0)
+		return false;
+
 	if (tsk->runtime <= (tick_get_period_min_ns() << 1))
 		return false;
 
 	to_deadline = ktime_delta(tsk->deadline, now);
 
+	barrier();
+	tsk->last_visit = now;
 	/* should to consider twice the min tick period for overhead */
 	if (to_deadline <= (tick_get_period_min_ns() << 1))
 		return false;
@@ -119,24 +124,30 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, int cpu, kt
 
 static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 {
+	ktime new_wake;
+	
+	BUG_ON(tsk->runtime == tsk->attr.wcet);
+
 	tsk->state = TASK_IDLE;
 
-	tsk->wakeup = ktime_add(tsk->wakeup, tsk->attr.period);
+	new_wake = ktime_add(tsk->wakeup, tsk->attr.period);
 #if 1
 	/* need FDIR procedure for this situation */
-	if (ktime_after(now, tsk->wakeup)){ /* deadline missed earlier? */
-		printk("%s delta %lld\n",tsk->name, ktime_us_delta(tsk->wakeup, now));
-		printk("%s violated, %lld %lld, dead %lld wake %lld now %lld start %lld\n", tsk->name,
-		       tsk->runtime, ktime_us_delta(tsk->deadline, now),
-		       tsk->deadline, tsk->wakeup, now, tsk->exec_start);
+	if (ktime_after(now, new_wake)){ /* deadline missed earlier? */
+		printk("%s violated, rt: %lld %lld, last_visit %lld, last_adjust %lld delta %lld next wake: %lld %llx\n", tsk->name,
+		       tsk->runtime, ktime_to_us(tsk->last_visit), ktime_to_us(tsk->last_adjust), ktime_us_delta(tsk->last_visit, tsk->last_adjust), ktime_to_us(tsk->wakeup), tsk->attr.period);
 		sched_print_edf_list_internal(&tsk->sched->tq[tsk->on_cpu], tsk->on_cpu, now);
 		BUG();
 	}
 #endif
 
+	tsk->wakeup = new_wake;
+
 	tsk->deadline = ktime_add(tsk->wakeup, tsk->attr.deadline_rel);
 
 	tsk->runtime = tsk->attr.wcet;
+
+	tsk->last_adjust = now;
 
 	tsk->slices++;
 }
@@ -252,7 +263,7 @@ static ktime edf_hyperperiod(struct task_queue tq[], int cpu, const struct task_
  *
  *	 XXX function needs adaptation
  */
-#define UTIL_MAX 0.8
+#define UTIL_MAX 0.9
 static int edf_schedulable(struct task_queue tq[], const struct task_struct *task)
 {
 	struct task_struct *tsk = NULL;
@@ -364,6 +375,7 @@ if (1)
 	printk("t0: %s (cpu %d)\n", t0->name, cpu);
 	h = p / t0->attr.period;
 
+	h = 1;
 	printk("Period factor %lld, duration %lld actual period: %lld\n", h, ktime_to_ms(p), ktime_to_ms(t0->attr.period));
 
 
@@ -554,7 +566,7 @@ if (1)
 		printk("changed task mode to RR\n", u);
 	}
 
-	printk("Utilisation: %g\n---\n", u);
+	printk("Utilisation: %g CPU %d", u, cpu);
 
 
 	/* TODO check against projected interrupt rate, we really need a limit
@@ -917,7 +929,7 @@ ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)
 }
 
 
-static struct scheduler sched_edf = {
+struct scheduler sched_edf = {
 	.policy           = SCHED_EDF,
 	.pick_next_task   = edf_pick_next,
 	.wake_next_task   = edf_wake_next,
