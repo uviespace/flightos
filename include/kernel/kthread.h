@@ -84,8 +84,6 @@ struct task_struct {
 	ktime				total;
 	unsigned long			slices;
 
-	ktime			first_wake;
-	ktime			first_dead;
 
 	/* Tasks may have a parent and any number of siblings or children.
 	 * If the parent is killed or terminated, so are all siblings and

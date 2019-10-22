@@ -113,7 +113,6 @@ int task0(void *data)
 
 
 
-	printk("HELLO! %d\n", leon3_cpuid());
 	bzero(buf1, 64);
 	sys_irq = sysset_find_obj(sys_set, "/sys/irl/primary");
 
@@ -130,7 +129,15 @@ int task0(void *data)
 		c = xc;
 		sched_time = sched_last_time;
 		curr = atoi(buf1)/2;
-		printk("%d %d %d %llu irq: %s %d per sec; sched %llu us %llu per call, calls %d cpu %d\n", a, b, c, ktime_get(), buf1, (curr -last), ktime_to_us(sched_last_time), sched_last_time /sched_ev, sched_ev - last_call, leon3_cpuid());
+		printk("%d %d %d %llu ", a, b, c, ktime_get());
+		printk("irq: %s %d per sec; ", buf1, (curr -last));
+//		printk("sched %llu us ", ktime_to_us(sched_last_time));
+		printk("%llu per call ", sched_last_time /sched_ev);
+//		printk("calls %d ", sched_ev - last_call);
+		printk("cpu %d", leon3_cpuid());
+
+		printk("\n");
+
 		last = curr;
 		last_call = sched_ev;
 		sched_yield();
@@ -285,12 +292,12 @@ int kernel_main(void)
 
 #if 1
 
-	t = kthread_create(task0, NULL, 0, "res");
+	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "res");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(1000);
-	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(200);
+	attr.period       = ms_to_ktime(100);
+	attr.deadline_rel = ms_to_ktime(90);
+	attr.wcet         = ms_to_ktime(30);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -298,34 +305,34 @@ int kernel_main(void)
 
 
 #if 1
-	t = kthread_create(task1, NULL, 1, "task1");
+	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "task1");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(500);
-	attr.deadline_rel = ms_to_ktime(300);
-	attr.wcet         = ms_to_ktime(200);
+	attr.period       = ms_to_ktime(50);
+	attr.deadline_rel = ms_to_ktime(40);
+	attr.wcet         = ms_to_ktime(31);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
 
 #if 1
-	t = kthread_create(task2, NULL, 1, "task2");
+	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(400);
-	attr.deadline_rel = ms_to_ktime(200);
-	attr.wcet         = ms_to_ktime(100);
+	attr.period       = ms_to_ktime(40);
+	attr.deadline_rel = ms_to_ktime(25);
+	attr.wcet         = ms_to_ktime(20);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
 
 #if 1
-	t = kthread_create(task3, NULL, 0, "task3");
+	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "task3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(800);
-	attr.deadline_rel = ms_to_ktime(700);
-	attr.wcet         = ms_to_ktime(100);
+	attr.period       = ms_to_ktime(80);
+	attr.deadline_rel = ms_to_ktime(70);
+	attr.wcet         = ms_to_ktime(10);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
