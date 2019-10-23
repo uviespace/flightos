@@ -10,8 +10,15 @@
 #include <kernel/printk.h>
 #include <kernel/string.h>
 #include <kernel/tick.h>
+#include <kernel/init.h>
 
 #include <generated/autoconf.h> /* XXX need common CPU include */
+
+
+#define MSG "SCHED_EDF: "
+
+#define UTIL_MAX 0.95 /* XXX should be config option, also should be adaptive depending on RT load */
+
 
 void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now)
 {
@@ -105,36 +112,19 @@ static inline bool schedule_edf_can_execute(struct task_struct *tsk, int cpu, kt
 
 	/* should to consider twice the min tick period for overhead */
 	if (tsk->runtime <= (tick_get_period_min_ns() << 1))
-		goto bad;
+		return false;
 
 	to_deadline = ktime_delta(tsk->deadline, now);
 
-	//barrier();
-	//tsk->last_visit = now;
 	/* should to consider twice the min tick period for overhead */
-	if (to_deadline <= (tick_get_period_min_ns() << 1))
-		goto bad;
-
-	barrier();
-
-
-
-good:
-	tsk->last_visit_true = now;
-	tsk->last_visit_false = tsk->runtime;
-
+	if (ktime_delta(tsk->deadline, now) <= (tick_get_period_min_ns() << 1))
+		return false;
 
 
 	return true;
-	barrier();
-
-
-bad:
-
-	return false;
 }
 
-#include <asm/leon.h>
+
 static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 {
 	ktime new_wake;
@@ -148,9 +138,10 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 
 	new_wake = ktime_add(tsk->wakeup, tsk->attr.period);
 #if 1
-	/* need FDIR procedure for this situation */
+	/* need FDIR procedure for this situation: report and wind
+	 * wakeup/deadline forward */
+
 	if (ktime_after(now, new_wake)){ /* deadline missed earlier? */
-//		printk("me thinks: sp %x bot %x top %x tsk %x %lld\n",  leon_get_sp(), tsk->stack_bottom, tsk->stack_top, (int) &tsk->attr, new_wake);
 		printk("%s violated, rt: %lld, last_visit %lld false %lld, last_adjust %lld  next wake: %lld (%lld)\n", tsk->name,
 		       tsk->runtime, tsk->last_visit_true, tsk->last_visit_false, tsk->last_adjust,  tsk->wakeup, new_wake);
 		sched_print_edf_list_internal(&tsk->sched->tq[tsk->on_cpu], tsk->on_cpu, now);
@@ -171,18 +162,12 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 }
 
 
-#include <kernel/init.h>
-
-#define MSG "SCHED_EDF: "
-
-
 static ktime edf_hyperperiod(struct task_queue tq[], int cpu, const struct task_struct *task)
 {
        ktime lcm = 1;
 
        ktime a,b;
 
-       struct task_struct *t0 = NULL;
        struct task_struct *tsk;
        struct task_struct *tmp;
 
@@ -281,7 +266,8 @@ static ktime edf_hyperperiod(struct task_queue tq[], int cpu, const struct task_
  *
  *	 XXX function needs adaptation
  */
-#define UTIL_MAX 0.95
+
+
 static int edf_schedulable(struct task_queue tq[], const struct task_struct *task)
 {
 	struct task_struct *tsk = NULL;
@@ -294,12 +280,9 @@ static int edf_schedulable(struct task_queue tq[], const struct task_struct *tas
 
 
 
-	printk("me thinks: sp %x bot %x top %x task %x\n",  leon_get_sp(), task->stack_bottom, task->stack_top, (int) task);
-
 	if (task->on_cpu == KTHREAD_CPU_AFFINITY_NONE) {
 		int i;
 		double util_max = 0.0;
-		double util;
 
 		for (i = 0; i < 2; i++) {
 			/* XXX look for best fit */
@@ -403,22 +386,6 @@ if (1)
 	f1 = ut/h;
 
 	//printk("max UH: %lld, UT: %lld\n", ktime_to_ms(uh), ktime_to_ms(ut));
-
-
-#if 0
-	/* XXX already implicitly subtracted! */
-	/* subtract longest period thread from head, its slices must always
-	 * be used before the deadline
-	 */
-	sh = h * t0->attr.wcet * t0->attr.deadline_rel / t0->attr.period;
-
-	if (sh < shmin)
-		shmin = sh;
-
-	uh = uh - sh;
-	//printk("%s UH: %lld, UT: %lld\n", t0->name, ktime_to_ms(uh), ktime_to_ms(ut));
-	//printk("%s SH: %lld, ST: %lld\n", t0->name, ktime_to_ms(sh), ktime_to_ms(st));
-#endif
 
 
 	/* tasks queued in wakeup */
@@ -606,42 +573,32 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	struct task_struct *tmp;
 	struct task_struct *first;
 
-	static int cnt;
+
 
 	if (list_empty(&tq[cpu].run))
 		return NULL;
 
-	//kthread_lock();
+
+	/* XXX need to lock run list for wakeup() */
+
 	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
 
+		/* not yet XXX min period to variable */
 		if (delta > (tick_get_period_min_ns() << 1))
 			continue;
 
-		/* XXX ok: what we need here: are multiple queues: one
-		 * where tasks are stored which are currently able to
-		 * run, here we need one per affinity and one generic one
-		 *
-		 * one where tasks are stored which are currently idle.
-		 * tasks move to the idle queue when they cannot execute anymore
-		 * and are moved from idle to run when their wakeup time has
-		 * passed
-		 */
 
 		/* if it's already running, see if there is time remaining */
 		if (tsk->state == TASK_RUN) {
-#if 0
-			if (cnt++ > 10) {
-				sched_print_edf_list_internal(&tsk->sched->tq, now);
-				BUG();
-			}
-#endif
+
+			/* If it has to be reinitialised, always queue it
+			 * up at the tail.
+			 */
 			if (!schedule_edf_can_execute(tsk, cpu, now)) {
 				schedule_edf_reinit_task(tsk, now);
-
-				/* always queue it up at the tail */
 				list_move_tail(&tsk->node, &tq[cpu].run);
 			}
 
@@ -650,14 +607,15 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 			 * head of the list, we become the new head
 			 */
 
-			first = list_first_entry(&tq[cpu].run, struct task_struct, node);
+			first = list_first_entry(&tq[cpu].run,
+						 struct task_struct, node);
 
-			if (ktime_before (tsk->wakeup, now)) {
-			//	if (ktime_before (tsk->deadline - tsk->runtime, first->deadline)) {
-				if (ktime_before (tsk->deadline, first->deadline)) {
-					tsk->state = TASK_RUN;
-					list_move(&tsk->node, &tq[cpu].run);
-				}
+			if (ktime_before (now, tsk->wakeup))
+				continue;
+
+			if (ktime_before (tsk->deadline, first->deadline)) {
+				tsk->state = TASK_RUN;
+				list_move(&tsk->node, &tq[cpu].run);
 			}
 
 			continue;
@@ -665,48 +623,29 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 
 		/* time to wake up */
 		if (tsk->state == TASK_IDLE) {
-			tsk->state = TASK_RUN;
 
-			//BUG_ON(ktime_delta(tsk->wakeup, now) > 0);
+			tsk->state = TASK_RUN;
 
 			/* if our deadline is earlier than the deadline at the
 			 * head of the list, move us to top */
 
-			first = list_first_entry(&tq[cpu].run, struct task_struct, node);
+			first = list_first_entry(&tq[cpu].run,
+						 struct task_struct, node);
 
-	//		if (ktime_before (tsk->deadline - tsk->runtime, first->deadline))
+			if (first->state != TASK_RUN) {
+				list_move(&tsk->node, &tq[cpu].run);
+				continue;
+			}
+
 			if (ktime_before (tsk->deadline, first->deadline))
 				list_move(&tsk->node, &tq[cpu].run);
-
-			continue;
-		}
-
-	}
-
-	/* XXX argh, need cpu affinity run lists */
-	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
-
-		if (tsk->state == TASK_RUN) {
-
-			tsk->state = TASK_BUSY;
-		//	kthread_unlock();
-			return tsk;
 		}
 	}
 
-#if 0
-	first = list_first_entry(&tq->run, struct task_struct, node);
-	delta = ktime_delta(first->wakeup, now);
 
-
-
-       if (first->state == TASK_RUN) {
-	     //  printk("c %d\n", leon3_cpuid());
-		first->state = TASK_BUSY;
-	       return first;
-       }
-#endif
-//	kthread_unlock();
+	first = list_first_entry(&tq[cpu].run, struct task_struct, node);
+	if (first->state == TASK_RUN)
+		return first;
 
 	return NULL;
 }
@@ -720,16 +659,12 @@ static void edf_wake_next(struct task_queue *tq, int cpu, ktime now)
 	struct task_struct *task;
 	struct task_struct *first = NULL;
 	struct task_struct *t;
-	struct task_struct *prev = NULL;
 
 
 	ktime max = 0;
 
 
 	struct task_struct *after = NULL;
-
-	ktime wake;
-
 
 
 	if (list_empty(&tq[cpu].wake))
@@ -749,12 +684,10 @@ static void edf_wake_next(struct task_queue *tq, int cpu, ktime now)
 	}
 
 
-	if (after) {
+	if (after)
 		last = ktime_add(after->wakeup, after->attr.period);
-	}
 
 
-#if 1 /* better */
 	task = list_first_entry(&tq[cpu].wake, struct task_struct, node);
 
 
@@ -785,32 +718,24 @@ static void edf_wake_next(struct task_queue *tq, int cpu, ktime now)
 			 * timeslice of this running task, insert after the next wakeup
 			 */
 			if (task->attr.deadline_rel < ktime_sub(t->deadline, t->wakeup)) {
-				//last = ktime_add(t->deadline, t->attr.period);
 				last = t->wakeup;
-
-
 				break;
 			}
 
 			if (task->attr.wcet < ktime_sub(t->deadline, t->wakeup)) {
-				//last = ktime_add(t->deadline, t->attr.period);
 				last = t->deadline;
-
 				break;
 			}
 		}
 	}
-#endif
 
 	task->state = TASK_IDLE;
 
 	/* initially furthest deadline as wakeup */
-	last  = ktime_add(last, 3000000000ULL);
+	last  = ktime_add(last, 3000000000ULL); /* XXX */
 	task->wakeup     = ktime_add(last, task->attr.period);
 	task->deadline   = ktime_add(task->wakeup, task->attr.deadline_rel);
 
-
-//	printk("%s now %lld, last %lld, wake at %lld dead at %lld\n", task->name, now, last, task->wakeup, task->deadline);
 
 	list_move_tail(&task->node, &tq[cpu].run);
 	kthread_unlock();
@@ -838,16 +763,8 @@ static void edf_enqueue(struct task_queue tq[], struct task_struct *task)
 		return;
 	}
 	task->on_cpu = cpu;
-#if 0
-	/** XXX **/
-	if (task->state == TASK_RUN)
-		list_move(&task->node, &tq->run);
-	else
 
-#endif
-#if 1
 	list_add_tail(&task->node, &tq[cpu].wake);
-#endif
 
 }
 
@@ -902,19 +819,16 @@ error:
 	return -EINVAL;
 }
 
-/* called after pick_next() */
 
+/* called after pick_next() */
 
 ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)
 {
-	int64_t delta;
+	ktime delta;
+	ktime ready = (unsigned int) ~0 >> 1;
 
-	struct task_struct *first;
 	struct task_struct *tsk;
 	struct task_struct *tmp;
-	ktime slice = 12345679123ULL;
-	ktime wake = 123456789123ULL;
-
 
 
 	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
@@ -924,19 +838,15 @@ ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)
 
 		delta = ktime_delta(tsk->wakeup, now);
 
-		if (delta <= (tick_get_period_min_ns() << 1))
+		if (delta <= (tick_get_period_min_ns() << 1)) /* XXX init once */
 			continue;
 
-		if (wake > delta)
-			wake = delta;
+		if (ready > delta)
+			ready = delta;
 	}
 
-	if (slice > wake)
-		slice = wake;
 
-	BUG_ON(slice <= (tick_get_period_min_ns() << 1));
-
-	return slice;
+	return ready;
 }
 
 

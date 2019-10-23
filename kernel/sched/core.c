@@ -48,26 +48,21 @@ void schedule(void)
 	static int once[2];
 	if (!once[leon3_cpuid()]) {
 
-//	tick_set_mode(TICK_MODE_PERIODIC);
-	tick_set_next_ns(1e9);	/* XXX default to 1s ticks initially */
-	once[leon3_cpuid()] = 1;
-	return;
+		//	tick_set_mode(TICK_MODE_PERIODIC);
+		tick_set_next_ns(1e9);	/* XXX default to 1s ticks initially */
+		once[leon3_cpuid()] = 1;
+		return;
 	}
 
 
-
 	arch_local_irq_disable();
-//	if (leon3_cpuid() != 0)
-//	printk("cpu %d\n", leon3_cpuid());
+
 
 	/* get the current task for this CPU */
 	/* XXX leon3_cpuid() should be smp_cpu_id() arch call*/
 	current = current_set[leon3_cpuid()]->task;
 
 
-//	if (leon3_cpuid() != 0)
-//	if (current)
-//		printk("current %s\n", current->name);
 
 	now = ktime_get();
 
@@ -79,8 +74,7 @@ void schedule(void)
 	current->runtime = ktime_sub(current->runtime, rt);
 	current->total = ktime_add(current->total, rt);
 
-       current->state = TASK_RUN;
-//	current->runtime = 0;
+	current->state = TASK_RUN;
 
 
 retry:
@@ -107,18 +101,10 @@ retry:
 		 */
 		next = sched->pick_next_task(sched->tq, leon3_cpuid(), now);
 
-#if 0
-		if (next)
-			printk("next %s %llu %llu\n", next->name, next->first_wake, ktime_get());
-		else
-			printk("NULL %llu\n", ktime_get());
-#endif
-
-
 		/* check if we need to limit the next tasks timeslice;
 		 * since our scheduler list is sorted by scheduler priority,
 		 * only update the value if wake_next is not set;
-		 *
+		 * XXX ---wrong description for implementation ---
 		 * because our schedulers are sorted, this means that if next
 		 * is set, the highest priority scheduler will both tell us
 		 * whether it has another task pending soon. If next is not set,
@@ -136,32 +122,8 @@ retry:
 		 */
 
 		if (next) {
-#if 0
-			if (next->on_cpu != KTHREAD_CPU_AFFINITY_NONE) {
-				if (next->on_cpu != leon3_cpuid()) {
-				//	printk("%s on_cpu: %d but am %d\n", next->name, next->on_cpu, leon3_cpuid());
-
-					if (prev == next)
-						continue;
-
-					prev = next;
-					next = NULL;
-					goto retry2;
-				}
-			//	else
-			//		printk("yay %s on_cpu: %d and am %d\n", next->name, next->on_cpu, leon3_cpuid());
-			}
-
-			if (next->sched) {
-#endif
-				slot_ns = next->sched->timeslice_ns(next);
-#if 0
-				if (slot_ns < 0)
-					printk("<0 ! %s\n", next->name);
-			}
-			else continue;
-#endif
 			/* we found something to execute, off we go */
+			slot_ns = next->sched->timeslice_ns(next);
 			break;
 		}
 	}
@@ -173,8 +135,6 @@ retry:
 		goto exit;
 	}
 
-//	if (leon3_cpuid() != 0)
-//	printk("next %s\n", next->name);
 	/* see if the remaining runtime in a thread is smaller than the wakeup
 	 * timeout. In this case, we will restrict ourselves to the remaining
 	 * runtime. This is particularly needeed for strictly periodic
@@ -182,17 +142,20 @@ retry:
 	 */
 
 	/* XXX should go through sched list in reverse to pick most pressing
-	 * wakeup time */
-//	list_for_each_entry(sched, &kernel_schedulers, node) {
+	 * wakeup time
+	 */
+	//	list_for_each_entry(sched, &kernel_schedulers, node) {
 	sched = list_first_entry(&kernel_schedulers, struct scheduler, node);
 	wake_ns = sched->task_ready_ns(sched->tq, leon3_cpuid(), now);
 
-	if (wake_ns > 0)
-		if (wake_ns < slot_ns)
-			slot_ns  = wake_ns;
+	BUG_ON(wake_ns < 0);
+
+	if (wake_ns < slot_ns)
+		slot_ns  = wake_ns;
 
 	/* ALWAYS get current time here */
 	next->exec_start = ktime_get();
+	next->state = TASK_BUSY;
 
 
 	/* subtract readout overhead */
@@ -200,7 +163,7 @@ retry:
 
 #if 1
 	if (slot_ns < 19000UL) {
-	//	printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
+		//	printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
 		now = ktime_get();
 		goto retry;
 		BUG();
@@ -315,7 +278,7 @@ int sched_get_attr(struct task_struct *task, struct sched_attr *attr)
 int sched_set_policy_default(struct task_struct *task)
 {
 	struct sched_attr attr = {.policy = SCHED_RR,
-				  .priority = 1};
+		.priority = 1};
 
 	return sched_set_attr(task, &attr);
 }
