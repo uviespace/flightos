@@ -132,10 +132,12 @@ int task_rr(void *data)
 
 	while (1) {
 
-#if 0
-		if (sys_irq)
+		if (sys_irq) {
 			sysobj_show_attr(sys_irq, "irl", buf1);
+			printk("IRQ: %s\n", buf1);
+		}
 
+#if 0
 		a = xa;
 		b = xb;
 		c = xc;
@@ -310,14 +312,14 @@ int kernel_main(void)
 #endif
 
 
-#if 0
+#if 1
 
 	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "task0");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(100);
 	attr.deadline_rel = ms_to_ktime(90);
-	attr.wcet         = ms_to_ktime(39);
+	attr.wcet         = ms_to_ktime(44);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -335,13 +337,13 @@ int kernel_main(void)
 	kthread_wake_up(t);
 #endif
 
-#if 0
+#if 1
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = ms_to_ktime(40);
 	attr.deadline_rel = ms_to_ktime(22);
-	attr.wcet         = ms_to_ktime(17);
+	attr.wcet         = ms_to_ktime(19);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
@@ -350,15 +352,15 @@ int kernel_main(void)
 	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "task3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(80);
+	attr.period       = ms_to_ktime(79);
 	attr.deadline_rel = ms_to_ktime(70);
-	attr.wcet         = ms_to_ktime(13);
+	attr.wcet         = ms_to_ktime(22);
 	sched_set_attr(t, &attr);
 	kthread_wake_up(t);
 #endif
 
 
-#if 0
+#if 1
 	t = kthread_create(task_rr, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_rr");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_RR;

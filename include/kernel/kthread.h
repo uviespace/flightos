@@ -76,7 +76,8 @@ struct task_struct {
 	 */
 	int				unused;
 
-	ktime				last_visit;
+	ktime				last_visit_true;
+	ktime				last_visit_false;
 	ktime				last_adjust;
 	ktime				runtime; /* remaining runtime in this period  */
 	ktime				wakeup; /* start of next period */

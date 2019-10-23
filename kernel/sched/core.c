@@ -30,8 +30,6 @@ extern struct thread_info *current_set[];
 ktime sched_last_time;
 uint32_t sched_ev;
 
- void kthread_lock(void);
- void kthread_unlock(void);
 void schedule(void)
 {
 	struct scheduler *sched;
@@ -183,6 +181,10 @@ retry:
 	 * schedulers, e.g. EDF
 	 */
 
+	/* XXX should go through sched list in reverse to pick most pressing
+	 * wakeup time */
+//	list_for_each_entry(sched, &kernel_schedulers, node) {
+	sched = list_first_entry(&kernel_schedulers, struct scheduler, node);
 	wake_ns = sched->task_ready_ns(sched->tq, leon3_cpuid(), now);
 
 	if (wake_ns > 0)
@@ -194,11 +196,11 @@ retry:
 
 
 	/* subtract readout overhead */
-	tick_set_next_ns(ktime_sub(slot_ns, 1000LL));
+	tick_set_next_ns(ktime_sub(slot_ns, 9000LL));
 
 #if 1
 	if (slot_ns < 19000UL) {
-		printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
+	//	printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
 		now = ktime_get();
 		goto retry;
 		BUG();
