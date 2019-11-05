@@ -5,6 +5,8 @@
  *
  * @ingroup time
  *
+ * per-cpu tick device
+ *
  * @note this roughly follows the concept found in linux ticks
  */
 
@@ -17,34 +19,195 @@
 #include <kernel/clockevent.h>
 #include <kernel/kthread.h>
 #include <kernel/irq.h>
-
-#define MSG "TICK: "
-
-/* the minimum effective tick period; default to 1 ms */
-static unsigned long tick_period_min_ns = 1000000UL;
-
-/* XXX */
-static struct clock_event_device *tick_device[2];
-
+#include <kernel/smp.h>
 
 #include <asm/processor.h>
 
-static void tick_event_handler(struct clock_event_device *dev)
+#define MSG "TICK: "
+
+
+
+/* XXX CPUS!
+ * maybe: enumerate CPUS, make pointer array from struct, terminate with NULL?
+ */
+static struct {
+	ktime         prev_cal_time;
+	unsigned long tick_period_min_ns;
+
+	struct clock_event_device *dev;
+
+} tick_device[2];
+
+
+static void tick_calibrate_handler(struct clock_event_device *dev)
 {
-	/* does nothing, schedule later */
+	int cpu;
+
+	ktime now;
+	ktime delta;
+
+
+	cpu = smp_cpu_id();
+	now = ktime_get();
+
+	delta = ktime_delta(now, tick_device[cpu].prev_cal_time);
+
+	if (tick_device[cpu].prev_cal_time)
+		tick_device[cpu].tick_period_min_ns = (unsigned long) delta;
+
+	tick_device[cpu].prev_cal_time = now;
 }
 
 
-struct clock_event_device *tick_get_device(__attribute__((unused)) int cpu)
+/**
+ * @brief calibrate the minimum processable tick length for this device
+ *
+ * what this will do eventually:
+ *  - disable scheduling (maybe)
+ *  - mask all interrupts except timer (maybe)
+ *  - flush all caches before programming the timeoutii (we want worst-case times)
+ *  - in tick_event_handler, record time between calls
+ *  - keep decreasing tick length until time between calls does not decrement
+ *    (i.e. interrupt response limit has been hit)...or increase...
+ *  - NOTE: check clockevents_timout_in_range() or somesuch to clamp to
+ *	    actual timer range (maybe add function to clockevents to
+ *	    return actual timer minimum
+ *  - multiply tick length by some factor (2...10)
+ *  - ???
+ *  - profit!
+ */
+
+static void tick_calibrate_min(struct clock_event_device *dev)
 {
-	return tick_device[cpu];
+#define CALIBRATE_LOOPS 100
+
+	int cpu;
+	int i = 0;
+
+	unsigned long min;
+	unsigned long step;
+	unsigned long tick = 0;
+
+	ktime prev;
+
+
+	cpu = smp_cpu_id();
+
+	tick_device[cpu].tick_period_min_ns = 0;
+	tick_device[cpu].prev_cal_time      = 0;
+
+	/* we prefer one shot mode, but we'll grit our teeth, use periodic
+	 * and hope for the best, if the former is not supported
+	 */
+	if (tick_set_mode(TICK_MODE_ONESHOT)) {
+		if (tick_set_mode(TICK_MODE_PERIODIC)) {
+			/* this is some weird clock device... */
+			/* XXX should raise kernel alarm here */
+			return;
+		}
+	}
+
+	clockevents_set_handler(dev, tick_calibrate_handler);
+
+	step = ktime_get_readout_overhead();
+
+	prev = tick_device[cpu].prev_cal_time;
+
+	/* This should give us the minimum tick duration on first pass unless
+	 * the uptime clock has really bad resolution. If so, we'll increment
+	 * the timeout by the uptime clock readout overhead and try again.
+	 * This may not be as reliable if the clock device is in periodic
+	 * mode, but we should still get a somewhat sensible value.
+	 *
+	 * Note: the minimum effective tick period is typically in the order of
+	 * the interrupt processing time + some ISR overhead.
+	 *
+	 * XXX If there is a reboot/FDIR watchdog, make sure to enable it before
+	 *     initiating tick calibration, otherwise we could get stuck here,
+	 *     if the clock device does not actually function. We can't use
+	 *     a timeout here to catch this, since we're obviously in the
+	 *     process of initialising the very device...
+	 */
+
+	while (!tick_device[cpu].tick_period_min_ns) {
+
+		tick += step;
+
+		clockevents_program_timeout_ns(dev, tick);
+
+		while (prev == tick_device[cpu].prev_cal_time)
+			cpu_relax();
+
+		barrier(); /* prevent incorrect optimisation */
+
+		prev = tick_device[cpu].prev_cal_time;
+	}
+
+	/* ok, we found a tick timeout, let's do this a couple of times */
+	min = tick_device[cpu].tick_period_min_ns;
+
+	for (i = 1; i < CALIBRATE_LOOPS; i++) {
+
+		/* XXX should flush caches here, especially icache */
+
+		tick_device[cpu].tick_period_min_ns = 0;
+
+		clockevents_program_timeout_ns(dev, tick);
+
+		while (prev == tick_device[cpu].prev_cal_time)
+			cpu_relax();
+
+		barrier(); /* prevent incorrect optimisation */
+
+		/* something went wrong, we'll take we got so far and bail */
+		if (!tick_device[cpu].tick_period_min_ns) {
+
+			min /= i;
+			tick_device[cpu].tick_period_min_ns = min;
+
+			/* XXX raise a kernel alarm on partial calibration */
+			return;
+		}
+
+		prev = tick_device[cpu].prev_cal_time;
+
+		min += tick_device[cpu].tick_period_min_ns;
+
+		tick_device[cpu].tick_period_min_ns = 0;
+	}
+
+	min /= (i - 1);
+
+	/* to avoid sampling effects, we set this to at least 2x the minimum */
+	tick_device[cpu].tick_period_min_ns = min * 2;
+
+	pr_warn(MSG "calibrated minimum timeout of tick device to %d ns\n",
+		     tick_device[cpu].tick_period_min_ns);
+
+	clockevents_set_handler(dev, NULL);
 }
 
-void tick_set_device(struct clock_event_device *dev,
-					   __attribute__((unused)) int cpu)
+
+/**
+ * @brief get the tick device for a given cpu
+ */
+
+static struct clock_event_device *tick_get_device(__attribute__((unused)) int cpu)
 {
-	tick_device[cpu] = dev;
+	return tick_device[cpu].dev;
 }
+
+
+/**
+ * @brief set the tick device for a given cpu
+ */
+
+static void tick_set_device(struct clock_event_device *dev,
+			    __attribute__((unused)) int cpu)
+{
+	tick_device[cpu].dev = dev;
+}
+
 
 /**
  * @brief tick device selection check
@@ -105,32 +268,6 @@ static int tick_set_mode_oneshot(struct clock_event_device *dev)
 	return 0;
 }
 
-/**
- * @brief calibrate the minimum processable tick length for this device
- *
- * XXX:
- * what this will do:
- *  - disable scheduling
- *  - mask all interrupts except timer (maybe)
- *  - in tick_event_handler, record time between calls
- *  - keep decreasing tick length until time between calls does not decrement
- *    (i.e. interrupt response limit has been hit)
- *  - NOTE: check clockevents_timout_in_range() or somesuch to clamp to
- *	    actual timer range (maybe add function to clockevents to
- *	    return actual timer minimum
- *  - multiply tick length by some factor (2...10)
- *  - ???
- *  - profit!
- */
-
-static void tick_calibrate_min(struct clock_event_device *dev)
-{
-#define RANDOM_TICK_RATE_NS	18000UL
-	tick_period_min_ns = RANDOM_TICK_RATE_NS;
-#define MIN_SLICE		100000UL
-	tick_period_min_ns = MIN_SLICE;
-}
-
 
 /**
  * @brief configure the tick device
@@ -138,14 +275,13 @@ static void tick_calibrate_min(struct clock_event_device *dev)
 
 static void tick_setup_device(struct clock_event_device *dev, int cpu)
 {
+	irq_set_affinity(dev->irq, cpu);
+
 	tick_calibrate_min(dev);
 
 	/* FIXME: assume blindly for the moment, should apply mode
 	 * of previous clock device (if replaced) */
 	tick_set_mode_periodic(dev);
-
-	clockevents_set_handler(dev, tick_event_handler);
-	clockevents_program_timeout_ns(dev, tick_period_min_ns);
 }
 
 
@@ -155,27 +291,27 @@ static void tick_setup_device(struct clock_event_device *dev, int cpu)
 
 void tick_check_device(struct clock_event_device *dev)
 {
+	int cpu;
+
 	struct clock_event_device *cur;
 
 
 	if (!dev)
 		return;
 
-	/* XXX need per-cpu selection later */
-	cur = tick_get_device(leon3_cpuid());
+
+	cpu = smp_cpu_id();
+
+	cur = tick_get_device(cpu);
 
 	if (!tick_check_preferred(cur, dev))
 		return;
 
 	clockevents_exchange_device(cur, dev);
 
-	/* XXX as above */
-	tick_set_device(dev, leon3_cpuid());
+	tick_set_device(dev, cpu);
 
-	/* XXX as above */
-	tick_setup_device(dev, leon3_cpuid());
-
-	irq_set_affinity(dev->irq, leon3_cpuid());
+	tick_setup_device(dev, cpu);
 
 	/* XXX should inform scheduler to recalculate any deadline-related
 	 * timeouts of tasks */
@@ -194,8 +330,7 @@ int tick_set_mode(enum tick_mode mode)
 	struct clock_event_device *dev;
 
 
-	/* XXX need per-cpu selection later */
-	dev = tick_get_device(leon3_cpuid());
+	dev = tick_get_device(smp_cpu_id());
 	if (!dev)
 		return -ENODEV;
 
@@ -221,9 +356,37 @@ int tick_set_mode(enum tick_mode mode)
 
 unsigned long tick_get_period_min_ns(void)
 {
-	return tick_period_min_ns;
+	return tick_device[smp_cpu_id()].tick_period_min_ns;
 }
 
+
+/**
+ * @brief configure next tick period in nanoseconds for a cpu tick deivce
+ *
+ * returns 0 on success, 1 if nanoseconds range was clamped to clock range,
+ *	   -ENODEV if no device is available for the selected CPU
+ *
+ * @note if the tick period is smaller than the calibrated minimum tick period
+ *       of the timer, it will be clamped to the lower bound and a kernel alarm
+ *       will be raised
+ */
+
+int tick_set_next_ns_for_cpu(unsigned long nanoseconds, int cpu)
+{
+	struct clock_event_device *dev;
+
+	dev = tick_get_device(cpu);
+	if (!dev)
+		return -ENODEV;
+
+	if (nanoseconds < tick_device[smp_cpu_id()].tick_period_min_ns) {
+		nanoseconds = tick_device[smp_cpu_id()].tick_period_min_ns;
+
+		/* XXX should raise kernel alarm here */
+	}
+
+	return clockevents_program_timeout_ns(dev, nanoseconds);
+}
 
 
 /**
@@ -233,18 +396,9 @@ unsigned long tick_get_period_min_ns(void)
  *	   -ENODEV if no device is available for the current CPU
  */
 
-
 int tick_set_next_ns(unsigned long nanoseconds)
 {
-	struct clock_event_device *dev;
-
-
-	/* XXX need per-cpu selection later */
-	dev = tick_get_device(leon3_cpuid());
-	if (!dev)
-		return -ENODEV;
-
-	return clockevents_program_timeout_ns(dev, nanoseconds);
+	return tick_set_next_ns_for_cpu(nanoseconds, smp_cpu_id());
 }
 
 
@@ -265,8 +419,7 @@ int tick_set_next_ktime(struct timespec expires)
 	struct clock_event_device *dev;
 
 
-	/* XXX need per-cpu selection later */
-	dev = tick_get_device(leon3_cpuid());
+	dev = tick_get_device(smp_cpu_id());
 	if (!dev)
 		return -ENODEV;
 
