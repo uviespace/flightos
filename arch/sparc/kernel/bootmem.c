@@ -29,13 +29,14 @@
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
 #include <asm/irqflags.h>
+#include <asm/spinlock.h>
 
 #include <chunk.h>
 
 
 /* the pool we use for our boot memory allocator */
 static struct chunk_pool phys_mem_pool;
-
+static struct spinlock bootmem_lock;
 
 /**
  * @brief boot memory allocator wrapper
@@ -103,7 +104,9 @@ void *bootmem_alloc(size_t size)
 		return NULL;
 
 	arch_local_irq_disable();
+	spin_lock_raw(&bootmem_lock);
 	ptr = chunk_alloc(&phys_mem_pool, size);
+	spin_unlock(&bootmem_lock);
 	arch_local_irq_enable();
 
 	if (!ptr) {
@@ -123,9 +126,17 @@ void *bootmem_alloc(size_t size)
 
 void bootmem_free(void *ptr)
 {
+#if 0
 	arch_local_irq_disable();
+#endif
+	spin_lock_raw(&bootmem_lock);
+
 	chunk_free(&phys_mem_pool, ptr);
+
+	spin_unlock(&bootmem_lock);
+#if 0
 	arch_local_irq_enable();
+#endif
 }
 
 
