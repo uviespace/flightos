@@ -52,16 +52,19 @@ static void th_starter(void)
 
 	task->thread_fn(task->data);
 
-	arch_local_irq_disable();
 	ts = get_uptime();
 	stop = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
-	printk("thread: %p returned after %gs\n", task->stack, stop-start);
+
+//	printk("thread: %p returned after %gs\n", task->stack, stop-start);
+
+	arch_local_irq_disable();
 	task->state = TASK_DEAD;
 	arch_local_irq_enable();
 
+
 	schedule();
 
-	pr_crit(MSG "should never have reached %s:%d", __func__, __LINE__);
+	pr_crit(MSG "should never have reached %s:%d\n", __func__, __LINE__);
 	BUG();
 }
 

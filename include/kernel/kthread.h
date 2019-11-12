@@ -36,6 +36,10 @@ struct remove_this_declaration {
 #define TASK_DEAD	0x0004
 #define TASK_BUSY	0x0005
 
+/* task flags */
+#define TASK_RUN_ONCE	(1 << 0)	/* execute for only one time slice */
+#define TASK_NO_CLEAN	(1 << 30)	/* user takes care of cleanup */
+#define TASK_NO_CHECK	(1 << 31)	/* skip any validation checks */
 
 
 
@@ -76,9 +80,6 @@ struct task_struct {
 	 */
 	int				unused;
 
-	ktime				last_visit_true;
-	ktime				last_visit_false;
-	ktime				last_adjust;
 	ktime				runtime; /* remaining runtime in this period  */
 	ktime				wakeup; /* start of next period */
 	ktime				deadline; /* deadline of current period */
@@ -86,6 +87,8 @@ struct task_struct {
 	ktime				exec_start;
 	ktime				total;
 	unsigned long			slices;
+
+	unsigned long			flags;
 
 
 	/* Tasks may have a parent and any number of siblings or children.
@@ -99,7 +102,7 @@ struct task_struct {
 
 
 
-};
+}  __attribute__ ((aligned (8)));
 
 struct task_struct *kthread_create(int (*thread_fn)(void *data),
 				   void *data, int cpu,
@@ -107,7 +110,8 @@ struct task_struct *kthread_create(int (*thread_fn)(void *data),
 				   ...);
 
 struct task_struct *kthread_init_main(void);
-void kthread_wake_up(struct task_struct *task);
+int kthread_wake_up(struct task_struct *task);
+
 /* XXX dummy */
 void switch_to(struct task_struct *next);
 void schedule(void);

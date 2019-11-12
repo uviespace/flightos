@@ -47,64 +47,107 @@
 volatile int inc;
 volatile unsigned int xa, xb, xc, xd;
 
+int task2(void *data);
+
 int task0(void *data)
 {
+
 	while (1) {
 
 		xd++;
 
-	//	printk("t1 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
-	//	sched_yield();
+		if (xd % 1000000000 == 0)
+			sched_yield();
+
+
 	}
 }
 
 int task1(void *data)
 {
+	xa = 0;
 	while (1) {
 
 		xa++;
 
-	//	printk("t1 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
-	//	sched_yield();
 	}
 }
-
+#define QUIT_AT		100000
 
 int task2(void *data)
 {
+
+	iowrite32be(0xdeadbeef, &xb);
+	return 0;
+
 	while (1) {
-		//printk("x %llu\n", ktime_get());
-		//printk("_");
 		xb++;
-	//	printk("t2 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
-	//	sched_yield();
-	//	printk("-");
-	//	sched_yield();
+
+
+		if (xb > QUIT_AT) {
+			printk("EXITING\n");
+			xb = 0xdeadbeef;
+			return 0;
+		}
 	}
 }
+extern int threadcnt;
+int task_rr(void *data);
 int task3(void *data)
 {
 	while (1) {
-#if 0
-		ktime now;
-		if (cnt < 1024) {
-			now = ktime_get();
-			buf[cnt] = ktime_delta(now, last);
-			last = now;
-			cnt++;
-		}
-	       //	else
-		//	sched_yield();
-
-#endif
-		//printk("y %llu\n", ktime_get());
-	//	printk(".");
-//		printk("t3 %d %llu\n", leon3_cpuid(), ktime_to_us(ktime_get()));
 		xc++;
-
-	//	sched_yield();
+		task_rr(NULL);
 	}
 }
+
+int xf;
+int task4(void *data)
+{
+	while (1) {
+		xf++;
+	}
+}
+
+
+int task_restart(void *data)
+{
+	struct task_struct *t = NULL;
+	struct sched_attr attr;
+
+	xb = 0xdeadbeef;
+	while(1) {
+		/* "fake" single shot reset */
+
+
+#if 1
+		if (ioread32be(&xb) == 0xdeadbeef)
+		{
+			xb = 0;
+
+			t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task7");
+
+		//	printk("now at %p %d\n", t, threadcnt);
+			sched_get_attr(t, &attr);
+			attr.policy = SCHED_EDF;
+
+			attr.period       = us_to_ktime(0);
+			attr.deadline_rel = us_to_ktime(100);
+			attr.wcet         = us_to_ktime(30);
+
+			sched_set_attr(t, &attr);
+			barrier();
+			BUG_ON (kthread_wake_up(t) < 0);
+			barrier();
+
+
+		}
+			sched_yield();
+#endif
+	}
+}
+
+
 #include <kernel/sysctl.h>
 extern ktime sched_last_time;
 	void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now);
@@ -114,14 +157,11 @@ extern uint32_t sched_ev;
 extern struct scheduler sched_edf;
 int task_rr(void *data)
 {
-	int last = 0;
-	int curr = 0;
 	char buf1[64];
+	char buf2[64];
+	char buf3[64];
 
-	uint32_t last_call = 0;
-	int a, b, c, d;
 
-	ktime sched_time;
 	struct sysobj *sys_irq = NULL;
 
 
@@ -134,30 +174,13 @@ int task_rr(void *data)
 
 		if (sys_irq) {
 			sysobj_show_attr(sys_irq, "irl", buf1);
-			printk("IRQ: %s\n", buf1);
+			sysobj_show_attr(sys_irq, "8", buf2);
+			sysobj_show_attr(sys_irq, "9", buf3);
+			printk("IRQs: %s timer1 %s timer2 %s threads created: %d\n", buf1, buf2, buf3, threadcnt);
 		}
 
-#if 0
-		a = xa;
-		b = xb;
-		c = xc;
-		d = xd;
-		sched_time = sched_last_time;
-		curr = atoi(buf1)/2;
-		printk("%u %u %u %u %llu ", a, b, c, d, ktime_get());
-//		printk("sched %llu us ", ktime_to_us(sched_last_time));
-		printk("%llu per call ", sched_last_time /sched_ev);
-//		printk("calls %d ", sched_ev - last_call);
-		printk("cpu %d", leon3_cpuid());
-
-		printk("\n");
-
-		last = curr;
-		last_call = sched_ev;
-#endif
-
-		sched_print_edf_list_internal(&sched_edf.tq[0], 0, ktime_get());
-		sched_print_edf_list_internal(&sched_edf.tq[1], 1, ktime_get());
+	//	sched_print_edf_list_internal(&sched_edf.tq[0], 0, ktime_get());
+	//	sched_print_edf_list_internal(&sched_edf.tq[1], 1, ktime_get());
 
 
 
@@ -165,6 +188,7 @@ int task_rr(void *data)
 		sched_yield();
 	}
 }
+
 
 
 /**
@@ -191,9 +215,11 @@ extern int cpu1_ready;
  */
 #define MAX_TASKS 0
 #include <kernel/clockevent.h>
+#include <kernel/tick.h>
 int kernel_main(void)
 {
 	struct task_struct *t;
+	struct sched_attr attr;
 
 #if 0
 	void *addr;
@@ -245,61 +271,24 @@ int kernel_main(void)
 	/* run the demo */
 	xen_demo();
 #endif
-	printk(MSG "Boot complete, spinning idly.\n");
 
 
 
 	/* elevate boot thread */
 	kthread_init_main();
-#if 0
-	/*
-	 *  T1: (P=50, D=20, R=10)
-	 *
-	 *  T2: (P= 4, D= 2, R= 1)
-	 *  T5: (P=20, D=12, R= 5)
-	 *
-	 *  T6: (P=33, D=30, R= 4)
-	 *  T7: (P=50, D=46, R= 6)
-	 */
+	tick_set_next_ns(1000000);
 
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T1");
-	kthread_set_sched_edf(t, 50 * MSEC_PER_SEC,  10 * MSEC_PER_SEC, 20 * MSEC_PER_SEC);
-
-
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T2");
-	kthread_set_sched_edf(t, 4 * MSEC_PER_SEC,  1 * MSEC_PER_SEC, 2 * MSEC_PER_SEC);
-
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T5");
-	kthread_set_sched_edf(t, 20 * MSEC_PER_SEC, 5 * MSEC_PER_SEC, 12 * MSEC_PER_SEC);
-
-
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T6");
-	kthread_set_sched_edf(t, 33 * MSEC_PER_SEC, 4 * MSEC_PER_SEC, 30 * MSEC_PER_SEC);
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "T7");
-	kthread_set_sched_edf(t, 50 * MSEC_PER_SEC, 6 * MSEC_PER_SEC, 46 * MSEC_PER_SEC);
-
-#endif
-
-
-
+	/* wait for cpus */
 	cpu1_ready = 2;
-#if 1
-{
-	struct sched_attr attr;
-#if 0
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "print");
-	sched_get_attr(t, &attr);
-	attr.priority = 4;
-	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
 
-	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
-	sched_get_attr(t, &attr);
-	attr.priority = 8;
-	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
-#endif
-#if 1
+	while (ioread32be(&cpu1_ready) != 0x3);
+	iowrite32be(0x4, &cpu1_ready);
+
+	printk(MSG "Boot complete\n");
+
+
+
+
 #if 0
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
 	sched_get_attr(t, &attr);
@@ -311,56 +300,62 @@ int kernel_main(void)
 	kthread_wake_up(t);
 #endif
 
-
 #if 1
 
-	t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "task0");
+	//t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "task0");
+	t = kthread_create(task_restart, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_restart");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(100);
-	attr.deadline_rel = ms_to_ktime(90);
-	attr.wcet         = ms_to_ktime(44);
+	attr.period       = ms_to_ktime(10);
+	attr.deadline_rel = ms_to_ktime(9);
+	attr.wcet         = ms_to_ktime(5);
 	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
+	if (kthread_wake_up(t) < 0)
+		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
 #endif
 
 
 
-#if 1
+#if 0
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "task1");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(50);
-	attr.deadline_rel = ms_to_ktime(40);
-	attr.wcet         = ms_to_ktime(33);
+	attr.period       = us_to_ktime(50000);
+	attr.deadline_rel = us_to_ktime(40000);
+	attr.wcet         = us_to_ktime(33000);
 	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
+	if (kthread_wake_up(t) < 0)
+		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
 #endif
 
-#if 1
+#if 0
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(40);
-	attr.deadline_rel = ms_to_ktime(22);
-	attr.wcet         = ms_to_ktime(19);
+	attr.period       = us_to_ktime(200);
+	attr.deadline_rel = us_to_ktime(110);
+	attr.wcet         = us_to_ktime(95);
 	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
+	if (kthread_wake_up(t) < 0) {
+		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+		BUG();
+	}
 #endif
 
 #if 1
 	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "task3");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(79);
-	attr.deadline_rel = ms_to_ktime(70);
-	attr.wcet         = ms_to_ktime(22);
+	attr.period       = ms_to_ktime(1000);
+	attr.deadline_rel = ms_to_ktime(999);
+	attr.wcet         = ms_to_ktime(300);
 	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
+	if (kthread_wake_up(t) < 0)
+		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
 #endif
 
 
-#if 1
+#if 0
 	t = kthread_create(task_rr, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_rr");
 	sched_get_attr(t, &attr);
 	attr.policy = SCHED_RR;
@@ -369,66 +364,42 @@ int kernel_main(void)
 	kthread_wake_up(t);
 #endif
 
+
+#if 0
+	t = kthread_create(task_restart, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_restart");
+	sched_get_attr(t, &attr);
+	attr.policy = SCHED_RR;
+	attr.priority = 1;
+	sched_set_attr(t, &attr);
+	kthread_wake_up(t);
 #endif
-
-
-
-
-}
-#endif
-
-	while (ioread32be(&cpu1_ready) != 0x3);
-      iowrite32be(0x4, &cpu1_ready);
+//	xb = 0xdeadbeef;
 	while(1) {
-//		printk("o");
-#if 0
-		int val = inc;
-		static ktime last;
-		ktime now;
-		now = ktime_get();
-		static ktime delta;
+		/* "fake" single shot reset */
 
-		delta	= ktime_delta(last, now);
-		last = now;
-		printk("%d %lld\n", val, ktime_to_us(delta));
-#endif
+	//	task_rr(NULL);
 #if 0
-	static int i;
-	static ktime last;
-		ktime now;
-		now = ktime_get();
-		if (i == 10) {
-		printk("%lld\n", ktime_to_ms(ktime_delta(now, last)));
-		last = now;
-		i = 0;
-		}
-		i++;
-#endif
-	//	sched_yield();
-#if 0
-		if (cnt > 1023) {
-			int i;
-			for (i = 1; i < 1024; i++)
-				printk("%lld\n", buf[i]);
-		//	cnt = 0;
-			break;
+		if (xb == 0xdeadbeef)
+		{
+			xb = 0;
+			t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
+			sched_get_attr(t, &attr);
+			attr.policy = SCHED_EDF;
+
+			attr.period       = us_to_ktime(0);
+			attr.deadline_rel = us_to_ktime(100);
+			attr.wcet         = us_to_ktime(60);
+
+			sched_set_attr(t, &attr);
+			BUG_ON (kthread_wake_up(t) < 0);
+
 		}
 #endif
-//		printk("xxx %llu\n", ktime_get());
 
-		//printk("%d\n", cnt);
-
-	//	printk("o");
-	//	printk("\n");
-
-	//	sched_yield();
-//		printk("cpu1\n");
 		cpu_relax();
 	}
 
-		//printk("%lld\n", buf[i]);
-
-	while(1)
+	while (1)
 		cpu_relax();
 	/* never reached */
 	BUG();

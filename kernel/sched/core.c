@@ -11,12 +11,13 @@
 #include <kernel/sched.h>
 #include <kernel/init.h>
 #include <kernel/tick.h>
+#include <kernel/smp.h>
 #include <asm-generic/irqflags.h>
 #include <asm-generic/spinlock.h>
 #include <asm/switch_to.h>
+
 #include <string.h>
 
-#include <asm/leon.h>
 
 
 #define MSG "SCHEDULER: "
@@ -24,18 +25,21 @@
 static LIST_HEAD(kernel_schedulers);
 
 
-/* XXX: per-cpu */
+/* XXX: per-cpu... */
+
 extern struct thread_info *current_set[];
 
-ktime sched_last_time;
-uint32_t sched_ev;
+static bool sched_enabled[2] = {false, false};
+
+
 
 void schedule(void)
 {
+	int cpu;
+
 	struct scheduler *sched;
 
 	struct task_struct *next = NULL;
-	struct task_struct *prev = NULL;
 
 	struct task_struct *current;
 	int64_t slot_ns = 1000000LL;
@@ -45,22 +49,22 @@ void schedule(void)
 	ktime now;
 
 
-	static int once[2];
-	if (!once[leon3_cpuid()]) {
+	cpu = smp_cpu_id();
 
-		//	tick_set_mode(TICK_MODE_PERIODIC);
-		tick_set_next_ns(1e9);	/* XXX default to 1s ticks initially */
-		once[leon3_cpuid()] = 1;
+	if (!sched_enabled[cpu])
 		return;
-	}
+#if 1
+	/* booted yet? */
+	if (!current_set[cpu])
+		return;
+#endif
 
 
 	arch_local_irq_disable();
 
 
 	/* get the current task for this CPU */
-	/* XXX leon3_cpuid() should be smp_cpu_id() arch call*/
-	current = current_set[leon3_cpuid()]->task;
+	current = current_set[cpu]->task;
 
 
 
@@ -74,17 +78,13 @@ void schedule(void)
 	current->runtime = ktime_sub(current->runtime, rt);
 	current->total = ktime_add(current->total, rt);
 
-	current->state = TASK_RUN;
-
+	/* XXX */
+	if (current->state == TASK_BUSY)
+		current->state = TASK_RUN;
 
 retry:
 	next = NULL;
 	wake_ns = 1000000000;
-	/* XXX: for now, try to wake up any threads not running
-	 * this is a waste of cycles and instruction space; should be
-	 * done in the scheduler's code (somewhere) */
-	list_for_each_entry(sched, &kernel_schedulers, node)
-		sched->wake_next_task(sched->tq, leon3_cpuid(), now);
 
 
 	/* XXX need sorted list: highest->lowest scheduler priority, e.g.:
@@ -99,7 +99,7 @@ retry:
 		/* if one of the schedulers have a task which needs to run now,
 		 * next is non-NULL
 		 */
-		next = sched->pick_next_task(sched->tq, leon3_cpuid(), now);
+		next = sched->pick_next_task(sched->tq, cpu, now);
 
 		/* check if we need to limit the next tasks timeslice;
 		 * since our scheduler list is sorted by scheduler priority,
@@ -146,7 +146,7 @@ retry:
 	 */
 	//	list_for_each_entry(sched, &kernel_schedulers, node) {
 	sched = list_first_entry(&kernel_schedulers, struct scheduler, node);
-	wake_ns = sched->task_ready_ns(sched->tq, leon3_cpuid(), now);
+	wake_ns = sched->task_ready_ns(sched->tq, cpu, now);
 
 	BUG_ON(wake_ns < 0);
 
@@ -154,23 +154,26 @@ retry:
 		slot_ns  = wake_ns;
 
 	/* ALWAYS get current time here */
-	next->exec_start = ktime_get();
+	next->exec_start = now;;
 	next->state = TASK_BUSY;
 
 
-	/* subtract readout overhead */
-	tick_set_next_ns(ktime_sub(slot_ns, 9000LL));
 
 #if 1
-	if (slot_ns < 19000UL) {
+	if (slot_ns < 10000UL) {
 		//	printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
 		now = ktime_get();
+	//	BUG();
 		goto retry;
-		BUG();
 	}
-	sched_ev++;
-	sched_last_time = ktime_add(sched_last_time, ktime_delta(ktime_get(), now));
 #endif
+
+	/* subtract readout overhead */
+	tick_set_next_ns(ktime_sub(slot_ns, 9000LL));
+	//tick_set_next_ns(slot_ns);
+
+
+
 	prepare_arch_switch(1);
 	switch_to(next);
 
@@ -304,6 +307,25 @@ int sched_register(struct scheduler *sched)
 
 
 /**
+ * @brief enable scheduling on the current cpu
+ */
+
+void sched_enable(void)
+{
+	sched_enabled[smp_cpu_id()] = true;
+}
+
+
+/*
+ * @brief disable scheduling on the current cpu
+ */
+void sched_disable(void)
+{
+	sched_enabled[smp_cpu_id()] = false;
+}
+
+
+/**
  * @brief scheduler initcall
  *
  * @note sets tick mode to oneshot
@@ -312,7 +334,6 @@ int sched_register(struct scheduler *sched)
 static int sched_init(void)
 {
 	tick_set_mode(TICK_MODE_ONESHOT);
-	tick_set_next_ns(1e9);	/* XXX default to 1s ticks initially */
 
 	return 0;
 }

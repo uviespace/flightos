@@ -25,10 +25,11 @@ struct sched_attr {
 	unsigned long		priority;
 
 	/* period based scheduling for EDF, RMS, ... */
-	ktime			period;		/* wakeup period */
-	ktime			wcet;		/* max runtime per period*/
-	ktime			deadline_rel;	/* time to deadline from begin of wakeup */
-};
+	ktime			period __attribute__ ((aligned (8)));		/* wakeup period */
+	ktime			wcet __attribute__ ((aligned (8)));		/* max runtime per period*/
+	ktime			deadline_rel __attribute__ ((aligned (8)));	/* time to deadline from begin of wakeup */
+
+}  __attribute__ ((aligned (8)));
 
 
 
@@ -70,7 +71,7 @@ struct scheduler {
 
 	/* XXX: sucks */
 	void (*wake_next_task)  (struct task_queue tq[], int cpu, ktime now);
-	void (*enqueue_task)    (struct task_queue tq[],
+	int  (*enqueue_task)    (struct task_queue tq[],
 			         struct task_struct *task);
 
 	ktime (*timeslice_ns)   (struct task_struct *task);
@@ -119,5 +120,7 @@ int sched_set_policy_default(struct task_struct *task);
 int sched_enqueue(struct task_struct *task);
 int sched_register(struct scheduler *sched);
 
+void sched_enable(void);
+void sched_disable(void);
 
 #endif /* _KERNEL_SCHED_H_ */

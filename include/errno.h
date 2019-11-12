@@ -125,4 +125,6 @@
 
 #define EHWPOISON	133	/* Memory page has hardware error */
 
+#define ENOSCHED	134	/* Task cannot be scheduled */
+
 #endif /* _ERRNO_H_ */

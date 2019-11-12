@@ -19,7 +19,6 @@
  * - happy bug hunting, I bet there are lots
  */
 
-#include <kernel/kmem.h>
 #include <kernel/export.h>
 #include <kernel/types.h>
 #include <kernel/string.h>

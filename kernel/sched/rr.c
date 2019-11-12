@@ -9,10 +9,36 @@
 #include <kernel/init.h>
 #include <kernel/tick.h>
 #include <kernel/kthread.h>
+#include <asm/spinlock.h>
 
 #define MSG "SCHED_RR: "
 
-#include <asm/processor.h>
+#define MIN_RR_SLICE_NS		1000000
+
+
+static struct spinlock rr_spinlock;
+
+
+/**
+ * @brief lock critical rr section
+ */
+
+static void rr_lock(void)
+{
+	spin_lock_raw(&rr_spinlock);
+}
+
+
+/**
+ * @brief unlock critical rr section
+ */
+
+static void rr_unlock(void)
+{
+	spin_unlock(&rr_spinlock);
+}
+
+
 static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 					ktime now)
 {
@@ -23,6 +49,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	if (list_empty(&tq[0].run))
 		return NULL;
 
+	rr_lock();
 	list_for_each_entry_safe(next, tmp, &tq[0].run, node) {
 
 
@@ -37,7 +64,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			list_move_tail(&next->node, &tq[0].run);
 
 			/* reset runtime */
-			next->runtime = (next->attr.priority * tick_get_period_min_ns());
+			next->runtime = (next->attr.priority * MIN_RR_SLICE_NS);
 
 
 
@@ -60,6 +87,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 	}
 
+	rr_unlock();
 
 	return next;
 }
@@ -78,21 +106,29 @@ static void rr_wake_next(struct task_queue tq[], int cpu, ktime now)
 	task = list_entry(tq[0].wake.next, struct task_struct, node);
 
 	BUG_ON(task->attr.policy != SCHED_RR);
-	/** XXX NO LOCKS */
+
 	task->state = TASK_RUN;
+
+	rr_lock();
 	list_move(&task->node, &tq[0].run);
+	rr_unlock();
 }
 
 
-static void rr_enqueue(struct task_queue tq[], struct task_struct *task)
+static int rr_enqueue(struct task_queue tq[], struct task_struct *task)
 {
 
-	task->runtime = (task->attr.priority * tick_get_period_min_ns());
-	/** XXX **/
+	task->runtime = (task->attr.priority * MIN_RR_SLICE_NS);
+
+	rr_lock();
 	if (task->state == TASK_RUN)
 		list_add_tail(&task->node, &tq[0].run);
 	else
 		list_add_tail(&task->node, &tq[0].wake);
+
+	rr_unlock();
+
+	return 0;
 }
 
 /**
@@ -109,7 +145,7 @@ static void rr_enqueue(struct task_queue tq[], struct task_struct *task)
 
 static ktime rr_timeslice_ns(struct task_struct *task)
 {
-	return (ktime) (task->attr.priority * tick_get_period_min_ns() * 50);
+	return (ktime) (task->attr.priority * MIN_RR_SLICE_NS);
 }
 
 

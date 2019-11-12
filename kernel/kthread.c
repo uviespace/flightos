@@ -5,15 +5,16 @@
 
 #include <kernel/kthread.h>
 #include <kernel/export.h>
+#include <kernel/smp.h>
 #include <kernel/kmem.h>
 #include <kernel/err.h>
 #include <kernel/printk.h>
 
 #include <asm-generic/irqflags.h>
-#include <asm-generic/spinlock.h>
 
-
+#include <asm/io.h>
 #include <asm/switch_to.h>
+#include <asm/spinlock.h>
 
 #include <kernel/string.h>
 
@@ -42,7 +43,6 @@ static struct spinlock kthread_spinlock;
 
 
 
-#include <asm/processor.h>
 struct thread_info *current_set[CONFIG_SMP_CPUS_MAX]; /* XXX */
 
 
@@ -91,7 +91,7 @@ void sched_yield(void)
 {
 	struct task_struct *tsk;
 
-	tsk = current_set[leon3_cpuid()]->task;
+	tsk = current_set[smp_cpu_id()]->task;
 //	if (tsk->attr.policy == SCHED_EDF)
 	tsk->runtime = 0;
 
@@ -112,31 +112,53 @@ __attribute__((unused))
 
 
 
-void kthread_wake_up(struct task_struct *task)
+int threadcnt;
+int kthread_wake_up(struct task_struct *task)
 {
-	arch_local_irq_disable();
+	int ret = 0;
+
+	ktime now;
+
+
+	threadcnt++;
+
+	if (task->state != TASK_NEW)
+		return -EINVAL;
+
+	ret = sched_enqueue(task);
+	if(ret)
+		return ret;
+#if 1
 	kthread_lock();
+	arch_local_irq_disable();
+	now = ktime_get();
+#if 1
+	/* XXX need function in sched.c to do that */
+	task->sched->wake_next_task(task->sched->tq, task->on_cpu, now);
 
-	BUG_ON(task->state != TASK_NEW);
+	if (task->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
+		smp_send_reschedule(task->on_cpu);
+#endif
 
-	task->state = TASK_IDLE;
-	/** XXX **/
-	sched_enqueue(task);
-	//list_move_tail(&task->node, &_kthreads.wake);
-
-	kthread_unlock();
 	arch_local_irq_enable();
+	kthread_unlock();
+#endif
+
+	return 0;
 }
 
 
-#include <asm/processor.h>
 struct task_struct *kthread_init_main(void)
 {
+	int cpu;
+
 	struct task_struct *task;
+
+
+	cpu = smp_cpu_id();
 
 	task = kmalloc(sizeof(*task));
 
-//	printk("hi there, someone called %d from %lx\n", leon3_cpuid(), __builtin_return_address(0));
 
 	if (!task)
 		return ERR_PTR(-ENOMEM);
@@ -144,7 +166,7 @@ struct task_struct *kthread_init_main(void)
 	/* XXX accessors */
 	task->attr.policy = SCHED_RR; /* default */
 	task->attr.priority = 1;
-	task->on_cpu = leon3_cpuid();
+	task->on_cpu = cpu;
 
 	arch_promote_to_task(task);
 
@@ -154,7 +176,7 @@ struct task_struct *kthread_init_main(void)
 	arch_local_irq_disable();
 	kthread_lock();
 
-	current_set[leon3_cpuid()] = &task->thread_info;
+	current_set[cpu] = &task->thread_info;
 
 
 	task->state = TASK_RUN;
@@ -162,6 +184,7 @@ struct task_struct *kthread_init_main(void)
 	sched_enqueue(task);
 	/*list_add_tail(&task->node, &_kthreads.run);*/
 
+	smp_send_reschedule(cpu);
 
 
 	kthread_unlock();
@@ -180,7 +203,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 {
 	struct task_struct *task;
 
-	task = kmalloc(sizeof(*task));
+	task = kzalloc(sizeof(*task));
 
 
 	if (!task)
@@ -189,7 +212,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 	/* XXX: need stack size detection and realloc/migration code */
 
-	task->stack = kmalloc(8192 + STACK_ALIGN); /* XXX */
+	task->stack = kzalloc(8192 + STACK_ALIGN); /* XXX */
 
 	BUG_ON((int) task->stack > (0x40800000 - 4096 + 1));
 
@@ -207,12 +230,14 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	/* XXX: need wmemset() */
 	memset(task->stack, 0xab, 8192 + STACK_ALIGN);
 #else
+#if 0
 	{
 		int i;
 		for (i = 0; i < (8192 + STACK_ALIGN) / 4; i++)
 			((int *) task->stack)[i] = 0xdeadbeef;
 
 	}
+#endif
 #endif
 
 	/* dummy */

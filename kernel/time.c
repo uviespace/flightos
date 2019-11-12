@@ -146,8 +146,8 @@ static void time_init_overhead_calibrate(void)
 	/* overhead is readout delta / 2 */
 	tk.readout_ns = (typeof(tk.readout_ns)) (0.5 * delta / (double) i);
 
-	printk(MSG "calibrated main uptime clock readout overhead to %d ns\n",
-	           tk.readout_ns);
+	pr_info(MSG "calibrated main uptime clock readout overhead to %d ns\n",
+	            tk.readout_ns);
 }
 
 /**
