@@ -29,6 +29,9 @@ void *memcpy(void *dest, const void *src, size_t n);
 char *strcpy(char *dest, const char *src);
 void bzero(void *s, size_t n);
 
+void *memset16(void *s, uint16_t c, size_t n);
+void *memset32(void *s, uint32_t c, size_t n);
+
 int isdigit(int c);
 int isspace(int c);
 int isalpha(int c);

@@ -158,6 +158,7 @@ char *strdup(const char *s)
 
         char *dup;
 
+
         if (!s)
                 return NULL;
 
@@ -583,7 +584,7 @@ EXPORT_SYMBOL(atoi);
 
 
 /**
- * @brief fills a memory area with  with the constant byte c
+ * @brief fills a memory area with the constant byte c
  *
  * @param s a pointer to the memory area
  * @param c the byte to set
@@ -603,6 +604,49 @@ void *memset(void *s, int c, size_t n)
 }
 EXPORT_SYMBOL(memset);
 
+
+/**
+ * @brief fills a memory area with the constant uint16_t c
+ *
+ * @param s a pointer to the memory area
+ * @param c the uint16_t to set
+ * @param n the number of uint16_t elements to fill
+ *
+ * @returns a pointer to the memory area s
+ */
+
+void *memset16(void *s, uint16_t c, size_t n)
+{
+        uint16_t *p = s;
+
+        while (n--)
+                *p++ = c;
+
+        return s;
+}
+EXPORT_SYMBOL(memset16);
+
+
+/**
+ * @brief fills a memory area with the constant uint32_t c
+ *
+ * @param s a pointer to the memory area
+ * @param c the uint32_t to set
+ * @param n the number of uint32_t elements to fill
+ *
+ * @returns a pointer to the memory area s
+ */
+
+void *memset32(void *s, uint32_t c, size_t n)
+{
+        uint32_t *p = s;
+
+        while (n--)
+                *p++ = c;
+
+        return s;
+}
+EXPORT_SYMBOL(memset32);
 
 
 /**
