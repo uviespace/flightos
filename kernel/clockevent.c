@@ -15,6 +15,7 @@
 #include <kernel/clockevent.h>
 #include <kernel/export.h>
 #include <kernel/tick.h>
+#include <kernel/sched.h>
 #include <errno.h>
 
 
@@ -242,9 +243,16 @@ void clockevents_register_device(struct clock_event_device *dev)
 	spin_lock(&clockevents_spinlock);
 	list_add_tail(&dev->node, &clockevent_devices);
 
-	arch_local_irq_disable();
+	/* this should be safe without disabling interrupts, if not,
+	 * we need a different strategy to calibrate the tick period of the
+	 * device...
+	 *
+	 * XXX need long-time run-time testing for verifcation
+	 */
+
+	sched_disable();
 	tick_check_device(dev);
-	arch_local_irq_enable();
+	sched_enable();
 
 	spin_unlock(&clockevents_spinlock);
 }
@@ -266,9 +274,16 @@ int clockevents_offer_device(void)
 		if (dev->state != CLOCK_EVT_STATE_UNUSED)
 			continue;
 
-		arch_local_irq_disable();
+		/* this should be save without disabling interrupts, if not,
+		 * we need a different strategy to calibrate the tick period of
+		 * the device...
+		 *
+		 * XXX need long-time run-time testing for verifcation
+		 */
+
+		sched_disable();
 		tick_check_device(dev);
-		arch_local_irq_enable();
+		sched_enable();
 
 		return 0;
 	}
