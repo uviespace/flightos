@@ -461,7 +461,7 @@ static void leon_mask_irq(unsigned int irq, int cpu)
  * @param cpu the cpu for which the interrupt is to be enabled
  */
 
-static void leon_enable_irq(unsigned int irq, int cpu)
+void leon_enable_irq(unsigned int irq, int cpu)
 {
 	leon_clear_irq(irq);
 
@@ -476,11 +476,33 @@ static void leon_enable_irq(unsigned int irq, int cpu)
  * @param cpu the cpu for which the interrupt is to be disabled
  */
 
-static void leon_disable_irq(unsigned int irq, int cpu)
+void leon_disable_irq(unsigned int irq, int cpu)
 {
 	leon_clear_irq(irq);
 
 	leon_mask_irq(irq, cpu);
+}
+
+
+
+/**
+ * @brief force an interrupt
+ *
+ * @param irq the interrupt to force
+ * @param cpu the cpu on which to force the interrupt (set < 0 for all)
+ *
+ * @note interrupts must be enabled for this to work
+ */
+
+void leon_force_irq(unsigned int irq, int cpu)
+{
+#ifdef CONFIG_LEON3
+	if (cpu >= 0) {
+		iowrite32be((1 << irq), &leon_irqctrl_regs->irq_mpforce[cpu]);
+		return;
+	}
+#endif
+	iowrite32be((1 << irq), &leon_irqctrl_regs->irq_force);
 }
 
 

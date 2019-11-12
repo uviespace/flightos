@@ -21,6 +21,10 @@
 #include <stack.h>
 #include <kernel/kmem.h>
 
+#include <kernel/sched.h>
+
+#include <kernel/smp.h>
+
 void *_kernel_stack_top;
 void *_kernel_stack_bottom;
 
@@ -56,8 +60,6 @@ static void reserve_kernel_stack(void)
 	/* the (aligned) top of the stack */
 	_kernel_stack_top = (void *) (char *) _kernel_stack_bottom + k_stack_sz;
 	_kernel_stack_top = ALIGN_PTR(_kernel_stack_top, STACK_ALIGN);
-
-	printk("xxxxx reserved %p to %p\n", _kernel_stack_top, _kernel_stack_bottom);
 }
 
 
@@ -116,26 +118,30 @@ extern struct task_struct *kernel[];
 void smp_cpu_entry(void)
 {
 
-     reserve_kernel_stack();
-     BUG_ON(stack_migrate(NULL, _kernel_stack_top));
+	reserve_kernel_stack();
+	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
 
-     printk("hi i'm cpu %d\n", leon3_cpuid());
+	printk("hi i'm cpu %d\n", leon3_cpuid());
 
-     BUG_ON(!leon3_cpuid());
-      /* signal ready */
-      iowrite32be(0x1, &cpu1_ready);
+	BUG_ON(!leon3_cpuid());
+
+	/* signal ready */
+	iowrite32be(0x1, &cpu1_ready);
 
 	while (ioread32be(&cpu1_ready) != 0x2);
+
 	BUG_ON(clockevents_offer_device());
+
 	kthread_init_main();
 
-      iowrite32be(0x3, &cpu1_ready);
+	iowrite32be(0x3, &cpu1_ready);
+
 	while (ioread32be(&cpu1_ready) != 0x4);
-      while(1) {
-//	     printk(".\n");
-	      cpu_relax();
-      }
-//	      printk("1\n");
+
+	sched_enable();
+
+	while(1)
+		cpu_relax();
 }
 
 
@@ -164,5 +170,9 @@ void setup_arch(void)
 
 	sparc_clockevent_init();
 
+	smp_init();
+
 	boot_cpus();
+
+	sched_enable();
 }
