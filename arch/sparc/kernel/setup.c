@@ -24,6 +24,7 @@
 #include <kernel/sched.h>
 
 #include <kernel/smp.h>
+#include <asm/irqflags.h>
 
 void *_kernel_stack_top;
 void *_kernel_stack_bottom;
@@ -120,6 +121,8 @@ void smp_cpu_entry(void)
 
 	reserve_kernel_stack();
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
+
+	arch_local_irq_enable();
 
 	printk("hi i'm cpu %d\n", leon3_cpuid());
 
