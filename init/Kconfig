@@ -20,6 +20,14 @@ config SMP_CPUS_MAX
 	 is smaller or larger than this number, either the former or the latter
 	 will determine the actual number of CPUs used at runtime.
 
+config STACK_SIZE
+	int "Stack size per thread"
+	default 4096
+	range 1024 32768
+	help
+	 Set the stack size allocated to a thread at runtime. It's probably
+	 wise to set this to a radix-2.
+
 config KALLSYMS
 	bool "Generate a kernel symbol table"
 	default y

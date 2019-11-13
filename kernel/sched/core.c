@@ -19,169 +19,228 @@
 #include <string.h>
 
 
-
 #define MSG "SCHEDULER: "
 
+
 static LIST_HEAD(kernel_schedulers);
-
-
-/* XXX: per-cpu... */
-
-extern struct thread_info *current_set[];
-
 static bool sched_enabled[2] = {false, false};
 
 
+/* XXX: per-cpu... */
+extern struct thread_info *current_set[];
+
+
+/**
+ * @brief update the remaining runtime of the current thread and set
+ *	  state from TASK_BUSY to TASK_RUN
+ */
+
+static void sched_update_runtime(struct task_struct *task, ktime now)
+{
+	ktime rt;
+
+	rt = ktime_sub(now, task->exec_start);
+
+	task->runtime = ktime_sub(task->runtime, rt);
+	task->total   = ktime_add(task->total, rt);
+	task->state   = TASK_RUN;
+}
+
+/**
+ * @brief find the next task to execute
+ *
+ * @returns the runtime to the next scheduling event
+ */
+
+static ktime sched_find_next_task(struct task_struct **task, int cpu, ktime now)
+{
+	struct scheduler *sched;
+
+	struct task_struct *next;
+
+	ktime slice;
+
+
+	/* our schedulers are sorted by priority, so the highest-priority
+	 * scheduler with some task to run gets to call dibs on the cpu
+	 */
+	list_for_each_entry(sched, &kernel_schedulers, node) {
+
+		next = sched->pick_next_task(sched->tq, cpu, now);
+
+		if (next) {
+			/* we found something to execute, off we go */
+			slice = next->sched->timeslice_ns(next);
+			break;
+		}
+	}
+
+	/* NOTE: _next_ can never be NULL, as there must always be at least
+	 * the initial kernel bootup thread present or scheduling must be
+	 * disabled altogether
+	 */
+	BUG_ON(!next);
+
+
+	/* Determine the most pressing ready time. If the remaining runtime in
+	 * a thread is smaller than the wakeup timeout for a given scheduler
+	 * priority, we will restrict ourselves to the remaining runtime.
+	 * This is particularly needed for strictly (periodic) schedulers,
+	 * e.g. EDF
+	 */
+	list_for_each_entry(sched, &kernel_schedulers, node) {
+
+		ktime ready;
+
+
+		/* NOTE: non-periodic, non-real-time schedulers (e.g. round
+		 *       robin, fifo, ...) are supposed to return a zero-timeout
+		 *       for next task readiness, since their tasks are
+		 *       always ready to run
+		 */
+
+		ready = sched->task_ready_ns(sched->tq, cpu, now);
+
+		/* TODO raise kernel alarm if ready < 0, this would imply a
+		 *	real-time requirement has been violated
+		 */
+
+		BUG_ON(ready < 0);
+
+		if (!ready)
+			continue;
+
+		if (ready >= slice)
+			continue;
+
+		if (sched->priority >= next->sched->priority)
+			slice = ready;
+		else
+			break;
+	}
+
+
+	(*task) = next;
+
+	return slice;
+}
+
+
+/**
+ * @brief schedule and execute the next task
+ */
 
 void schedule(void)
 {
 	int cpu;
 
-	struct scheduler *sched;
-
-	struct task_struct *next = NULL;
-
-	struct task_struct *current;
-	int64_t slot_ns = 1000000LL;
-	int64_t wake_ns = 1000000000;
-
-	ktime rt;
 	ktime now;
+	ktime tick;
+	ktime slice;
+
+	struct task_struct *next;
+
 
 
 	cpu = smp_cpu_id();
 
 	if (!sched_enabled[cpu])
 		return;
-#if 1
+
 	/* booted yet? */
-	if (!current_set[cpu])
-		return;
-#endif
+	BUG_ON(!current_set[cpu]);
 
 
 	arch_local_irq_disable();
 
 
-	/* get the current task for this CPU */
-	current = current_set[cpu]->task;
-
-
-
 	now = ktime_get();
-
-	rt = ktime_sub(now, current->exec_start);
-
-	/** XXX need timeslice_update callback for schedulers */
-	/* update remaining runtime of current thread */
-
-	current->runtime = ktime_sub(current->runtime, rt);
-	current->total = ktime_add(current->total, rt);
-
-	/* XXX */
-	if (current->state == TASK_BUSY)
-		current->state = TASK_RUN;
-
-retry:
-	next = NULL;
-	wake_ns = 1000000000;
+	sched_update_runtime(current_set[cpu]->task, now);
 
 
-	/* XXX need sorted list: highest->lowest scheduler priority, e.g.:
-	 * EDF -> RMS -> FIFO -> RR
-	 * TODO: scheduler priority value
-	 */
+	tick = (ktime) tick_get_period_min_ns();
 
-	list_for_each_entry(sched, &kernel_schedulers, node) {
+	while (1) {
 
-
-
-		/* if one of the schedulers have a task which needs to run now,
-		 * next is non-NULL
-		 */
-		next = sched->pick_next_task(sched->tq, cpu, now);
-
-		/* check if we need to limit the next tasks timeslice;
-		 * since our scheduler list is sorted by scheduler priority,
-		 * only update the value if wake_next is not set;
-		 * XXX ---wrong description for implementation ---
-		 * because our schedulers are sorted, this means that if next
-		 * is set, the highest priority scheduler will both tell us
-		 * whether it has another task pending soon. If next is not set,
-		 * a lower-priority scheduler may set the next thread to run,
-		 * but we will take the smallest timeout from high to low
-		 * priority schedulers, so we enter this function again when
-		 * the timeslice of the next thread is over and we can determine
-		 * what needs to be run in the following scheduling cycle. This
-		 * way, we will distribute CPU time even to the lowest priority
-		 * scheduler, if available, but guarantee, that the highest
-		 * priority threads are always ranked and executed on time
-		 *
-		 * we assume that the timeslice is reasonable; if not fix it in
-		 * the corresponding scheduler
-		 */
-
-		if (next) {
-			/* we found something to execute, off we go */
-			slot_ns = next->sched->timeslice_ns(next);
+		slice = sched_find_next_task(&next, cpu, now);
+		if (slice > tick)
 			break;
-		}
-	}
 
+		/* keep trying until we can find a task which can actually
+		 * execute given the system overhead
+		 */
 
-	if (!next) {
-		/* there is absolutely nothing nothing to do, check again later */
-		tick_set_next_ns(wake_ns);
-		goto exit;
-	}
-
-	/* see if the remaining runtime in a thread is smaller than the wakeup
-	 * timeout. In this case, we will restrict ourselves to the remaining
-	 * runtime. This is particularly needeed for strictly periodic
-	 * schedulers, e.g. EDF
-	 */
-
-	/* XXX should go through sched list in reverse to pick most pressing
-	 * wakeup time
-	 */
-	//	list_for_each_entry(sched, &kernel_schedulers, node) {
-	sched = list_first_entry(&kernel_schedulers, struct scheduler, node);
-	wake_ns = sched->task_ready_ns(sched->tq, cpu, now);
-
-	BUG_ON(wake_ns < 0);
-
-	if (wake_ns < slot_ns)
-		slot_ns  = wake_ns;
-
-	/* ALWAYS get current time here */
-	next->exec_start = now;;
-	next->state = TASK_BUSY;
-
-
-
-#if 1
-	if (slot_ns < 10000UL) {
-		//	printk("wake %lld slot %lld %s\n", wake_ns, slot_ns, next->name);
 		now = ktime_get();
-	//	BUG();
-		goto retry;
 	}
-#endif
 
-	/* subtract readout overhead */
-	tick_set_next_ns(ktime_sub(slot_ns, 9000LL));
-	//tick_set_next_ns(slot_ns);
+	next->exec_start = now;
 
+	/*
+	 * We subtract a tick period here to account for the approximate
+	 * overhead of the scheduling function, which is about twice the
+	 * ISR processing time. This could be improved, but it appears
+	 * to be sufficient for very high load, high frequency tasks
+	 *
+	 * On a GR712 @80 MHz, this makes the following EDF configuration
+	 * not miss any deadlines:
+	 *	1) P = 1000 ms, D = 999 ms, W = 300 ms
+	 *	2) P =  140 us, D = 115 us, W =  90 us
+	 *	3) P = 1000 ms, D = 999 ms, W = 300 ms
+	 *	4) P =  140 us, D = 115 us, W =  90 us
+	 *
+	 * This configuration puts a load of 94.3% on each CPU, running tasks
+	 * 1+2, 3+4 respectively. The remaining runtime is allocated to the
+	 * RR-mode threads of the kernel main boot threads per CPU.
+	 *
+	 * Note: This means that the scheduling overhead comes out of the
+	 *	 run-time budget of each task, no matter the scheduler type.
+	 *	 In the above example, the high-frequency tasks cannot use
+	 *	 more than about 93 percent of their actual WCET. Obviously,
+	 *	 this will be significantly less for longer period/WCET tasks.
+	 */
+
+	/* set next wakeup */
+	tick_set_next_ns(ktime_sub(slice, tick));
 
 
 	prepare_arch_switch(1);
 	switch_to(next);
 
-exit:
 	arch_local_irq_enable();
 }
 
 
+/**
+ * @brief yield remaining runtime and reschedule
+ */
+
+void sched_yield(void)
+{
+	struct task_struct *tsk;
+
+	tsk = current_set[smp_cpu_id()]->task;
+	tsk->runtime = 0;
+
+	schedule();
+}
+
+
+/**
+ * @brief wake up a task
+ */
+
+int sched_wake(struct task_struct *task, ktime now)
+{
+	if (!task)
+		return -EINVAL;
+
+	if (!task->sched) {
+		pr_err(MSG "no scheduler configured for task %s\n", task->name);
+		return -EINVAL;
+	}
+
+	return task->sched->wake_task(task, now);
+}
 
 
 /**
@@ -190,16 +249,22 @@ exit:
 
 int sched_enqueue(struct task_struct *task)
 {
+	int ret;
+
+
+	if (!task)
+		return -EINVAL;
+
 	if (!task->sched) {
 		pr_err(MSG "no scheduler configured for task %s\n", task->name);
 		return -EINVAL;
 	}
 
-	/** XXX retval **/
-	if (task->sched->check_sched_attr(&task->attr))
-		return -EINVAL;
+	ret = task->sched->check_sched_attr(&task->attr);
+	if (ret)
+		return ret;
 
-	task->sched->enqueue_task(task->sched->tq, task);
+	task->sched->enqueue_task(task);
 
 	return 0;
 }
@@ -236,9 +301,7 @@ int sched_set_attr(struct task_struct *task, struct sched_attr *attr)
 			if (sched->check_sched_attr(attr))
 				goto error;
 
-			task->sched  = sched;
-
-			/* XXX other stuff */
+			task->sched = sched;
 
 			return 0;
 		}
@@ -248,6 +311,7 @@ int sched_set_attr(struct task_struct *task, struct sched_attr *attr)
 
 error:
 	task->sched = NULL;
+
 	return -EINVAL;
 }
 
@@ -259,7 +323,6 @@ error:
 
 int sched_get_attr(struct task_struct *task, struct sched_attr *attr)
 {
-
 	if (!task)
 		return -EINVAL;
 
@@ -280,8 +343,9 @@ int sched_get_attr(struct task_struct *task, struct sched_attr *attr)
 
 int sched_set_policy_default(struct task_struct *task)
 {
-	struct sched_attr attr = {.policy = SCHED_RR,
-		.priority = 1};
+	struct sched_attr attr = {.policy   = SCHED_RR,
+				  .priority = 1};
+
 
 	return sched_set_attr(task, &attr);
 }
@@ -289,18 +353,56 @@ int sched_set_policy_default(struct task_struct *task)
 
 /**
  * @brief register a new scheduler
+ *
+ * @returns 0 on success,
+ *	   -EPERM if the scheduler instance is already registered,
+ *	   -EINVAL otherwise
+ *
+ * XXX locking
  */
 
 int sched_register(struct scheduler *sched)
 {
-	/* XXX locks */
+	int swap;
+
+	struct scheduler *elem;
+	struct scheduler *tmp;
 
 
-	/* XXX stupid */
-	if (!sched->sched_priority)
-		list_add_tail(&sched->node, &kernel_schedulers);
-	else
-		list_add(&sched->node, &kernel_schedulers);
+
+	if (!sched)
+		return -EINVAL;
+
+
+	list_for_each_entry(elem, &kernel_schedulers, node) {
+		if (elem == sched) {
+			pr_err(MSG "scheduler instance already registered\n");
+			return -EPERM;
+		}
+	}
+
+	list_add_tail(&sched->node, &kernel_schedulers);
+
+
+	/* bubble-sort by priority */
+	do {
+		swap = 0;
+
+		list_for_each_entry_safe(elem, tmp, &kernel_schedulers, node) {
+
+			struct scheduler *next = list_next_entry(elem, node);
+
+			if (elem->priority < next->priority) {
+
+				list_swap(&elem->node, &next->node);
+
+				swap = 1;
+			}
+		}
+
+	} while (swap);
+
+
 
 	return 0;
 }

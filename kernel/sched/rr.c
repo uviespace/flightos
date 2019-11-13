@@ -2,6 +2,15 @@
  * @file kernel/sched/round_robin.c
  *
  * @brief round-robin scheduler
+ *
+ * Selects the first non-busy task which can run on the current CPU.
+ * If a task has used up its runtime, the runtime is reset and the task is
+ * moved to the end of the queue.
+ *
+ * Task runtimes are calculated from their priority value, which acts as a
+ * multiplier for a given minimum slice, which is a multiple of the
+ * minimum tick device period.
+ *
  */
 
 
@@ -13,8 +22,9 @@
 
 #define MSG "SCHED_RR: "
 
-#define MIN_RR_SLICE_NS		1000000
 
+/* radix-2 shift for min tick */
+#define RR_MIN_TICK_SHIFT	4
 
 static struct spinlock rr_spinlock;
 
@@ -39,53 +49,59 @@ static void rr_unlock(void)
 }
 
 
+/**
+ * @brief select the next task to run
+ */
+
 static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 					ktime now)
 {
-	struct task_struct *next = NULL;
+	ktime tick;
+
+	struct task_struct *tsk;
 	struct task_struct *tmp;
+	struct task_struct *next = NULL;
+
 
 
 	if (list_empty(&tq[0].run))
 		return NULL;
 
+
+	/* we use twice the minimum tick period for resetting the runtime */
+	tick = (ktime) tick_get_period_min_ns() << 1;
+
 	rr_lock();
-	list_for_each_entry_safe(next, tmp, &tq[0].run, node) {
+
+	list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
+
+		if (tsk->on_cpu != cpu)
+			if (tsk->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
+				continue;
 
 
-		if (next->on_cpu == KTHREAD_CPU_AFFINITY_NONE
-		    || next->on_cpu == cpu) {
+		if (tsk->state == TASK_RUN) {
 
-		if (next->state == TASK_RUN) {
-			/* XXX: must pick head first, then move tail on put()
-			 * following a scheduling event. for now, just force
-			 * round robin
-			 */
-			list_move_tail(&next->node, &tq[0].run);
+			if (tsk->runtime <= tick) {
+				/* reset runtime and queue up at the end */
+				tsk->runtime = tsk->attr.wcet;
+				list_move_tail(&tsk->node, &tq[0].run);
+				next = tsk;
+				continue;
+			}
 
-			/* reset runtime */
-			next->runtime = (next->attr.priority * MIN_RR_SLICE_NS);
-
-
-
+			next = tsk;
+			break;
 		}
 
-		if (next->state == TASK_IDLE)
-			list_move_tail(&next->node, &tq[0].run);
-
-		if (next->state == TASK_DEAD)
-			list_move_tail(&next->node, &tq[0].dead);
-
-		break;
-
-
-		} else {
-			next = NULL;
-			continue;
+		if (tsk->state == TASK_DEAD) {
+			list_del(&tsk->node);
+			kthread_free(tsk);
 		}
-
-
 	}
+
+	if (next)
+		next->state = TASK_BUSY;
 
 	rr_unlock();
 
@@ -93,61 +109,86 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 }
 
 
-/* this sucks, wrong place. keep for now */
-static void rr_wake_next(struct task_queue tq[], int cpu, ktime now)
+/**
+ * @brief wake up a task by inserting in into the run queue
+ */
+
+static int rr_wake(struct task_struct *task, ktime now)
 {
+	int found = 0;
 
-	struct task_struct *task;
+	ktime tick;
 
+	struct task_struct *elem;
+	struct task_struct *tmp;
+
+	struct task_queue *tq;
+
+
+	if (!task)
+		return -EINVAL;
+
+	if (task->attr.policy != SCHED_RR)
+		return -EINVAL;
+
+
+	tq = task->sched->tq;
 	if (list_empty(&tq[0].wake))
-		return;
+		return -EINVAL;
 
 
-	task = list_entry(tq[0].wake.next, struct task_struct, node);
+	list_for_each_entry_safe(elem, tmp, &tq[0].wake, node) {
 
-	BUG_ON(task->attr.policy != SCHED_RR);
+		if (elem != task)
+			continue;
 
-	task->state = TASK_RUN;
+		found = 1;
+		break;
+	}
+
+	if (!found)
+		return -EINVAL;
+
+
+	/* let's hope tick periods between cpus never differ significantly */
+	tick = (ktime) tick_get_period_min_ns() << RR_MIN_TICK_SHIFT;
+
+	task->attr.wcet = task->attr.priority * tick;
+	task->runtime   = task->attr.wcet;
+	task->state     = TASK_RUN;
 
 	rr_lock();
 	list_move(&task->node, &tq[0].run);
 	rr_unlock();
+
+
+	return 0;
 }
 
 
-static int rr_enqueue(struct task_queue tq[], struct task_struct *task)
+
+/**
+ * @brief enqueue a task
+ */
+
+static int rr_enqueue(struct task_struct *task)
 {
-
-	task->runtime = (task->attr.priority * MIN_RR_SLICE_NS);
-
 	rr_lock();
-	if (task->state == TASK_RUN)
-		list_add_tail(&task->node, &tq[0].run);
-	else
-		list_add_tail(&task->node, &tq[0].wake);
-
+	list_add_tail(&task->node, &task->sched->tq[0].wake);
 	rr_unlock();
 
 	return 0;
 }
 
+
 /**
  * @brief get the requested timeslice of a task
- *
- * @note RR timeslices are determined from their configured priority
- *	 XXX: must not be 0
- *
- * @note for now, just take the minimum tick period to fit as many RR slices
- *	 as possible. This will jack up the IRQ rate, but RR tasks only run when
- *	 the system is not otherwise busy;
- *	 still, a larger (configurable) extra factor may be desirable
  */
 
 static ktime rr_timeslice_ns(struct task_struct *task)
 {
-	return (ktime) (task->attr.priority * MIN_RR_SLICE_NS);
+	return task->runtime;
 }
-
 
 
 /**
@@ -158,19 +199,23 @@ static ktime rr_timeslice_ns(struct task_struct *task)
 
 static int rr_check_sched_attr(struct sched_attr *attr)
 {
+
+	if (!attr)
+		return -EINVAL;
+
 	if (attr->policy != SCHED_RR) {
 		pr_err(MSG "attribute policy is %d, expected SCHED_RR (%d)\n",
-			attr->policy, SCHED_RR);
+		            attr->policy, SCHED_RR);
 		return -EINVAL;
 	}
 
 	if (!attr->priority) {
+		attr->priority = 1;
 		pr_warn(MSG "minimum priority is 1, adjusted\n");
 	}
 
 	return 0;
 }
-
 
 
 /**
@@ -186,17 +231,15 @@ ktime rr_task_ready_ns(struct task_queue tq[], int cpu, ktime now)
 }
 
 
-
-
 static struct scheduler sched_rr = {
 	.policy           = SCHED_RR,
 	.pick_next_task   = rr_pick_next,
-	.wake_next_task   = rr_wake_next,
+	.wake_task        = rr_wake,
 	.enqueue_task     = rr_enqueue,
 	.timeslice_ns     = rr_timeslice_ns,
 	.task_ready_ns    = rr_task_ready_ns,
 	.check_sched_attr = rr_check_sched_attr,
-	.sched_priority   = 0,
+	.priority   = 0,
 };
 
 
@@ -205,10 +248,8 @@ static int sched_rr_init(void)
 {
 	int i;
 
-	/* XXX */
 
 	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
-		INIT_LIST_HEAD(&sched_rr.tq[i].new);
 		INIT_LIST_HEAD(&sched_rr.tq[i].wake);
 		INIT_LIST_HEAD(&sched_rr.tq[i].run);
 		INIT_LIST_HEAD(&sched_rr.tq[i].dead);

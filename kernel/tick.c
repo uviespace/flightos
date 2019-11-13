@@ -313,8 +313,10 @@ void tick_check_device(struct clock_event_device *dev)
 
 	tick_setup_device(dev, cpu);
 
-	/* XXX should inform scheduler to recalculate any deadline-related
-	 * timeouts of tasks */
+	/* XXX should inform scheduler to re-evaluate all schedules,
+	 * i.e. move all current tasks for the given CPU(s) from run to wakeup
+	 * queues and wake all tasks one-by-one
+	 */
 }
 
 

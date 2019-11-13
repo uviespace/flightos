@@ -40,11 +40,15 @@ extern struct thread_info *current_set[];
 #include <kernel/time.h>
 static void th_starter(void)
 {
+	unsigned long flags;
 	struct task_struct *task = current_set[leon3_cpuid()]->task;
 
 	struct timespec ts;
+
 	double start;
 	double stop;
+
+
 
 	ts = get_uptime();
 
@@ -57,9 +61,9 @@ static void th_starter(void)
 
 //	printk("thread: %p returned after %gs\n", task->stack, stop-start);
 
-	arch_local_irq_disable();
+	flags = arch_local_irq_save();
 	task->state = TASK_DEAD;
-	arch_local_irq_enable();
+	arch_local_irq_restore(flags);
 
 
 	schedule();

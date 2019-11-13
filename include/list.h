@@ -367,6 +367,23 @@ static inline void list_replace(struct list_head *old,
 
 
 /**
+ * @brief replace entry1 with entry2 and re-add entry1 at entry2's position
+ * @param entry1: the location to place entry2
+ * @param entry2: the location to place entry1
+ */
+static inline void list_swap(struct list_head *entry1,
+			     struct list_head *entry2)
+{
+	struct list_head *pos = entry2->prev;
+
+	list_del(entry2);
+	list_replace(entry1, entry2);
+	if (pos == entry1)
+		pos = entry2;
+	list_add(entry1, pos);
+}
+
+/**
  * @brief tests whether a list is empty
  * @param head: the list to test.
  */

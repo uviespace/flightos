@@ -9,13 +9,16 @@
 #include <generated/autoconf.h>	/*XXX */
 
 
+/* scheduler priority levels */
+#define SCHED_PRIORITY_RR	0
+#define SCHED_PRIORITY_EDF	1
 
 enum sched_policy {
 	SCHED_RR,
 	SCHED_EDF,
-	SCHED_FIFO,
 	SCHED_OTHER,
 };
+
 
 
 struct sched_attr {
@@ -47,9 +50,8 @@ struct rq {
 
 
 struct task_queue {
-	struct list_head new;
-	struct list_head run;
 	struct list_head wake;
+	struct list_head run;
 	struct list_head dead;
 };
 
@@ -69,17 +71,15 @@ struct scheduler {
 	struct task_struct *(*pick_next_task)(struct task_queue tq[], int cpu,
 					      ktime now);
 
-	/* XXX: sucks */
-	void (*wake_next_task)  (struct task_queue tq[], int cpu, ktime now);
-	int  (*enqueue_task)    (struct task_queue tq[],
-			         struct task_struct *task);
+	int (*wake_task)    (struct task_struct *task, ktime now);
+	int (*enqueue_task) (struct task_struct *task);
 
 	ktime (*timeslice_ns)   (struct task_struct *task);
 	ktime (*task_ready_ns)  (struct task_queue tq[], int cpu, ktime now);
 
 	int (*check_sched_attr) (struct sched_attr *attr);
 
-	unsigned long sched_priority;		/* scheduler priority */
+	unsigned long priority;		/* scheduler priority */
 	struct list_head	node;
 #if 0
 	const struct sched_class *next;
@@ -110,7 +110,11 @@ struct scheduler {
 #endif
 
 
+void switch_to(struct task_struct *next);
+void schedule(void);
+void sched_yield(void);
 
+void sched_print_edf_list(void);
 
 
 int sched_set_attr(struct task_struct *task, struct sched_attr *attr);
@@ -118,6 +122,7 @@ int sched_get_attr(struct task_struct *task, struct sched_attr *attr);
 
 int sched_set_policy_default(struct task_struct *task);
 int sched_enqueue(struct task_struct *task);
+int sched_wake(struct task_struct *task, ktime now);
 int sched_register(struct scheduler *sched);
 
 void sched_enable(void);

@@ -19,6 +19,8 @@
 #include <kernel/kernel.h>
 #include <kernel/kthread.h>
 #include <kernel/time.h>
+#include <kernel/err.h>
+#include <kernel/sysctl.h>
 #include <modules-image.h>
 
 #include <kernel/string.h>
@@ -44,152 +46,6 @@
 #endif /* __OPTIMIZE__ */
 #endif /* GCC_VERSION */
 
-volatile int inc;
-volatile unsigned int xa, xb, xc, xd;
-
-int task2(void *data);
-
-int task0(void *data)
-{
-
-	while (1) {
-
-		xd++;
-
-		if (xd % 1000000000 == 0)
-			sched_yield();
-
-
-	}
-}
-
-int task1(void *data)
-{
-	xa = 0;
-	while (1) {
-
-		xa++;
-
-	}
-}
-#define QUIT_AT		100000
-
-int task2(void *data)
-{
-
-	iowrite32be(0xdeadbeef, &xb);
-	return 0;
-
-	while (1) {
-		xb++;
-
-
-		if (xb > QUIT_AT) {
-			printk("EXITING\n");
-			xb = 0xdeadbeef;
-			return 0;
-		}
-	}
-}
-extern int threadcnt;
-int task_rr(void *data);
-int task3(void *data)
-{
-	while (1) {
-		xc++;
-		task_rr(NULL);
-	}
-}
-
-int xf;
-int task4(void *data)
-{
-	while (1) {
-		xf++;
-	}
-}
-
-
-int task_restart(void *data)
-{
-	struct task_struct *t = NULL;
-	struct sched_attr attr;
-
-	xb = 0xdeadbeef;
-	while(1) {
-		/* "fake" single shot reset */
-
-
-#if 1
-		if (ioread32be(&xb) == 0xdeadbeef)
-		{
-			xb = 0;
-
-			t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task7");
-
-		//	printk("now at %p %d\n", t, threadcnt);
-			sched_get_attr(t, &attr);
-			attr.policy = SCHED_EDF;
-
-			attr.period       = us_to_ktime(0);
-			attr.deadline_rel = us_to_ktime(100);
-			attr.wcet         = us_to_ktime(30);
-
-			sched_set_attr(t, &attr);
-			barrier();
-			BUG_ON (kthread_wake_up(t) < 0);
-			barrier();
-
-
-		}
-			sched_yield();
-#endif
-	}
-}
-
-
-#include <kernel/sysctl.h>
-extern ktime sched_last_time;
-	void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now);
-extern uint32_t sched_ev;
-
-
-extern struct scheduler sched_edf;
-int task_rr(void *data)
-{
-	char buf1[64];
-	char buf2[64];
-	char buf3[64];
-
-
-	struct sysobj *sys_irq = NULL;
-
-
-
-	bzero(buf1, 64);
-	sys_irq = sysset_find_obj(sys_set, "/sys/irl/primary");
-
-
-	while (1) {
-
-		if (sys_irq) {
-			sysobj_show_attr(sys_irq, "irl", buf1);
-			sysobj_show_attr(sys_irq, "8", buf2);
-			sysobj_show_attr(sys_irq, "9", buf3);
-			printk("IRQs: %s timer1 %s timer2 %s threads created: %d\n", buf1, buf2, buf3, threadcnt);
-		}
-
-	//	sched_print_edf_list_internal(&sched_edf.tq[0], 0, ktime_get());
-	//	sched_print_edf_list_internal(&sched_edf.tq[1], 1, ktime_get());
-
-
-
-
-		sched_yield();
-	}
-}
-
-
 
 /**
  * @brief kernel initialisation routines
@@ -210,12 +66,58 @@ arch_initcall(kernel_init);
 
 /** XXX dummy **/
 extern int cpu1_ready;
+
+
+volatile int xp;
+int task1(void *p)
+{
+	while (1) {
+		xp++;
+	}
+}
+
+volatile int xd;
+int task2(void *p)
+{
+	while (1)
+		xd++;
+}
+
+int task(void *p)
+{
+	char buf1[64];
+	char buf2[64];
+	char buf3[64];
+
+	struct sysobj *sys_irq = NULL;
+
+
+	sys_irq = sysset_find_obj(sys_set, "/sys/irl/primary");
+
+	if (!sys_irq) {
+		printk("Error locating sysctl entry\n");
+		return -1;
+	}
+
+	while (1) {
+
+		sysobj_show_attr(sys_irq, "irl", buf1);
+		sysobj_show_attr(sys_irq, "8", buf2);
+		sysobj_show_attr(sys_irq, "9", buf3);
+
+		printk("IRQ total: %s timer1: %s timer2: %s, %d %d\n",
+		       buf1, buf2, buf3, ioread32be(&xp), xd);
+
+//		sched_yield();
+	}
+
+	return 0;
+}
+
+
 /**
  * @brief kernel main functionputchar( *((char *) data) );
  */
-#define MAX_TASKS 0
-#include <kernel/clockevent.h>
-#include <kernel/tick.h>
 int kernel_main(void)
 {
 	struct task_struct *t;
@@ -276,7 +178,6 @@ int kernel_main(void)
 
 	/* elevate boot thread */
 	kthread_init_main();
-	tick_set_next_ns(1000000);
 
 	/* wait for cpus */
 	cpu1_ready = 2;
@@ -287,120 +188,72 @@ int kernel_main(void)
 	printk(MSG "Boot complete\n");
 
 
+	t = kthread_create(task, NULL, KTHREAD_CPU_AFFINITY_NONE, "task");
+	if (!IS_ERR(t)) {
+		sched_get_attr(t, &attr);
+		attr.policy = SCHED_EDF;
+		attr.period       = ms_to_ktime(1000);
+		attr.deadline_rel = ms_to_ktime(999);
+		attr.wcet         = ms_to_ktime(300);
+		sched_set_attr(t, &attr);
+		if (kthread_wake_up(t) < 0)
+			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+	} else {
+		printk("Got an error in kthread_create!");
+	}
 
-
-#if 0
-	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "print1");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(1000);
-	attr.deadline_rel = ms_to_ktime(900);
-	attr.wcet         = ms_to_ktime(200);
-	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
-#endif
-
-#if 1
-
-	//t = kthread_create(task0, NULL, KTHREAD_CPU_AFFINITY_NONE, "task0");
-	t = kthread_create(task_restart, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_restart");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(10);
-	attr.deadline_rel = ms_to_ktime(9);
-	attr.wcet         = ms_to_ktime(5);
-	sched_set_attr(t, &attr);
-	if (kthread_wake_up(t) < 0)
-		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-#endif
-
-
-
-#if 0
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "task1");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_EDF;
-	attr.period       = us_to_ktime(50000);
-	attr.deadline_rel = us_to_ktime(40000);
-	attr.wcet         = us_to_ktime(33000);
-	sched_set_attr(t, &attr);
-	if (kthread_wake_up(t) < 0)
-		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-#endif
+	if (!IS_ERR(t)) {
+		sched_get_attr(t, &attr);
+		attr.policy = SCHED_EDF;
+		attr.period       = us_to_ktime(140);
+		attr.deadline_rel = us_to_ktime(115);
+		attr.wcet         = us_to_ktime(90);
+		sched_set_attr(t, &attr);
+		if (kthread_wake_up(t) < 0)
+			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+	} else {
+		printk("Got an error in kthread_create!");
+	}
 
-#if 0
+
+	t = kthread_create(task, NULL, KTHREAD_CPU_AFFINITY_NONE, "task");
+	if (!IS_ERR(t)) {
+		sched_get_attr(t, &attr);
+		attr.policy = SCHED_EDF;
+		attr.period       = ms_to_ktime(1000);
+		attr.deadline_rel = ms_to_ktime(999);
+		attr.wcet         = ms_to_ktime(300);
+		sched_set_attr(t, &attr);
+		if (kthread_wake_up(t) < 0)
+			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+	} else {
+		printk("Got an error in kthread_create!");
+	}
+
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_EDF;
-	attr.period       = us_to_ktime(200);
-	attr.deadline_rel = us_to_ktime(110);
-	attr.wcet         = us_to_ktime(95);
-	sched_set_attr(t, &attr);
-	if (kthread_wake_up(t) < 0) {
-		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-		BUG();
+	if (!IS_ERR(t)) {
+		sched_get_attr(t, &attr);
+		attr.policy = SCHED_EDF;
+		attr.period       = us_to_ktime(140);
+		attr.deadline_rel = us_to_ktime(115);
+		attr.wcet         = us_to_ktime(90);
+		sched_set_attr(t, &attr);
+		if (kthread_wake_up(t) < 0)
+			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+	} else {
+		printk("Got an error in kthread_create!");
 	}
-#endif
-
-#if 1
-	t = kthread_create(task3, NULL, KTHREAD_CPU_AFFINITY_NONE, "task3");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_EDF;
-	attr.period       = ms_to_ktime(1000);
-	attr.deadline_rel = ms_to_ktime(999);
-	attr.wcet         = ms_to_ktime(300);
-	sched_set_attr(t, &attr);
-	if (kthread_wake_up(t) < 0)
-		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-#endif
 
 
-#if 0
-	t = kthread_create(task_rr, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_rr");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_RR;
-	attr.priority = 1;
-	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
-#endif
 
 
-#if 0
-	t = kthread_create(task_restart, NULL, KTHREAD_CPU_AFFINITY_NONE, "task_restart");
-	sched_get_attr(t, &attr);
-	attr.policy = SCHED_RR;
-	attr.priority = 1;
-	sched_set_attr(t, &attr);
-	kthread_wake_up(t);
-#endif
-//	xb = 0xdeadbeef;
+
 	while(1) {
-		/* "fake" single shot reset */
-
-	//	task_rr(NULL);
-#if 0
-		if (xb == 0xdeadbeef)
-		{
-			xb = 0;
-			t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
-			sched_get_attr(t, &attr);
-			attr.policy = SCHED_EDF;
-
-			attr.period       = us_to_ktime(0);
-			attr.deadline_rel = us_to_ktime(100);
-			attr.wcet         = us_to_ktime(60);
-
-			sched_set_attr(t, &attr);
-			BUG_ON (kthread_wake_up(t) < 0);
-
-		}
-#endif
-
 		cpu_relax();
 	}
 
-	while (1)
-		cpu_relax();
+
 	/* never reached */
 	BUG();
 

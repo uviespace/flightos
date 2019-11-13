@@ -13,15 +13,10 @@
 #include <kernel/time.h>
 #include <kernel/sched.h>
 
+#include <compiler.h>
+#include <generated/autoconf.h>
 
-
-struct remove_this_declaration {
-	struct list_head new;
-	struct list_head run;
-	struct list_head wake;
-	struct list_head dead;
-};
-
+compile_time_assert(!(CONFIG_STACK_SIZE & STACK_ALIGN), STACK_SIZE_UNALIGNED);
 
 
 #define KTHREAD_CPU_AFFINITY_NONE	(-1)
@@ -112,12 +107,7 @@ struct task_struct *kthread_create(int (*thread_fn)(void *data),
 struct task_struct *kthread_init_main(void);
 int kthread_wake_up(struct task_struct *task);
 
-/* XXX dummy */
-void switch_to(struct task_struct *next);
-void schedule(void);
-void sched_yield(void);
-
-void sched_print_edf_list(void);
+void kthread_free(struct task_struct *task);
 
 void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			  unsigned long wcet_us, unsigned long deadline_rel_us);
