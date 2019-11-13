@@ -100,14 +100,17 @@ void *bootmem_alloc(size_t size)
 {
 	void *ptr;
 
+	unsigned long flags;
+
+
 	if (!size)
 		return NULL;
 
-	arch_local_irq_disable();
+	flags = arch_local_irq_save();
 	spin_lock_raw(&bootmem_lock);
 	ptr = chunk_alloc(&phys_mem_pool, size);
 	spin_unlock(&bootmem_lock);
-	arch_local_irq_enable();
+	arch_local_irq_restore(flags);
 
 	if (!ptr) {
 		pr_emerg("BOOTMEM: allocator out of memory\n");
@@ -126,17 +129,41 @@ void *bootmem_alloc(size_t size)
 
 void bootmem_free(void *ptr)
 {
-#if 0
-	arch_local_irq_disable();
-#endif
+	unsigned long flags;
+
+	flags = arch_local_irq_save();
 	spin_lock_raw(&bootmem_lock);
 
 	chunk_free(&phys_mem_pool, ptr);
 
 	spin_unlock(&bootmem_lock);
-#if 0
-	arch_local_irq_enable();
-#endif
+	arch_local_irq_restore(flags);
+}
+
+
+/**
+ * @brief allocate and add a page map node
+ */
+
+static void bootmem_init_page_map_node(struct page_map_node **pg_node)
+{
+	struct mm_pool *pool;
+
+
+	/* let's assume we always have enough memory, because if we
+	 * don't, there is a serious configuration problem anyways
+	 */
+
+	(*pg_node) = (struct page_map_node *) bootmem_alloc(sizeof(struct page_map_node));
+
+	pool = (*pg_node)->pool;
+	pool = (struct mm_pool *)  bootmem_alloc(sizeof(struct mm_pool));
+
+	bzero(pool, sizeof(struct mm_pool));
+
+	pool->block_order = (struct list_head *) bootmem_alloc(sizeof(struct list_head) * (MM_BLOCK_ORDER_MAX + 1));
+	pool->alloc_order = (unsigned char *)    bootmem_alloc(MM_INIT_NUM_BLOCKS);
+	pool->blk_free    = (unsigned long *)    bootmem_alloc(MM_INIT_LEN_BITMAP * sizeof(unsigned long));
 }
 
 
@@ -149,6 +176,7 @@ void bootmem_init(void)
 	int i;
 
 	int ret;
+
 
 	unsigned long base_pfn;
 	unsigned long start_pfn;
@@ -283,7 +311,6 @@ void bootmem_init(void)
 #else
 	for (i = 0; sp_banks[i].num_bytes != 0; i++) {
 #endif
-
 		BUG_ON(i > SPARC_PHYS_BANKS);
 
 		/* this one has already been added */
@@ -299,24 +326,11 @@ void bootmem_init(void)
 			break;
 		}
 
-		/* let's assume we always have enough memory, because if we
-		 * don't, there is a serious configuration problem anyways
-		 *
-		 * XXX this should be a function...
-		 */
-
-		(*pg_node)		      = (struct page_map_node *) bootmem_alloc(sizeof(struct page_map_node));
-		(*pg_node)->pool	      = (struct mm_pool *)       bootmem_alloc(sizeof(struct mm_pool));
-
-		bzero((*pg_node)->pool, sizeof(struct mm_pool));
-
-		(*pg_node)->pool->block_order = (struct list_head *)     bootmem_alloc(sizeof(struct list_head) * (MM_BLOCK_ORDER_MAX + 1));
-		(*pg_node)->pool->alloc_order = (unsigned char *)        bootmem_alloc(MM_INIT_NUM_BLOCKS);
-		(*pg_node)->pool->blk_free    = (unsigned long *)        bootmem_alloc(MM_INIT_LEN_BITMAP * sizeof(unsigned long));
+		bootmem_init_page_map_node(pg_node);
 
 		ret = page_map_add(sp_banks[i].base_addr,
-				sp_banks[i].base_addr + sp_banks[i].num_bytes,
-				PAGE_SIZE);
+				   sp_banks[i].base_addr + sp_banks[i].num_bytes,
+				   PAGE_SIZE);
 
 		if (ret) {
 			pr_emerg("BOOTMEM: cannot add page map node\n");

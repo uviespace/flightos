@@ -17,7 +17,7 @@
  * last valid one has num_bytes==0.
  */
 
-struct sparc_physical_banks {
+struct sparc_physical_bank {
 	unsigned long base_addr;
 	unsigned long num_bytes;
 };
@@ -28,7 +28,7 @@ struct sparc_physical_banks {
 #define SPARC_PHYS_BANKS 0
 #endif
 
-extern struct sparc_physical_banks sp_banks[SPARC_PHYS_BANKS + 1];
+extern struct sparc_physical_bank sp_banks[SPARC_PHYS_BANKS + 1];
 
 
 /* linker symbol marking the the start of the program (image) */
