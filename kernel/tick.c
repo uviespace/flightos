@@ -36,7 +36,7 @@ static struct {
 
 	struct clock_event_device *dev;
 
-} tick_device[2];
+} tick_device[CONFIG_SMP_CPUS_MAX];
 
 
 static void tick_calibrate_handler(struct clock_event_device *dev)

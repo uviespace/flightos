@@ -23,7 +23,7 @@
 
 
 static LIST_HEAD(kernel_schedulers);
-static bool sched_enabled[2] = {false, false};
+static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
 
 
 /* XXX: per-cpu... */

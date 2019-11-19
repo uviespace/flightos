@@ -20,9 +20,11 @@
  * blocks
  */
 
+#ifdef CONFIG_LEON4
 #define LEON3_GPTIMERS	5
-
+#else
 #define LEON3_GPTIMERS	4
+#endif
 
 #ifdef CONFIG_LEON4
 #define GPTIMER_0_IRQ	1

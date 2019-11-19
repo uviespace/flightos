@@ -108,7 +108,7 @@ int task(void *p)
 		printk("IRQ total: %s timer1: %s timer2: %s, %d %d\n",
 		       buf1, buf2, buf3, ioread32be(&xp), xd);
 
-//		sched_yield();
+		sched_yield();
 	}
 
 	return 0;
@@ -117,12 +117,13 @@ int task(void *p)
 
 
 /** XXX dummy **/
-extern int cpu_ready[4];
+extern int cpu_ready[CONFIG_SMP_CPUS_MAX];
 /**
  * @brief kernel main functionputchar( *((char *) data) );
  */
 int kernel_main(void)
 {
+	int i;
 	struct task_struct *t;
 	struct sched_attr attr;
 
@@ -183,17 +184,16 @@ int kernel_main(void)
 	kthread_init_main();
 
 	/* wait for cpus */
-	cpu_ready[1] = 2;
-	while (ioread32be(&cpu_ready[1]) != 0x3);
-	iowrite32be(0x4, &cpu_ready[1]);
 
-	cpu_ready[2] = 2;
-	while (ioread32be(&cpu_ready[2]) != 0x3);
-	iowrite32be(0x4, &cpu_ready[2]);
+	for (i = 1; i < CONFIG_SMP_CPUS_MAX; i++) {
 
-	cpu_ready[3] = 2;
-	while (ioread32be(&cpu_ready[3]) != 0x3);
-	iowrite32be(0x4, &cpu_ready[3]);
+		//printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
+		cpu_ready[i] = 2;
+		while (ioread32be(&cpu_ready[i]) != 0x3);
+		iowrite32be(0x4, &cpu_ready[i]);
+
+	}
+
 	printk(MSG "Boot complete\n");
 
 
@@ -210,40 +210,43 @@ int kernel_main(void)
 	} else {
 		printk("Got an error in kthread_create!");
 	}
+	printk("%s runs on CPU %d\n", t->name, t->on_cpu);
 
 	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "task1");
 	if (!IS_ERR(t)) {
 		sched_get_attr(t, &attr);
 		attr.policy = SCHED_EDF;
-		attr.period       = us_to_ktime(140);
-		attr.deadline_rel = us_to_ktime(115);
-		attr.wcet         = us_to_ktime(90);
+		attr.period       = us_to_ktime(300);
+		attr.deadline_rel = us_to_ktime(200);
+		attr.wcet         = us_to_ktime(100);
 		sched_set_attr(t, &attr);
 		if (kthread_wake_up(t) < 0)
 			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
 	} else {
 		printk("Got an error in kthread_create!");
 	}
+	printk("%s runs on CPU %d\n", t->name, t->on_cpu);
 
 
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
 	if (!IS_ERR(t)) {
 		sched_get_attr(t, &attr);
 		attr.policy = SCHED_EDF;
-		attr.period       = us_to_ktime(140);
-		attr.deadline_rel = us_to_ktime(115);
-		attr.wcet         = us_to_ktime(90);
+		attr.period       = us_to_ktime(300);
+		attr.deadline_rel = us_to_ktime(200);
+		attr.wcet         = us_to_ktime(100);
 		sched_set_attr(t, &attr);
 		if (kthread_wake_up(t) < 0)
 			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
 	} else {
 		printk("Got an error in kthread_create!");
 	}
-
+	printk("%s runs on CPU %d\n", t->name, t->on_cpu);
 
 
 	while(1)
 		cpu_relax();
+
 
 	/* never reached */
 	BUG();

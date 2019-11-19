@@ -507,7 +507,7 @@ void leon_disable_irq(unsigned int irq, int cpu)
 
 void leon_force_irq(unsigned int irq, int cpu)
 {
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined(CONFIG_LEON4)
 	if (cpu >= 0) {
 		iowrite32be((1 << irq), &leon_irqctrl_regs->irq_mpforce[cpu]);
 		return;
