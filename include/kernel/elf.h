@@ -568,6 +568,9 @@ int elf_header_check(Elf_Ehdr *ehdr);
 Elf_Shdr *elf_get_shdr(const Elf_Ehdr *ehdr);
 size_t elf_find_shdr_alloc_idx(const Elf_Ehdr *ehdr, const size_t offset);
 
+size_t elf_get_common_size(const Elf_Ehdr *ehdr);
+size_t elf_get_common_objects(const Elf_Ehdr *ehdr, char **objname);
+
 Elf_Shdr *elf_get_sec_by_idx(const Elf_Ehdr *ehdr, const size_t idx);
 Elf_Shdr *elf_get_sec_shstrtab(const Elf_Ehdr *ehdr);
 char *elf_get_shstrtab_str(const Elf_Ehdr *ehdr, size_t idx);
@@ -586,6 +589,7 @@ unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
 				   const char *name, unsigned long *value);
 
 unsigned long elf_get_symbol_type(const Elf_Ehdr *ehdr, const char *name);
+size_t elf_get_symbol_size(const Elf_Ehdr *ehdr, const char *name);
 
 size_t elf_find_sec_idx_by_type(const Elf_Ehdr *ehdr,
 				const uint32_t sh_type,
@@ -606,4 +610,6 @@ void elf_dump_symtab(const Elf_Ehdr *ehdr);
 void elf_dump_sections(const Elf_Ehdr *ehdr);
 
 
+unsigned short elf_get_symbol_shndx(const Elf_Ehdr *ehdr,
+				    const char *name);
 #endif /* _KERNEL_ELF_H_ */

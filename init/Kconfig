@@ -105,6 +105,16 @@ config EMBED_MODULES_IMAGE
 	  generated modules into the final kernel binary.
 	  This is a convenience option, if unsure, say Y.
 
+config EMBED_APPLICATION
+	string "Embed an application image"
+	depends on EMBED_MODULES_IMAGE
+	default ""
+	help
+	  Specify a path to an executable to embed or leave it empty.
+	  Note: in the current implementation, the executable is treated as a
+	  kernel module, so it requires to be relocatible and have a init/exit
+	  call.
+
 endif # MODULES
 
 
@@ -177,5 +187,6 @@ config DEBUG_INFO_REDUCED
 	  build directory object sizes shrink dramatically over a full
 	  DEBUG_INFO build and compile times are reduced too.
 	  Only works with newer gcc versions.
+
 
 endmenu

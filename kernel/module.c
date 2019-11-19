@@ -70,6 +70,28 @@ struct module_section *find_mod_sec(const struct elf_module *m,
 
 
 /**
+ * @brief find module section by index
+ *
+ * @param m a struct elf_module
+ *
+ * @param idx the index of the module section
+ *
+ * @return module section structure pointer or NULL if not found
+ */
+
+struct module_section *find_mod_idx(const struct elf_module *m,
+				    size_t idx)
+
+{
+	if (idx >= m->num_sec)
+		return NULL;
+
+	return &m->sec[idx];
+}
+
+
+
+/**
  * @brief setup the module structure
  *
  * @param m a struct elf_module
@@ -178,8 +200,13 @@ static int module_load_mem(struct elf_module *m)
 		sec = elf_get_sec_by_idx(m->ehdr, idx);
 
 
+#if 0
 		if (!sec->sh_size)	/* don't need those */
 			continue;
+#else
+		if (!(sec->sh_flags & SHF_ALLOC))
+			continue;
+#endif
 
 		s->size = sec->sh_size;
 
@@ -193,24 +220,27 @@ static int module_load_mem(struct elf_module *m)
 			goto error;
 
 		strcpy(s->name, src);
+		
+		pr_err(MOD "section %s index %d max %d\n", s->name, s, m->num_sec);
 
 
 		if (sec->sh_type & SHT_NOBITS) {
-			pr_debug(MOD "\tZero segment %10s at %p size %ld\n",
+			pr_info(MOD "\tZero segment %10s at %p size %ld\n",
 			       s->name, (char *) va_load,
 			       sec->sh_size);
 
 			bzero((void *) va_load, s->size);
 		} else {
-			pr_debug(MOD "\tCopy segment %10s from %p to %p size %ld\n",
+			pr_info(MOD "\tCopy segment %10s from %p to %p size %ld\n",
 			       s->name,
 			       (char *) m->ehdr + sec->sh_offset,
 			       (char *) va_load,
 			       sec->sh_size);
 
-			memcpy((void *) va_load,
-			       (char *) m->ehdr + sec->sh_offset,
-			       sec->sh_size);
+			if (sec->sh_size)
+				memcpy((void *) va_load,
+				       (char *) m->ehdr + sec->sh_offset,
+				       sec->sh_size);
 		}
 
 		s->addr = va_load;
@@ -219,10 +249,84 @@ static int module_load_mem(struct elf_module *m)
 		s++;
 
 		if (s > &m->sec[m->num_sec]) {
-			pr_debug(MOD "Error out of section memory\n");
+			pr_err(MOD "Error out of section memory\n");
 			goto error;
 		}
 	}
+
+#if 0
+	if (elf_get_common_size(m->ehdr)) {
+
+		m->num_sec++;
+		m->sec = (struct module_section *)
+			krealloc(m->sec, sizeof(struct module_section) * m->num_sec);
+
+		if (!m->sec)
+			goto error;
+
+		s = &m->sec[m->num_sec - 1];
+
+		s->size = elf_get_common_size(m->ehdr);
+		s->addr = (unsigned long) kzalloc(s->size);
+		if (!s->addr)
+			goto error;
+
+		pr_info(MOD "\tcreating .alloc section of %d bytes at %x\n", s->size, s->addr);
+
+		s->name = kmalloc(strlen(".alloc"));
+		if (!s->name)
+			goto error;
+
+		strcpy(s->name, ".alloc");
+
+	}
+#else
+	/* yes, yes, fixup like everything else here */
+	if (elf_get_common_objects(m->ehdr, NULL)) {
+		size_t cnt = elf_get_common_objects(m->ehdr, NULL);
+		char **obj;
+
+		m->sec = (struct module_section *)
+			krealloc(m->sec, sizeof(struct module_section) * (m->num_sec + cnt));
+
+		if (!m->sec)
+			goto error;
+
+
+		/* point to last */
+		s = &m->sec[m->num_sec];
+		/* and update */
+		m->num_sec += cnt;
+
+		obj = kmalloc(cnt * sizeof(char **));
+		if (!obj)
+			goto error;
+		/* load names */
+		elf_get_common_objects(m->ehdr, obj);
+
+
+		/* Allocate one section entry for each object, this is not
+		 * that efficient, but what the heck. Better not to have
+		 * uninitialised non-static globals at all!
+		 */
+		for (idx = 0; idx < cnt; idx++) {
+			s->size = elf_get_symbol_size(m->ehdr, obj[idx]);
+			s->addr = (unsigned long) kzalloc(s->size);
+			if (!s->addr)
+				goto error;
+			pr_debug(MOD "\tcreating \"%s\" section of %d bytes at %x\n", obj[idx], s->size, s->addr);
+			s->name = kmalloc(strlen(obj[idx]));
+			if (!s->name)
+				goto error;
+			strcpy(s->name, obj[idx]);
+			s++;
+		}
+
+		kfree(obj);
+	}
+#endif
+
+
 
 	return 0;
 
@@ -264,10 +368,11 @@ static int module_relocate(struct elf_module *m)
 		if (m->ehdr->e_type != ET_DYN)
 			return 0;
 
-
 	/* we only need RELA type relocations */
 
 	while (1) {
+
+		char *rel_sec;
 
 		idx = elf_find_sec_idx_by_type(m->ehdr, SHT_RELA, idx + 1);
 
@@ -276,8 +381,16 @@ static int module_relocate(struct elf_module *m)
 
 		sec = elf_get_sec_by_idx(m->ehdr, idx);
 
-		pr_debug(MOD "\n"
-			MOD "Section Header info: %ld\n", sec->sh_info);
+		pr_info(MOD "\n"
+			MOD "Section Header info: %ld %s\n", sec->sh_info, elf_get_shstrtab_str(m->ehdr, idx));
+
+		if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.text"))
+			rel_sec = ".text";
+		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.data"))
+			rel_sec = ".data";
+		else
+			BUG();
+
 
 		if (sec) {
 
@@ -295,8 +408,8 @@ static int module_relocate(struct elf_module *m)
 				unsigned int symsec = ELF_R_SYM(relatab[i].r_info);
 				char *symstr = elf_get_symbol_str(m->ehdr, symsec);
 				struct module_section *s;
-				struct module_section *text  = find_mod_sec(m, ".text");
-				
+				struct module_section *text  = find_mod_sec(m, ".text"); /* ?? rel_sec ?? */
+
 				pr_debug(MOD "OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n",
 				       relatab[i].r_offset,
 				       relatab[i].r_info,
@@ -308,23 +421,63 @@ static int module_relocate(struct elf_module *m)
 
 
 				if (strlen(symstr)) {
-					Elf_Addr sym = (Elf_Addr) lookup_symbol(symstr);
-
-					if (!sym) {
-
 						unsigned long symval;
-						pr_info(MOD "\tSymbol %s not found in library, trying to resolving in module\n",
-							 symstr);
+						Elf_Addr sym = (Elf_Addr) lookup_symbol(symstr);
+
+						if (!sym) {
+							pr_debug(MOD "\tSymbol %s not found in library, trying to resolving in module\n",
+								 symstr);
+
+							if ((elf_get_symbol_type(m->ehdr, symstr) & STT_OBJECT)) {
+								char *secstr;
 
 
-						if (!(elf_get_symbol_type(m->ehdr, symstr) & STT_OBJECT)) {
-							pr_debug(MOD "\tERROR, object data resolution not yet implemented, symbol %s may not function as intended. If it is a variable, declare it static as a workaround\n", symstr);
-						}
 
+								s = find_mod_sec(m, elf_get_shstrtab_str(m->ehdr, elf_get_symbol_shndx(m->ehdr, symstr)));
+
+								switch (elf_get_symbol_shndx(m->ehdr, symstr)) {
+								case SHN_UNDEF:
+									pr_debug(MOD "\tundefined section index\n");
+									break;
+								case SHN_ABS:
+									pr_debug(MOD "\tabsolute value section index\n");
+								case SHN_COMMON:
+							     		pr_debug(MOD "\t %s common symbol index (must allocate) add: %d\n", symstr,
+										relatab[i].r_addend);
+									s = find_mod_sec(m, symstr);
+									if (!s) {
+										pr_err("no suitable section found");
+										return -1;
+									}
+									break;
+								default:
+									break;
+
+								}
+
+
+								if (!s) {
+									pr_debug(MOD "Error cannot locate section %s for symbol\n", secstr);
+									continue;
+								}
+								secstr = s->name;
+								/* target address to insert at location */
+								reladdr = (long) s->addr;
+							pr_debug(MOD "\tRelative symbol address: %x, entry at %08lx, section %s\n", reladdr, s->addr, secstr);
+
+							/* needed ?? */
+							//elf_get_symbol_value(m->ehdr, symstr, (unsigned long *) &relatab[i].r_addend);
+								apply_relocate_add(m, &relatab[i], reladdr, rel_sec);
+								continue;
+
+							}
+
+#if 0
 						if (!(elf_get_symbol_type(m->ehdr, symstr) & (STT_FUNC | STT_OBJECT))) {
 							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
+#endif
 						if (!elf_get_symbol_value(m->ehdr, symstr, &symval)) {
 							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
@@ -334,25 +487,26 @@ static int module_relocate(struct elf_module *m)
 
 					}
 
-					pr_debug(MOD "\tSymbol %s at %lx\n", symstr, sym);
+					pr_debug(MOD "\tSymbol %s at %lx val %lx sec %d\n", symstr, sym, symval, symsec);
 
-					apply_relocate_add(m, &relatab[i], sym);
+					apply_relocate_add(m, &relatab[i], sym, rel_sec);
 
 				} else  { /* no string, symtab entry is probably a section, try to identify it */
 
 					char *secstr = elf_get_shstrtab_str(m->ehdr, symsec);
 
-					s = find_mod_sec(m, secstr);
+					s = find_mod_idx(m, symsec-1);
 
 					if (!s) {
 						pr_debug(MOD "Error cannot locate section %s for symbol\n", secstr);
 							continue;
 					}
+					secstr = s->name;
 					/* target address to insert at location */
 					reladdr = (long) s->addr;
-					pr_debug(MOD "\tRelative symbol address: %x, entry at %08lx\n", reladdr, s->addr);
+					pr_debug(MOD "\tRelative symbol address: %x, entry at %08lx, section %s\n", reladdr, s->addr, secstr);
 
-					apply_relocate_add(m, &relatab[i], reladdr);
+					apply_relocate_add(m, &relatab[i], reladdr, rel_sec);
 				}
 
 				pr_debug(MOD "\n");

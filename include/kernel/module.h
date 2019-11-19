@@ -62,7 +62,8 @@ struct elf_module {
 
 
 /* implemented in architecture code */
-int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym);
+int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym,
+		      const char *sec_name);
 
 
 struct module_section *find_mod_sec(const struct elf_module *m,

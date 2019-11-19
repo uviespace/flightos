@@ -174,6 +174,33 @@ EXPORT_SYMBOL(strdup);
 
 
 /**
+ * @brief locate a character in string
+ *
+ * @param s the string to search in
+ * @param c the character to search for
+ *
+ * @returns a pointer to the first matched character or NULL if not found
+ *
+ * @note the terminating null byte is considered part of the string, so that if
+ *	 c is given as '\0', the function returns a pointer to the terminator
+ */
+
+char *strchr(const char *s, int c)
+{
+	while ((*s) != (char) c) {
+
+		if ((*s) == '\0')
+			return NULL;
+
+		s++;
+	}
+
+	return (char *) s;
+}
+EXPORT_SYMBOL(strchr);
+
+
+/**
  * @brief calculate the length of a string
  *
  * @param s the string
@@ -301,6 +328,53 @@ EXPORT_SYMBOL(memcpy);
 
 
 /**
+ * @brief copy a memory area src that may overlap with area dest
+ *
+ * @param dest the destination memory area
+ * @param src the source memory area
+ * @param n the number of bytes to copy
+ *
+ * @returns a pointer to dest
+ */
+
+void *memmove(void *dest, const void *src, size_t n)
+{
+	char *d;
+
+	const char *s;
+
+	if (dest <= src) {
+
+		d = dest;
+		s = src;
+
+		while (n--) {
+			(*d) = (*s);
+			d++;
+			s++;
+		}
+
+	} else {
+
+		d = dest;
+		d += n;
+
+		s = src;
+		s += n;
+
+		while (n--) {
+			d--;
+			s--;
+			(*d) = (*s);
+		}
+
+	}
+	return dest;
+}
+EXPORT_SYMBOL(memmove);
+
+
+/**
  * @brief copy a '\0' terminated string
  *
  * @param dest the destination of the string
@@ -350,6 +424,58 @@ void bzero(void *s, size_t n)
 	}
 }
 EXPORT_SYMBOL(bzero);
+
+
+/**
+ * @brief writes the string s and a trailing newline to stdout
+ *
+ * @param str    the destination buffer
+ * @param format the format string buffer
+ * @param ...    arguments to the format string
+ *
+ * @return the number of characters written to buf
+ */
+
+int puts(const char *s)
+{
+	int n;
+
+	n = vsnprintf(NULL, INT_MAX, s, NULL);
+	n+= vsnprintf(NULL, INT_MAX, "\n", NULL);
+
+	return n;
+}
+EXPORT_SYMBOL(puts);
+
+
+/**
+ * @brief  writes the character c, cast to an unsigned char, to stdout
+ *
+ * @param c the character to write
+ *
+ * @return the number of characters written to buf
+ *
+ * FIXME: this must be replaced by a different mechanic, e.g. provided
+ *	  by the architecture or a driver
+ */
+
+int putchar(int c)
+{
+#define TREADY 4
+	static volatile int *console = (int *)0x80000100;
+
+	while (!(console[1] & TREADY));
+
+	console[0] = 0x0ff & c;
+
+	if (c == '\n') {
+		while (!(console[1] & TREADY));
+		console[0] = (int) '\r';
+	}
+
+	return c;
+}
+
 
 
 

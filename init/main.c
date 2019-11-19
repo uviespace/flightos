@@ -163,6 +163,27 @@ int kernel_main(void)
 	modules_list_loaded();
 #endif
 
+
+#ifdef CONFIG_EMBED_APPLICATION
+	/* dummy demonstrator */
+{
+	void *addr;
+	struct elf_module m;
+
+	addr = module_read_embedded("CrApp1");
+
+	pr_debug(MSG "test executable address is %p\n", addr);
+	if (addr)
+		module_load(&m, addr);
+
+#if 0
+	modules_list_loaded();
+#endif
+}
+#endif
+
+
+
 #ifdef CONFIG_MPPB
 	/* The mppbv2 LEON's cache would really benefit from cache sniffing...
 	 * Interactions with DMA or Xentiums are a pain when using the lower

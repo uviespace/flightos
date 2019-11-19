@@ -511,6 +511,102 @@ unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
 
 
 /**
+ * @brief get the value of a symbol
+ *
+ * @param ehdr an Elf_Ehdr
+ *
+ * @param name the name of the symbol
+ *
+ * @return the size of the symbol (0 if not found or simply size 0)
+ *	   -1 on error
+ */
+
+size_t elf_get_symbol_size(const Elf_Ehdr *ehdr, const char *name)
+
+{
+	unsigned int i;
+	size_t sym_cnt;
+
+	Elf_Shdr *symtab;
+	Elf_Sym *symbols;
+
+
+	symtab = elf_find_sec(ehdr, ".symtab");
+
+	if (!symtab) {
+		pr_debug(MSG "WARN: no .symtab section found\n");
+		return -1;
+	}
+
+	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
+		pr_debug(MSG "Error %d != %ld\n",
+			 sizeof(Elf_Sym), symtab->sh_entsize);
+		return -1;
+	}
+
+	symbols = (Elf_Sym *) (((char *) ehdr) + symtab->sh_offset);
+
+	sym_cnt = symtab->sh_size / symtab->sh_entsize;
+
+	for (i = 0; i < sym_cnt; i++) {
+		if(!strcmp(elf_get_symbol_str(ehdr, i), name))
+			return (size_t) symbols[i].st_size;
+	}
+
+	return 0;
+}
+
+
+/**
+ * @brief get the section index of a symbol
+ *
+ * @param ehdr an Elf_Ehdr
+ *
+ * @param name the name of the symbol
+ *
+ * @return the section index of the symbol or -1 if not found
+ */
+
+unsigned short elf_get_symbol_shndx(const Elf_Ehdr *ehdr,
+				    const char *name)
+
+{
+	unsigned int i;
+	size_t sym_cnt;
+
+	Elf_Shdr *symtab;
+	Elf_Sym *symbols;
+
+
+	symtab = elf_find_sec(ehdr, ".symtab");
+
+	if (!symtab) {
+		pr_debug(MSG "WARN: no .symtab section found\n");
+		return -1;
+	}
+
+	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
+		pr_debug(MSG "Error %d != %ld\n",
+			 sizeof(Elf_Sym), symtab->sh_entsize);
+		return -1;
+	}
+
+	symbols = (Elf_Sym *) (((char *) ehdr) + symtab->sh_offset);
+
+	sym_cnt = symtab->sh_size / symtab->sh_entsize;
+
+	for (i = 0; i < sym_cnt; i++) {
+		if(!strcmp(elf_get_symbol_str(ehdr, i), name)) {
+			return symbols[i].st_shndx;
+		}
+	}
+
+	return -1;
+}
+
+
+
+/**
  * @brief get the ELF type of a symbol
  *
  * @param ehdr an Elf_Ehdr
@@ -607,12 +703,112 @@ size_t elf_get_num_alloc_sections(const Elf_Ehdr *ehdr)
 	for (i = 0; i <ehdr->e_shnum; i++) {
 		shdr = elf_get_sec_by_idx(ehdr, i);
 		if ((shdr->sh_flags & SHF_ALLOC))
-			if (shdr->sh_size)
-				cnt++;
+			cnt++;
 	}
 
 	return cnt;
 }
+
+
+
+/* @brief get the total byte size of unallocated uninitialised common objects
+ *
+ * @param ehdr an Elf_Ehdr
+ *
+ * @return the number of bytes to be occupied by common (unallocated) objects
+ */
+
+size_t elf_get_common_size(const Elf_Ehdr *ehdr)
+{
+	unsigned int i;
+	size_t sym_cnt;
+
+
+	Elf_Shdr *symtab;
+	Elf_Sym *symbols;
+
+	size_t bytes = 0;
+
+
+	symtab = elf_find_sec(ehdr, ".symtab");
+
+	if (!symtab) {
+		pr_debug(MSG "WARN: no .symtab section found\n");
+		return 0;
+	}
+
+	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
+		pr_debug("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		return 0;
+	}
+
+	symbols = (Elf_Sym *) (((char *) ehdr) + symtab->sh_offset);
+
+	sym_cnt = symtab->sh_size / symtab->sh_entsize;
+
+	for (i = 0; i < sym_cnt; i++) {
+		if (symbols[i].st_shndx == SHN_COMMON)
+			bytes += symbols[i].st_size;
+	}
+
+	return bytes;
+}
+
+
+/* @brief get the total count of unallocated uninitialised common objects
+ *
+ * @param ehdr an Elf_Ehdr
+ * @param[out] an index array
+ *
+ * @note set idx to NULL to determine the number of elements needed for the
+ *	 array
+ *
+ * @return the number of common objects
+ */
+
+size_t elf_get_common_objects(const Elf_Ehdr *ehdr, char **objname)
+{
+	unsigned int i;
+	size_t sym_cnt;
+
+
+	Elf_Shdr *symtab;
+	Elf_Sym *symbols;
+
+	size_t common = 0;
+
+
+	symtab = elf_find_sec(ehdr, ".symtab");
+
+	if (!symtab) {
+		pr_debug(MSG "WARN: no .symtab section found\n");
+		return 0;
+	}
+
+	if (symtab->sh_entsize != sizeof(Elf_Sym)) {
+		pr_debug("Error %d != %ld\n", sizeof(Elf_Sym), symtab->sh_entsize);
+		return 0;
+	}
+
+	symbols = (Elf_Sym *) (((char *) ehdr) + symtab->sh_offset);
+
+	sym_cnt = symtab->sh_size / symtab->sh_entsize;
+
+	for (i = 0; i < sym_cnt; i++) {
+		if (symbols[i].st_shndx == SHN_COMMON) {
+			if (objname)
+				objname[common] = elf_get_symbol_str(ehdr, i);
+			common++;
+		}
+	}
+
+	return common;
+}
+
+
+
+
+
 
 
 /**
@@ -727,7 +923,8 @@ void elf_dump_symtab(const Elf_Ehdr *ehdr)
 	printk(MSG "\n"
 	       MSG ".symtab contains %d entries\n"
 	       MSG "============================\n"
-	       MSG "\t[NUM]\t[VALUE]\t\t\t[SIZE]\t[TYPE]\t[NAME]\n", sym_cnt);
+	       MSG "\t[NUM]\t[VALUE]\t\t\t[SIZE]\t[TYPE]\t[NAME]\t\t[SHIDX]\n",
+	       sym_cnt);
 
 
 	for (i = 0; i < sym_cnt; i++) {
@@ -756,7 +953,9 @@ void elf_dump_symtab(const Elf_Ehdr *ehdr)
 			printk("\tUNKNOWN"); break;
 		}
 
-		printk("\t%-10s\n", elf_get_symbol_str(ehdr, i));
+		printk("\t%-10s", elf_get_symbol_str(ehdr, i));
+
+		printk("\t%4ld\n", symbols[i].st_shndx);
 
 	}
 }

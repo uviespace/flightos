@@ -16,11 +16,12 @@
  * @param m an ELF module
  * @param rel an ELF relocation entry
  * @param sym the address of the target symbol
+ * @param sec_name the name of the section to apply the relocation in
  *
  * return 0 on success
  */
 
-int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym)
+int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym, const char *sec_name)
 {
 	Elf_Addr rsym;
 
@@ -40,9 +41,13 @@ int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym)
 	if (!sym)
 		return -EINVAL;
 
+	if (!sec_name) {
+		pr_err("\tsec_name empty!\n");
+		return -EINVAL;
+	}
 
 
-	text = find_mod_sec(m, ".text");
+	text = find_mod_sec(m, sec_name);
 
 	loc8  = (uint8_t  *) (text->addr + rel->r_offset);
 	loc32 = (uint32_t *) loc8;
