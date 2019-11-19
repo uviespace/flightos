@@ -14,7 +14,13 @@ config LEON2
 config LEON3
 	bool "LEON3"
 	help
-	 Configure for LEON2. 
+	 Configure for LEON3. 
+
+config LEON4
+	bool "LEON4"
+	help
+	 Configure for LEON4. 
+
 
 endchoice
 

@@ -9,23 +9,38 @@
 #include <kernel/irq.h>
 #include <errno.h>
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined(CONFIG_LEON4)
 #include <gptimer.h>
 #include <asm/time.h>
 
 
 
 /* XXX: want AMBA PNP autodetect later...) */
+/* XXX: patched to use gptimer 0 on leon4, but there are a total of 5 timer
+ * blocks
+ */
 
+#define LEON3_GPTIMERS	5
 
 #define LEON3_GPTIMERS	4
+
+#ifdef CONFIG_LEON4
+#define GPTIMER_0_IRQ	1
+#endif
+#ifdef CONFIG_LEON3
 #define GPTIMER_0_IRQ	8
+#endif
 
 static struct gpclkdevs {
 	struct gptimer_unit *gptu;
 	struct clock_event_device dev[LEON3_GPTIMERS];
 } _gp_clk_ev = {
+#ifdef CONFIG_LEON3
 	.gptu =  (struct gptimer_unit *)  LEON3_BASE_ADDRESS_GPTIMER
+#endif
+#ifdef CONFIG_LEON4
+	.gptu =  (struct gptimer_unit *)  LEON4_BASE_ADDRESS_GPTIMER
+#endif
 };
 
 
@@ -255,7 +270,7 @@ static void leon_setup_clockdevs(void)
 
 void sparc_clockevent_init(void)
 {
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined(CONFIG_LEON4)
 	leon_setup_clockdevs();
 #endif /* CONFIG_LEON3 */
 }

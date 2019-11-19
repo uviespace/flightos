@@ -11,11 +11,11 @@
 void leon_irq_init(void);
 
 
-/* in the LEON3, interrupts 1-15 are primary, 16-31 are extended */
-#ifdef CONFIG_LEON3
+/* in the LEON3 and LEON4, interrupts 1-15 are primary, 16-31 are extended */
+#if defined(CONFIG_LEON3) || defined(CONFIG_LEON4)
 #define LEON_WANT_EIRQ(x) (x)
 #define LEON_REAL_EIRQ(x) (x)
-#endif /* CONFIG_LEON3 */
+#endif /* CONFIG_LEON3 || CONFIG_LEON4 */
 
 /* in the LEON2, interrupts 1-15 are primary, 0-31 are extended, we treat them
  * as IRLs 16...n */

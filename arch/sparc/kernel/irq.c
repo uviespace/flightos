@@ -92,7 +92,18 @@ static struct leon3_irqctrl_registermap *leon_irqctrl_regs;
 
 #endif /* CONFIG_LEON3 */
 
-#define CPU_AFFINITY_NONE (-1)
+#ifdef CONFIG_LEON4
+
+#define IRL_SIZE	LEON3_IRL_SIZE
+#define EIRL_SIZE	LEON3_IRL_SIZE
+
+static struct leon4_irqctrl_registermap *leon_irqctrl_regs;
+
+#endif /* CONFIG_LEON4 */
+
+
+
+#define CPU_AFFINITY_NONE (-1) /* XXX */
 
 static int irq_cpu_affinity[IRL_SIZE + EIRL_SIZE];
 
@@ -370,7 +381,7 @@ EXPORT_SYMBOL(arch_local_irq_restore);
 
 static void leon_clear_irq(unsigned int irq)
 {
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	iowrite32be((1 << irq), &leon_irqctrl_regs->irq_clear);
 #endif /* CONFIG_LEON3 */
 
@@ -401,7 +412,7 @@ static void leon_unmask_irq(unsigned int irq, int cpu)
 	uint32_t mask;
 
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	mask = ioread32be(&leon_irqctrl_regs->irq_mpmask[cpu]);
 	mask |= (1 << irq);
 	iowrite32be(mask, &leon_irqctrl_regs->irq_mpmask[cpu]);
@@ -433,7 +444,7 @@ static void leon_mask_irq(unsigned int irq, int cpu)
 	uint32_t mask;
 
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	mask = ioread32be(&leon_irqctrl_regs->irq_mpmask[cpu]);
 
 	mask &= ~(1 << irq);
@@ -621,7 +632,7 @@ __attribute__((unused))
 static int leon_eirq_dispatch(unsigned int irq)
 {
 	unsigned int eirq;
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	int cpu;
 #endif /* CONFIG_LEON3 */
 
@@ -634,7 +645,7 @@ static int leon_eirq_dispatch(unsigned int irq)
 	irqstat.irl_irq[irq]++;
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	cpu = leon3_cpuid();
 #endif /* CONFIG_LEON3 */
 
@@ -643,7 +654,7 @@ static int leon_eirq_dispatch(unsigned int irq)
 	/* XXX this is a potential death trap :) */
 	while (1) {
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 		/* no pending EIRQs remain */
 		if (!(leon_irqctrl_regs->irq_pending >> IRL_SIZE))
 			break;
@@ -736,7 +747,7 @@ int irl_register_handler(unsigned int irq,
 
 	spin_lock_restore_irq(psr_flags);
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	/* XXX for now, just register to the current CPU if no affinity is set */
 	cpu = irq_cpu_affinity[irq];
 
@@ -816,7 +827,7 @@ static int eirl_register_handler(unsigned int irq,
 		       &eirl_vector[LEON_REAL_EIRQ(irq)]);
 
 	spin_lock_restore_irq(psr_flags);
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	/* XXX for now, just register to the current CPU if no affinity is set */
 	cpu = irq_cpu_affinity[irq];
 
@@ -1043,8 +1054,8 @@ static void leon_setup_eirq(void)
 {
 	unsigned int eirq;
 
-#ifdef CONFIG_LEON3
-	/* probe for extended IRQ controller, see GR712UM, p75 */
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+	/* probe for extended IRQ controller, see GR712UM, p75; GR740UM p309*/
 	eirq = (ioread32be(&leon_irqctrl_regs->mp_status) >> 16) & 0xf;
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
@@ -1068,6 +1079,14 @@ static void leon_setup_eirq(void)
 	/* provided by BCC/libgloss */
 	BUG_ON(catch_interrupt((int) leon_eirq_dispatch, leon_eirq));
 #endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */
+
+#ifdef CONFIG_LEON4
+	/* XXX enable for all cpus in the system */
+	leon_enable_irq(leon_eirq, 0);
+	leon_enable_irq(leon_eirq, 1);
+	leon_enable_irq(leon_eirq, 2);
+	leon_enable_irq(leon_eirq, 3);
+#endif /* CONFIG_LEON3 */
 
 #ifdef CONFIG_LEON3
 	/* XXX enable for all cpus in the system */
@@ -1095,7 +1114,7 @@ static void leon_irq_set_level(uint32_t irq_mask, uint32_t level)
 	uint32_t flags;
 
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	flags = ioread32be(&leon_irqctrl_regs->irq_level);
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
@@ -1107,7 +1126,7 @@ static void leon_irq_set_level(uint32_t irq_mask, uint32_t level)
 	else
 		flags |= irq_mask;
 
-#ifdef CONFIG_LEON3
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
 	iowrite32be(flags, &leon_irqctrl_regs->irq_level);
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
@@ -1219,6 +1238,20 @@ static struct irq_dev leon_irq = {
 
 void leon_irq_init(void)
 {
+#ifdef CONFIG_LEON4
+	/* XXX should determine that from AMBA PNP scan */
+	leon_irqctrl_regs = (struct leon4_irqctrl_registermap *)
+						LEON4_BASE_ADDRESS_IRQAMP;
+
+	/* mask all interrupts on this (boot) CPU */
+	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[leon3_cpuid()]); /*XXX leon3_ */
+
+	/* XXX MASK FOR ALL CPUS CONFIGURED FOR THE SYSTEM (dummy for N==4)*/
+	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[1]);
+	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[2]);
+	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[3]);
+
+#endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON3
 	/* XXX should determine that from AMBA PNP scan */
 	leon_irqctrl_regs = (struct leon3_irqctrl_registermap *)

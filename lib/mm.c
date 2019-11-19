@@ -73,7 +73,13 @@ struct mm_blk_lnk {
 
 static bool mm_blk_addr_valid(struct mm_pool *mp, struct mm_blk_lnk *blk)
 {
-	return ((unsigned long) blk - (1UL << mp->max_order) < mp->base);
+	if ((unsigned long) blk  >= mp->base)
+		if ((unsigned long) blk  < mp->base + (1UL << mp->max_order))
+			return true;
+
+	return false;
+
+//	return ((unsigned long) blk - (1UL << mp->max_order) < mp->base);
 }
 
 

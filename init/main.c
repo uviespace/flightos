@@ -115,6 +115,9 @@ int task(void *p)
 }
 
 
+
+/** XXX dummy **/
+extern int cpu_ready[4];
 /**
  * @brief kernel main functionputchar( *((char *) data) );
  */
@@ -180,11 +183,17 @@ int kernel_main(void)
 	kthread_init_main();
 
 	/* wait for cpus */
-	cpu1_ready = 2;
+	cpu_ready[1] = 2;
+	while (ioread32be(&cpu_ready[1]) != 0x3);
+	iowrite32be(0x4, &cpu_ready[1]);
 
-	while (ioread32be(&cpu1_ready) != 0x3);
-	iowrite32be(0x4, &cpu1_ready);
+	cpu_ready[2] = 2;
+	while (ioread32be(&cpu_ready[2]) != 0x3);
+	iowrite32be(0x4, &cpu_ready[2]);
 
+	cpu_ready[3] = 2;
+	while (ioread32be(&cpu_ready[3]) != 0x3);
+	iowrite32be(0x4, &cpu_ready[3]);
 	printk(MSG "Boot complete\n");
 
 
@@ -217,20 +226,6 @@ int kernel_main(void)
 	}
 
 
-	t = kthread_create(task, NULL, KTHREAD_CPU_AFFINITY_NONE, "task");
-	if (!IS_ERR(t)) {
-		sched_get_attr(t, &attr);
-		attr.policy = SCHED_EDF;
-		attr.period       = ms_to_ktime(1000);
-		attr.deadline_rel = ms_to_ktime(999);
-		attr.wcet         = ms_to_ktime(300);
-		sched_set_attr(t, &attr);
-		if (kthread_wake_up(t) < 0)
-			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-	} else {
-		printk("Got an error in kthread_create!");
-	}
-
 	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
 	if (!IS_ERR(t)) {
 		sched_get_attr(t, &attr);
@@ -247,12 +242,8 @@ int kernel_main(void)
 
 
 
-
-
-	while(1) {
+	while(1)
 		cpu_relax();
-	}
-
 
 	/* never reached */
 	BUG();
