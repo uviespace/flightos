@@ -266,7 +266,9 @@ int sched_enqueue(struct task_struct *task)
 	if (ret)
 		return ret;
 
-	task->sched->enqueue_task(task);
+	ret = task->sched->enqueue_task(task);
+	if (ret)
+		return ret;
 
 	return 0;
 }
