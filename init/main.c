@@ -46,6 +46,8 @@
 #endif /* __OPTIMIZE__ */
 #endif /* GCC_VERSION */
 
+/** XXX dummy **/
+extern int cpu_ready[CONFIG_SMP_CPUS_MAX];
 
 /**
  * @brief kernel initialisation routines
@@ -63,74 +65,16 @@ static int kernel_init(void)
 arch_initcall(kernel_init);
 
 
-
-/** XXX dummy **/
-extern int cpu1_ready;
-
-
-volatile int xp;
-int task1(void *p)
-{
-	while (1) {
-		xp++;
-	}
-}
-
-volatile int xd;
-int task2(void *p)
-{
-	while (1)
-		xd++;
-}
-
-int task(void *p)
-{
-	char buf1[64];
-	char buf2[64];
-	char buf3[64];
-
-	struct sysobj *sys_irq = NULL;
-
-
-	sys_irq = sysset_find_obj(sys_set, "/sys/irl/primary");
-
-	if (!sys_irq) {
-		printk("Error locating sysctl entry\n");
-		return -1;
-	}
-
-	while (1) {
-
-		sysobj_show_attr(sys_irq, "irl", buf1);
-		sysobj_show_attr(sys_irq, "8", buf2);
-		sysobj_show_attr(sys_irq, "9", buf3);
-
-		printk("IRQ total: %s timer1: %s timer2: %s, %d %d\n",
-		       buf1, buf2, buf3, ioread32be(&xp), xd);
-
-		sched_yield();
-	}
-
-	return 0;
-}
-
-
-
-/** XXX dummy **/
-extern int cpu_ready[CONFIG_SMP_CPUS_MAX];
 /**
  * @brief kernel main functionputchar( *((char *) data) );
  */
 int kernel_main(void)
 {
 	int i;
-	struct task_struct *t;
-	struct sched_attr attr;
 
-#if 0
-	void *addr;
-	struct elf_module m;
-#endif
+	void *addr __attribute__((unused));
+	struct elf_module m __attribute__((unused));
+
 
 	printk(MSG "Loading module image\n");
 
@@ -162,26 +106,6 @@ int kernel_main(void)
 
 	modules_list_loaded();
 #endif
-
-
-#ifdef CONFIG_EMBED_APPLICATION
-	/* dummy demonstrator */
-{
-	void *addr;
-	struct elf_module m;
-
-	addr = module_read_embedded("CrApp1");
-
-	pr_debug(MSG "test executable address is %p\n", addr);
-	if (addr)
-		module_load(&m, addr);
-
-#if 0
-	modules_list_loaded();
-#endif
-}
-#endif
-
 
 
 #ifdef CONFIG_MPPB
@@ -217,52 +141,19 @@ int kernel_main(void)
 
 	printk(MSG "Boot complete\n");
 
+#ifdef CONFIG_EMBED_APPLICATION
+	/* dummy demonstrator */
 
-	t = kthread_create(task, NULL, KTHREAD_CPU_AFFINITY_NONE, "task");
-	if (!IS_ERR(t)) {
-		sched_get_attr(t, &attr);
-		attr.policy = SCHED_EDF;
-		attr.period       = ms_to_ktime(1000);
-		attr.deadline_rel = ms_to_ktime(999);
-		attr.wcet         = ms_to_ktime(300);
-		sched_set_attr(t, &attr);
-		if (kthread_wake_up(t) < 0)
-			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-	} else {
-		printk("Got an error in kthread_create!");
-	}
-	printk("%s runs on CPU %d\n", t->name, t->on_cpu);
+	addr = module_read_embedded("executable_demo");
 
-	t = kthread_create(task1, NULL, KTHREAD_CPU_AFFINITY_NONE, "task1");
-	if (!IS_ERR(t)) {
-		sched_get_attr(t, &attr);
-		attr.policy = SCHED_EDF;
-		attr.period       = us_to_ktime(300);
-		attr.deadline_rel = us_to_ktime(200);
-		attr.wcet         = us_to_ktime(100);
-		sched_set_attr(t, &attr);
-		if (kthread_wake_up(t) < 0)
-			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-	} else {
-		printk("Got an error in kthread_create!");
-	}
-	printk("%s runs on CPU %d\n", t->name, t->on_cpu);
+	pr_debug(MSG "test executable address is %p\n", addr);
+	if (addr)
+		module_load(&m, addr);
 
-
-	t = kthread_create(task2, NULL, KTHREAD_CPU_AFFINITY_NONE, "task2");
-	if (!IS_ERR(t)) {
-		sched_get_attr(t, &attr);
-		attr.policy = SCHED_EDF;
-		attr.period       = us_to_ktime(300);
-		attr.deadline_rel = us_to_ktime(200);
-		attr.wcet         = us_to_ktime(100);
-		sched_set_attr(t, &attr);
-		if (kthread_wake_up(t) < 0)
-			printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
-	} else {
-		printk("Got an error in kthread_create!");
-	}
-	printk("%s runs on CPU %d\n", t->name, t->on_cpu);
+#if 0
+	modules_list_loaded();
+#endif
+#endif
 
 
 	while(1)

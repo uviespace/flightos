@@ -462,8 +462,14 @@ EXPORT_SYMBOL(puts);
 int putchar(int c)
 {
 #define TREADY 4
-	static volatile int *console = (int *)0x80000100;
 
+#if defined(CONFIG_LEON3)
+	static volatile int *console = (int *)0x80000100;
+#endif
+
+#if defined(CONFIG_LEON4)
+	static volatile int *console = (int *)0xFF900000;
+#endif
 	while (!(console[1] & TREADY));
 
 	console[0] = 0x0ff & c;
@@ -475,6 +481,7 @@ int putchar(int c)
 
 	return c;
 }
+
 
 
 

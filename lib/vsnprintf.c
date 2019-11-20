@@ -58,32 +58,6 @@ struct fmt_spec {
 
 
 
-#define TREADY 4
-
-#if defined(CONFIG_LEON3)
-static volatile int *console = (int *)0x80000100;
-#endif
-
-#if defined(CONFIG_LEON4)
-static volatile int *console = (int *)0xFF900000;
-#endif
-
-static int putchar(int c)
-{
-	while (!(console[1] & TREADY));
-
-	console[0] = 0x0ff & c;
-
-	if (c == '\n') {
-		while (!(console[1] & TREADY));
-		console[0] = (int) '\r';
-	}
-
-	return c;
-}
-
-
-
 /**
  * @brief print a single character
  *

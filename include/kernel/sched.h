@@ -6,8 +6,10 @@
 #ifndef _KERNEL_SCHED_H_
 #define _KERNEL_SCHED_H_
 
-#include <generated/autoconf.h>	/*XXX */
+#include <list.h>
+#include <kernel/time.h>
 
+#include <generated/autoconf.h>	/*XXX */
 
 /* scheduler priority levels */
 #define SCHED_PRIORITY_RR	0
@@ -113,8 +115,6 @@ struct scheduler {
 void switch_to(struct task_struct *next);
 void schedule(void);
 void sched_yield(void);
-
-void sched_print_edf_list(void);
 
 
 int sched_set_attr(struct task_struct *task, struct sched_attr *attr);
