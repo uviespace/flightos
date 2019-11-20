@@ -43,7 +43,9 @@ static void sched_update_runtime(struct task_struct *task, ktime now)
 
 	task->runtime = ktime_sub(task->runtime, rt);
 	task->total   = ktime_add(task->total, rt);
-	task->state   = TASK_RUN;
+
+	if (task->state == TASK_BUSY)
+		task->state  = TASK_RUN;
 }
 
 /**
