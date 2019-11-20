@@ -1,13 +1,15 @@
-CC               = sparc-elf-gcc
+#CC               = sparc-elf-gcc
+CC               = sparc-gaisler-elf-gcc
 SOURCEDIR	 = ./
 INCLUDEDIR       = ./
 BUILDDIR         = ./
 PATH            +=
 CPPFLAGS        :=
-CFLAGS          := -r -mv8 -mhard-float -mfix-gr712rc -O2 -std=gnu89 -W -Wall \
+#CFLAGS          := -r -mv8 -mhard-float -mfix-gr712rc -O2 -std=gnu89 -W -Wall
+CFLAGS          := -r -mhard-float -mcpu=leon3 -std=gnu89 -W -Wall \
 		   -Wextra -Werror -pedantic -Wshadow -Wuninitialized \
 		   -fdiagnostics-show-option -Wcast-qual -Wformat=2 \
-		   -nostartfiles -nostdlib
+		   -nostartfiles
 LDFLAGS         :=
 SOURCES         := $(wildcard *.c) 
 OBJECTS         := $(patsubst %.c, $(BUILDDIR)/%.o, $(subst $(SOURCEDIR)/,, $(SOURCES)))
