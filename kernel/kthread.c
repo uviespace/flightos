@@ -100,7 +100,7 @@ int kthread_wake_up(struct task_struct *task)
 		return -EINVAL;
 
 	ret = sched_enqueue(task);
-	if(ret)
+	if (ret)
 		return ret;
 
 	flags = arch_local_irq_save();
