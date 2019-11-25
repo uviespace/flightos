@@ -445,15 +445,14 @@ int pn_process_inputs(struct proc_net *pn)
 	unsigned long op;
 
 	struct proc_task *t;
-	static struct proc_tracker *pt;
+	struct proc_tracker *pt;
 
 
 
 	if (list_empty(&pn->nodes))
 		return -1;
 
-	if (!pt)
-		pt = list_entry(pn->nodes.next, struct proc_tracker, node);
+	pt = list_first_entry(&pn->nodes, struct proc_tracker, node);
 
 	while (1) {
 		t = pt_track_get(pn->in);
