@@ -102,7 +102,7 @@ int page_map_add(unsigned long start, unsigned long end,
 	} while ((*(++pg)));
 
 
-	if (!pg) {
+	if (!(*pg)) {
 		pr_err("PAGE MEM: map space exceeded, cannot add map\n");
 		goto error;
 	}
