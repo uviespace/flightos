@@ -157,8 +157,8 @@ static void bootmem_init_page_map_node(struct page_map_node **pg_node)
 
 	(*pg_node) = (struct page_map_node *) bootmem_alloc(sizeof(struct page_map_node));
 
+	(*pg_node)->pool = (struct mm_pool *)  bootmem_alloc(sizeof(struct mm_pool));
 	pool = (*pg_node)->pool;
-	pool = (struct mm_pool *)  bootmem_alloc(sizeof(struct mm_pool));
 
 	bzero(pool, sizeof(struct mm_pool));
 
