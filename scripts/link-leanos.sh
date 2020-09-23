@@ -288,14 +288,14 @@ fi
 # this is a 3rd pass option, we need modules.order beforehand
 if [ "$1" = "embed" ]; then
 
-#	if [ ! -s ${srctree}/modules.order ]; then
-#		echo >&2
-#		echo >&2 modules.order empty or nonexistant, cannot embed image.
-#		echo >&2 Maybe you have no loadable modules configured?
-#		echo >&2 Kernel image unchanged.
-#		echo >&2
-#		exit
-#	fi
+	if [ ! -s ${srctree}/modules.order ] || [! -s ${CONFIG_EMBED_APPLICATION} ]; then
+		echo >&2
+		echo >&2 modules.order or application path empty or nonexistant, cannot embed image.
+		echo >&2 Maybe you have no loadable modules configured or no executable path specified?
+		echo >&2 Kernel image unchanged.
+		echo >&2
+		exit
+	fi
 
 	if [ -n "${CONFIG_TARGET_COMPILER_BOOT_CODE}" ]; then
 		embedflags="-Wl,--format=binary -Wl,modules.image -Wl,--format=default"
