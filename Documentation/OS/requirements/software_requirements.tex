@@ -1,7 +1,7 @@
 
 
 \title{Software Requirements Specification}
-\def \documentid {LEANOS-UVIE-SRS-001}
+\def \documentid {FLIGHTOS-UVIE-SRS-001}
 \date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
@@ -65,7 +65,7 @@
 \section{Purpose of the Document}
 
 This document specifies the software requirements for the operating system
-kernel LeanOS. LeanOS targets the \gls{SSDP}, and to a lesser extent, its
+kernel FlightOS. FlightOS targets the \gls{SSDP}, and to a lesser extent, its
 compatible predecessor, the \gls{MPPB} v2.x \cite{MPPB}.
 It is intended to be used in unmanned space applications of (at least)
 Software Criticality Level C. Readers must be familiar with the basic concepts
@@ -77,7 +77,7 @@ specifications found in Annex D of ECSS-E-ST-40C \cite{ECSS40C}.
 
 \section{Scope of the Software}
 
-LeanOS is a lightweight operating system targeting the particular
+FlightOS is a lightweight operating system targeting the particular
 characteristics of the \gls{SSDP} and is focused on driving the \gls{NoC} and
 its attached \gls{Xentium} \gls{DSP} cores.
 
@@ -106,7 +106,7 @@ processing platform, a novel approach was needed concerning the management of
 system resources, \gls{DMA} mechanics and \gls{DSP} program design for best
 efficiency and turnover rates. Consequently, \gls{UVIE} developed an experimental
 operating system to stably drive the \gls{DSP} cores and the \gls{MPPB} close
-to its performance limit. LeanOS is a development based on this operating system
+to its performance limit. FlightOS is a development based on this operating system
 concept. Along with its intended functionality, it provides full software test
 coverage, example applications and good documentation that supports all aspects
 of the software.
@@ -114,13 +114,13 @@ of the software.
 
 \section{Environmental considerations}
 
-LeanOS is will support the \gls{SSDP} and also support the
+FlightOS is will support the \gls{SSDP} and also support the
 \gls{MPPB} v2.x. Ultimately, this does allow reuse of the operating system core
 for \gls{LEON2} and \gls{LEON3} based platforms with minor adaptations.
 Even though the \gls{SSDP} does not contain a multi-core \gls{LEON3} processor,
-\gls{SMP} support will be prepared in LeanOS, as this will likely change with
+\gls{SMP} support will be prepared in FlightOS, as this will likely change with
 newer versions of the \gls{SSDP}.
-LeanOS is released under an open source license, so compatible development tools should
+FlightOS is released under an open source license, so compatible development tools should
 be available under such licenses as well. Note that it might still be necessary
 to use a commercial product to target particular configurations or proprietary
 hardware functionality.
@@ -128,12 +128,12 @@ hardware functionality.
 
 \section{Relation to other systems}
 
-LeanOS is a stand-alone software product.
+FlightOS is a stand-alone software product.
 
 
 \section{Constraints}
 
-LeanOS primarily targets the \gls{SSDP}, which effectively limits the hardware
+FlightOS primarily targets the \gls{SSDP}, which effectively limits the hardware
 support to the characteristics of this platform. \\
 \noindent
 The source code is written in C and if required, \gls{SPARC} v8 compatible
@@ -149,17 +149,17 @@ programming languages designed for that purpose.
 %\begin{figure}[ht]
 %\begin{center}
 %	\includegraphics{images/OS_fundamental_architecture}
-%	\caption{The fundamental architecture of LeanOS.}
+%	\caption{The fundamental architecture of FlightOS.}
 %	%\label{fig:blackbody_curves}
 %\end{center}
 %\end{figure}
 
 \requirement{GEN-0001} {No external dependencies}{%
-LeanOS shall not make use of external libraries, including C-runtime libraries.
+FlightOS shall not make use of external libraries, including C-runtime libraries.
 }{}%
 
 \requirement{GEN-0002} {Custom libc functionality}{%
-LeanOS shall, as part of its code-base and as needed, provide its own
+FlightOS shall, as part of its code-base and as needed, provide its own
 implementations of typical C-libary functions with an \gls{API} conforming to
 their \gls{POSIX} definitions.
 }{%
@@ -167,7 +167,7 @@ The collection of these functions can also form the base or a subset of a
 C libary to be used by applications.}%
 
 \requirement{GEN-0003} {Application libc usage}{%
-LeanOS shall optionally call a function that initialises a C-library on startup.
+FlightOS shall optionally call a function that initialises a C-library on startup.
 It is up to the user to define and link the implementation of this function and
 the according C-library.
 }{%
@@ -195,31 +195,31 @@ before execution.
 % }
 
 \requirement{GEN-0004} {Fatal Error Management}{%
-If a non-recoverable error state is detected in LeanOS, it shall optionally
+If a non-recoverable error state is detected in FlightOS, it shall optionally
 call an error handling routine provided by the user before issuing a reboot.
-LeanOS shall provide a directive to register such a function.
+FlightOS shall provide a directive to register such a function.
 }{%
 This gives the user the possiblity to perform a clean shutdown of critical
 tasks in their particular environment.}%
 
 
 \requirement{GEN-0006} {Core runtime}{%
-In its basic configuration, LeanOS shall restrict itself to the initialisation
+In its basic configuration, FlightOS shall restrict itself to the initialisation
 of its core services on a single processor, thereby configuring traps, memories
 and timers. All other services or device drivers shall be configured and added
 via the build system.
 }{}%
 
 \requirement{GEN-0601} {Error Logging}{%
-LeanOS shall maintain an error message log that is readable by the user.
+FlightOS shall maintain an error message log that is readable by the user.
 }{}%
 
 \requirement{GEN-0602} {Coding Style}{%
-LeanOS code shall use the Linux kernel coding style. Source files and patches
+FlightOS code shall use the Linux kernel coding style. Source files and patches
 shall be checked using the checkpatch.pl utility found in the Linux kernel
 source tree.
 }{%
-A major point of LeanOS is that it does not only come with an open source
+A major point of FlightOS is that it does not only come with an open source
 license, but should ideally only use tools that are distributable under a
 similar license. The Linux kernel is used in billions of devices word-wide,
 its coding style is hence arguably well-suited for use in successful software.
@@ -229,38 +229,38 @@ its coding style is hence arguably well-suited for use in successful software.
 \section{Functional Requirements}
 
 \requirement{FUN-0007} {SMP Support}{%
-LeanOS shall be able to run on a multi-core configuration of a LEON3 processor.
+FlightOS shall be able to run on a multi-core configuration of a LEON3 processor.
 }{}%
 
 \requirement{FUN-0803} {MMU Support}{%
-LeanOS shall support the use of the MMU of the LEON3 processor.
+FlightOS shall support the use of the MMU of the LEON3 processor.
 }{}%
 
 \requirement{FUN-0008} {Supervisor Mode}{%
-The LeanOS kernel shall execute with the SPARC supervisor mode enabled.
+The FlightOS kernel shall execute with the SPARC supervisor mode enabled.
 Application code shall run with supervisor mode disabled.
 }{}%
 
 \requirement{FUN-0011} {Timing}{%
-LeanOS shall provide access to typical time keeping, time taking and delay
+FlightOS shall provide access to typical time keeping, time taking and delay
 timing functionality expected by an operating system.
 }{}%
 
 
 \requirement{FUN-0012} {Task Support}{%
-LeanOS shall provide means to create new tasks.
+FlightOS shall provide means to create new tasks.
 }{}%
 
 \requirement{FUN-0013} {Task priorities and deadlines}{%
-LeanOS shall support the assignment of a priority and a deadline to a task.
+FlightOS shall support the assignment of a priority and a deadline to a task.
 }{}%
 
 \requirement{FUN-0014} {Task scheduling}{%
-LeanOS shall offer a fixed priority scheduler with priority inversion handling.
+FlightOS shall offer a fixed priority scheduler with priority inversion handling.
 }{}%
 
 \goal{FUN-0015} {Other schedulers}{%
-LeanOS should offer an Earliest Deadline First scheduler supporting priority
+FlightOS should offer an Earliest Deadline First scheduler supporting priority
 execution in overload conditions.
 
 }{%
@@ -270,7 +270,7 @@ threads in conditions where the total load unexpectedly would exceed 100\%.
 }%
 
 \requirement{FUN-0016} {Kernel Ticks}{%
-LeanOS shall operate in tickless (non-periodic) timed wakeup mode by default.
+FlightOS shall operate in tickless (non-periodic) timed wakeup mode by default.
 }{%
 Tickless timing avoids unnecessary wake-ups of the CPU if no task is running
 and improves performance by only switching to kernel mode from regular tasks
@@ -278,7 +278,7 @@ when absolutely necessary.
 }%
 
 \requirement{FUN-0017} {Tickless Timing}{%
-LeanOS timing functionality shall be able to operate in tickless mode, where 
+FlightOS timing functionality shall be able to operate in tickless mode, where 
 a queue of wakeup times is maintained and a hardware timer is used in such a way
 that its next underflow (resulting in an interrupt) is programmed to coincide
 with the next wakeup time. New wakeup times shall be inserted into the queue as
@@ -287,26 +287,26 @@ be readjusted accordingly.
 }{}%
 
 \requirement{FUN-0019} {Semaphores and Mutexes}{%
-LeanOS shall provide semaphores and mutexes as part of its task functionality.
+FlightOS shall provide semaphores and mutexes as part of its task functionality.
 Task priorities shall be protected by the priority ceiling protocol.
 }{}%
 
 \requirement{FUN-0020} {Tasks and \gls{SMP}}{%
-LeanOS shall support task migration between \glspl{CPU} and track and ensure
+FlightOS shall support task migration between \glspl{CPU} and track and ensure
 atomicity of related functions (e.g. mutexes) across multiple processors.
 }{}%
 
 \requirement{FUN-0021} {Message Queues}{%
-LeanOS shall support message queues for inter-process communication.
+FlightOS shall support message queues for inter-process communication.
 Atomicity of queues shall be ensured across multiple processors.
 }{}%
 
 \requirement{FUN-0022} {Kernel Modules}{%
-LeanOS shall offer loadable module support infrastructure.
+FlightOS shall offer loadable module support infrastructure.
 }{}%
 
 \requirement{FUN-0804} {Kernel-Userspace Initialisation}{%
-LeanOS shall offer a configurable initialisation point that executes a
+FlightOS shall offer a configurable initialisation point that executes a
 user-space setup procedure.\\
 
 
@@ -315,7 +315,7 @@ This is the point where the application software is loaded.%
 }%
 
 \requirement{FUN-0023} {System Control Interface}{%
-LeanOS shall offer a way for drivers or other functional modules to export
+FlightOS shall offer a way for drivers or other functional modules to export
 configuration or state variables into a logical tree maintained by
 the operating system. This logical tree shall be accessible by other modules and
 the user as a character-based interface.
@@ -325,7 +325,7 @@ get or set configuration states or system statistics.
 }%
 
 \requirement{FUN-0024} {Binary System Control Interface}{%
-LeanOS shall offer the possibility to install binary exchange nodes within the
+FlightOS shall offer the possibility to install binary exchange nodes within the
 System Control Interface tree that may be used for larger amouts of binary data.
 The binary format shall be defined by the creator of the node. Any users of the
 node shall be responsible to read or write in the correct format expected by the
@@ -337,15 +337,15 @@ some calibration data.
 }%
 
 \goal{FUN-0025} {Device Drivers}{%
-LeanOS should come with device drivers for all hardware functionality of the SSDP.
+FlightOS should come with device drivers for all hardware functionality of the SSDP.
 }{}%
 
 \requirement{FUN-0026} {Xentium Scheduler}{%
-LeanOS shall offer a way to define and load Xentium data processing code.
+FlightOS shall offer a way to define and load Xentium data processing code.
 }{}%
 
 \requirement{FUN-0027} {Xentium Data Buffers}{%
-LeanOS shall provide packet-driven meta-data buffers to Xentium programs that
+FlightOS shall provide packet-driven meta-data buffers to Xentium programs that
 can link to arbitrary data sets and routing tables that define the path of
 a data packet through a series of Xentium program nodes.
 }{%
@@ -356,14 +356,14 @@ which represents their individual ``processing chain''.}%
 \section{Performance Requirements}
 
 \requirement{GEN-0009} {Traps/Interrupts}{%
-LeanOS trap entry and exit code shall not exceed 500 instructions.
+FlightOS trap entry and exit code shall not exceed 500 instructions.
 }{%
 This does not include the callback functions for a trap or interrupt
 service routine.
 }%
 
 \requirement{GEN-0018} {Deferred saving of \gls{FPU} registers}{%
-In trap mode, LeanOS shall defer saving of \gls{FPU} registers until it is
+In trap mode, FlightOS shall defer saving of \gls{FPU} registers until it is
 accessed.\\
 
 
@@ -384,7 +384,7 @@ acting as a signalling function.
 }%
 
 \requirement{GEN-0028} {Real-Time Thread Support}{%
-LeanOS shall offer support for a class of real time threads that may also
+FlightOS shall offer support for a class of real time threads that may also
 preempt the operating sytem with the exception of \glspl{ISR}.
 }{%
 Some application real time tasks may be so timing sensitive, that even
@@ -394,7 +394,7 @@ operating system code must be preemptible to guarantee a timely response.
 \section{Interface Requirements}
 
 \requirement{GEN-2001} {Interface Documentation}{%
-The internal and external interfaces of LeanOS shall be described as part
+The internal and external interfaces of FlightOS shall be described as part
 of its source code in Doxygen markup.\\
 
 }{
@@ -415,7 +415,7 @@ No operational requirements have been identified.
 \section{Resources Requirements}
 
 \requirement{GEN-0101} {Target Platform}{%
-LeanOS shall execute on the \gls{SSDP}, in particular the \gls{LEON3-FT}
+FlightOS shall execute on the \gls{SSDP}, in particular the \gls{LEON3-FT}
 processor of the platform. It should also execute on the \gls{MPPB} v2.x.
 }{}%
 
@@ -424,7 +424,7 @@ processor of the platform. It should also execute on the \gls{MPPB} v2.x.
 
 
 \requirement{GEN-0801}{Modular Design}{%
-All components of LeanOS shall be written such that a particular component does
+All components of FlightOS shall be written such that a particular component does
 contain its intended functionality as much as possible.
 }{
 If something is mostly self-contained, it is easier to modify and re-use in
@@ -461,7 +461,7 @@ No security or privacy requirements have been identified.
 \section{Software Quality Requirements}
 
 \goal{GEN-0201} {Product Metrics}{%
-LeanOS should have a cyclomatic complexity of at most 15 and a nesting level of
+FlightOS should have a cyclomatic complexity of at most 15 and a nesting level of
 at most 6 per function. Each function shall have a single exit point for the 
 nominal case.
 }{}%
@@ -490,7 +490,7 @@ the latter.
 }%
 
 \requirement{GEN-0402} {Correctable Traps}{%
-LeanOS shall provide handlers for correctable traps caused by kernel or user
+FlightOS shall provide handlers for correctable traps caused by kernel or user
 code and either correctly execute the desired operation (e.g. unaligned access)
 or replace the result with a default value (e.g. divison by zero) and skip the
 offending code instruction to continue.
@@ -498,7 +498,7 @@ offending code instruction to continue.
 }
 
 \requirement{GEN-0403} {Trap Error Reporting}{%
-LeanOS shall make an entry into its error message log when a trap event occurs,
+FlightOS shall make an entry into its error message log when a trap event occurs,
 describing the nature and source of the trap.
 }{
 }
@@ -508,7 +508,7 @@ describing the nature and source of the trap.
 \section{Software Configuration and Delivery Requirements}
 
 \requirement{GEN-0005} {Build configuration}{%
-LeanOS shall make use of the Linux Kernel Build System (kbuild) for its
+FlightOS shall make use of the Linux Kernel Build System (kbuild) for its
 configuration.
 }{}%
 
@@ -536,7 +536,7 @@ in a Software Qualification Test Plan for each requirement.
 
 \requirement{GEN-1002} {Qualification Testing}{%
 SW qualification testing shall be performed with various configurations of
-LeanOS.
+FlightOS.
 }{}%
 
 
@@ -556,7 +556,7 @@ LeanOS.
 
 The requirements in this document are both user and system requirements.
 Traces from design and test to the software requirements are given in the
-respective documents. \cite{leanosADD} \cite{leanosTS}
+respective documents. \cite{flightosADD} \cite{flightosTS}
 
 
 \chapter{Logical Model Description}
@@ -564,14 +564,14 @@ respective documents. \cite{leanosADD} \cite{leanosTS}
 \begin{figure}[htb]
 \begin{center}
 	\includegraphics[width=\columnwidth]{images/OS_logical}
-	\caption{The logical model of LeanOS. Here, the "hardware" layer
+	\caption{The logical model of FlightOS. Here, the "hardware" layer
 	represents both the hardware and the hardware abstraction layer of
 	the software.}
 	\label{fig:logical_model}
 \end{center}
 \end{figure}
 
-In LeanOS, the \gls{SSDP} hardware is accessed in multiple layers of
+In FlightOS, the \gls{SSDP} hardware is accessed in multiple layers of
 abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as thread/task
 management and timer operation are used as part of the operating system kernel
 and are also accessible by user applications via a system call interface.

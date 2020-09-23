@@ -1,5 +1,5 @@
 \title{User Manual}
-\def \documentid {LEANOS-UVIE-UM-001}
+\def \documentid {FLIGHTOS-UVIE-UM-001}
 \date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
@@ -70,8 +70,8 @@
 
 \section{Purpose of the Document}
 
-This document gives an overview on how to use the LeanOS operating system with
-regard to Xentium processing. An overview of the structure of LeanOS will be
+This document gives an overview on how to use the FlightOS operating system with
+regard to Xentium processing. An overview of the structure of FlightOS will be
 given, detailed information relevant to system programming must however be 
 looked up in the in-line documentation of the source files.
 
@@ -99,11 +99,11 @@ sources that depend on the implementation of certain interfaces by the former.
 While this means that any architecture could be supported, the only
 currently implemented hardware architecture is \gls{SPARC} v8.
 
-%%\section {How to get LeanOS}
+%%\section {How to get FlightOS}
 
 \section {Build Requirements}
 
-In order to build LeanOS, make sure you have set up your environment variables
+In order to build FlightOS, make sure you have set up your environment variables
 to point to the compilers to be used. You will need at least a cross-compiler
 for the \gls{SPARC} platform (i.e. BCC from Gaisler or SPARC GCC from RECORE)
 and a \gls{GCC} compiler for your host platform. In addition, you will 
@@ -116,7 +116,7 @@ environment.
 
 \section {Build System}
 
-LeanOS uses an adaptation of the Linux kernel's Kbuild system. For details on
+FlightOS uses an adaptation of the Linux kernel's Kbuild system. For details on
 how to use it, you may refer to related documentation found online. \\
 
 \noindent
@@ -126,7 +126,7 @@ To launch the configuration interface, simply issue
   $ make menuconfig
 \end{lstlisting}
 \noindent
-on your shell prompt from the top-level LeanOS directory. If you prefer a
+on your shell prompt from the top-level FlightOS directory. If you prefer a
 graphical interface, you may use:
 
 \begin{lstlisting}[language=bash]
@@ -153,7 +153,7 @@ To build a kernel image, you can now issue
 
 \noindent
 on your command line. The build process will produce an executable ELF binary
-named \emph{leanos} which you can then run on your target system using your
+named \emph{flightos} which you can then run on your target system using your
 preferred method, e.g. via grmon.
 
 
@@ -186,7 +186,7 @@ subdirectory.
 
 \section {Xentium Processing Demo}
 
-To build a LeanOS kernel that demonstrates a Xentium processing network setup,
+To build a FlightOS kernel that demonstrates a Xentium processing network setup,
 select \emph{Enable System-On-Chip configurations}, then configure your CPU and
 board type (LEON2/3, MPPB/SSDP). In the submenu \emph{System-on-Chip
 drivers}, enable the \emph{NoC 2D DMA driver} and \emph{Xentium processing
@@ -213,7 +213,7 @@ subdirectories.
 \section {Features Overview}
 
 The following will give you a concise overview of some of the currently 
-implemented features of LeanOS that distinguish it from other operating
+implemented features of FlightOS that distinguish it from other operating
 systems in its class.
 
 \subsection {Memory Management}
@@ -243,7 +243,7 @@ arbitrary data, e.g. calibration files.
 
 \subsection {Xentium and NoC support}
 
-LeanOS supports the Network-on-Chip and its core features (such as the DMA)
+FlightOS supports the Network-on-Chip and its core features (such as the DMA)
 found in the \gls{SSDP} and the \gls{MPPB}. A major focus is the integration
 of the \gls{Xentium} \glspl{DSP} into a processing network that can be used to
 create arbitrary pipelines on a per-task-packet basis (see below).
@@ -315,7 +315,7 @@ subdirectory.
 
 
 
-\chapter{Processing Networks in LeanOS}
+\chapter{Processing Networks in FlightOS}
 
 \section{Overview}
 
@@ -1223,10 +1223,10 @@ FastIntFixedRampFitBuffer:
 
 
 \appendix
-\chapter {Changes from NGAPP to LeanOS Xentium Processing Concept}
+\chapter {Changes from NGAPP to FlightOS Xentium Processing Concept}
 
 The following sections look at the major differences between the NGAPP and
-LeanOS concepts.
+FlightOS concepts.
 
 \section {Processing Chain}
 

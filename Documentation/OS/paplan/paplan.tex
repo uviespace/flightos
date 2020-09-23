@@ -1,7 +1,7 @@
 
 
 \title{Product Quality Assurance Plan}
-\def \documentid {LEANOS-UVIE-PAQ-001}
+\def \documentid {FLIGHTOS-UVIE-PAQ-001}
 \date{Issue 1.0, June 01, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
@@ -61,12 +61,12 @@
 
 
 This document describes the \gls{SQA} activities that will be
-performed in the development of the the operating system kernel LeanOS.
-The document is applicable for all versions of LeanOS and and shall be updated
+performed in the development of the the operating system kernel FlightOS.
+The document is applicable for all versions of FlightOS and and shall be updated
 as needed.\\
 
 \noindent
-LeanOS targets the \gls{SSDP}, and to a lesser extent, its
+FlightOS targets the \gls{SSDP}, and to a lesser extent, its
 compatible predecessor, the \gls{MPPB} v2.x \cite{MPPB}.
 It is intended to be used in unmanned space applications of (at least)
 Software Criticality Level C. \\
@@ -98,11 +98,11 @@ processing platform, a novel approach was needed concerning the management of
 system resources, \gls{DMA} mechanics and \gls{DSP} program design for best
 efficiency and turnover rates. Consequently, \gls{UVIE} developed an experimental
 operating system to stably drive the \gls{DSP} cores and the \gls{MPPB} close
-to its performance limit. LeanOS is a development based on this operating system
+to its performance limit. FlightOS is a development based on this operating system
 concept.\\
 
 \noindent
-Further details on LeanOS may be found in \cite{ssdpOS}.
+Further details on FlightOS may be found in \cite{ssdpOS}.
 
 
 \chapter{Software Product Assurance Programme Implementation}
@@ -119,7 +119,7 @@ Further details on LeanOS may be found in \cite{ssdpOS}.
 \end{figure}
 
 \noindent
-The \gls{SQA} organisation (\fig{fig:sw_dev_org}) for the development of LeanOS
+The \gls{SQA} organisation (\fig{fig:sw_dev_org}) for the development of FlightOS
 is commensurate to the scope and size of the working group dedicated to
 \gls{FSW} development at the Department of Astrophysics of the University of
 Vienna.\\
@@ -234,18 +234,18 @@ software application are identified:
 \end{multicols}
 
 \noindent
-Functionality is explicitly covered in the \gls{SRS}\cite{leanosSRS}. Similarly,
+Functionality is explicitly covered in the \gls{SRS}\cite{flightosSRS}. Similarly,
 the \gls{SRS} also covers maintainability, safety and security requirements, as
 well as efficiency.\\
 
 \noindent
 Reliability is covered implicitly through the requirements formulated in the
-\gls{TP}\cite{leanosTP} and \gls{TS}\cite{leanosTS}. which are designed to
+\gls{TP}\cite{flightosTP} and \gls{TS}\cite{flightosTS}. which are designed to
 to demonstrate the ability of the software to satisfy its requirements within
 its operational domain.\\
 
 \noindent
-Usability is not formally relevant for LeanOS, but rather implied by software
+Usability is not formally relevant for FlightOS, but rather implied by software
 design and its intended application.\\
 
 \noindent
@@ -333,7 +333,7 @@ No special quality measures are defined for operations or maintenance.
 
 \noindent
 For the software development life cycle, the \emph{Agile} model (\fig{fig:agile_sw})
-is selected to be used for the development of LeanOS.
+is selected to be used for the development of FlightOS.
 This model keeps the initial planning and analysis on a very high level that
 is just detailed enough to outline the scope of the project. The development
 process is a series of iterations, in which a feature is taken from start to
@@ -358,12 +358,12 @@ when staffing.
 
 \section{Project plans}
 
-A \glsdesc{TP} is given in \cite{leanosTP}.
+A \glsdesc{TP} is given in \cite{flightosTP}.
 
 
 \section{Software dependability and safety}
 
-LeanOS is intended to be used in unmanned space
+FlightOS is intended to be used in unmanned space
 applications of (at least) Software Criticality Level C. However, \gls{FDIR}
 analyses and derived measures as well as the particular configuration of
 the operating system to be used are highly dependent on the use case and must

@@ -1,7 +1,7 @@
 
 
 \title{Test Report}
-\def \documentid {LEANOS-UVIE-TR-001}
+\def \documentid {FLIGHTOS-UVIE-TR-001}
 \date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
@@ -59,12 +59,12 @@
 
 \section{Purpose of the Document}
 
-In this document, results of tests specified in \cite{leanosTS} are recorded.
+In this document, results of tests specified in \cite{flightosTS} are recorded.
 
 
 \section{Incremental Testing}
 
-LeanOS is not envisaged to be implemented in one final form. Instead, it is
+FlightOS is not envisaged to be implemented in one final form. Instead, it is
 marked with version numbers for each release. This means that testing is
 version-dependent and is applied in increments by executing all available tests
 as modifications are made. This is reflected in the dates, version
@@ -96,7 +96,7 @@ listed in each individual test report.
 This test verifies the implementation of the \gls{Xentium} Processing Network
 implementation on the \gls{MPPB} by generating a series of processing tasks and
 running them through the network. This test also represents an integrated test
-of LeanOS.
+of FlightOS.
 
 \subsection*{Overview of the Procedure}
 
@@ -104,7 +104,7 @@ This test is executed on a \gls{MPPB} v2.x hardware model. Once the test
 environment is set up, the build configuration is prepared and the test itself
 is executed and evaluated automatically by starting the \emph{bash} script
 \emph{run\_test.sh}. It may be found in the 
-\mbox{\emph{tools/testing/hwtests/xen\_proc\_net}} subdirectory of the LeanOS
+\mbox{\emph{tools/testing/hwtests/xen\_proc\_net}} subdirectory of the FlightOS
 source tree.
 
 
@@ -113,7 +113,7 @@ source tree.
 The following preparations must be made in order to carry out the test:
 
 \begin{itemize}
-	\item checkout of the LeanOS source tree
+	\item checkout of the FlightOS source tree
 	\item \gls{MPPB}/\gls{Xentium} toolchain location in shell \emph{PATH}
 	\item \emph{grmon} ver. 1.x configured and in shell \emph{PATH}
 	\item \gls{MPPB} v2.x connected to PC via DEBUG UART and powered on
@@ -201,22 +201,22 @@ scripts/kconfig/conf  --silentoldconfig Kconfig
   HOSTCC  samples/proc_chain/proc_chain_demo.o
   HOSTLD  samples/proc_chain/proc_chain_demo
   LD      samples/built-in.o
-  LD      leanos.o
-make[1]: Nothing to be done for 'leanos.o'.
+  LD      flightos.o
+make[1]: Nothing to be done for 'flightos.o'.
   GEN     .version
   KSYM    .tmp_kallsyms1.o
   KSYM    .tmp_kallsyms2.o
-  LD      leanos
+  LD      flightos
   SYSMAP  System.map
   Building modules, stage 2.
   MODPOST 0 modules
   Embedding module image, stage 3.
-  LD      leanos.o
-make[1]: Nothing to be done for 'leanos.o'.
+  LD      flightos.o
+make[1]: Nothing to be done for 'flightos.o'.
   GEN     .version
   KSYM    .tmp_kallsyms1.o
   KSYM    .tmp_kallsyms2.o
-  LD      leanos
+  LD      flightos
   SYSMAP  System.map
 
  GRMON LEON debug monitor v1.1.61 professional version
@@ -246,7 +246,7 @@ make[1]: Nothing to be done for 'leanos.o'.
 
  Use command 'info sys' to print a detailed report of attached cores
 
-grlib> load leanos
+grlib> load flightos
 section: .text at 0x40000000, size 96592 bytes
 downloading: 96592
 section: .data at 0x40017950, size 81572 bytes

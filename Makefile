@@ -39,7 +39,7 @@ unexport GREP_OPTIONS
 # their own directory. If in some directory we have a dependency on
 # a file in another dir (which doesn't happen often, but it's often
 # unavoidable when linking the built-in.o targets which finally
-# turn into leanos), we will call a sub make in that other dir, and
+# turn into flightos), we will call a sub make in that other dir, and
 # after that we are sure that everything which is in that other dir
 # is now up to date.
 #
@@ -416,7 +416,7 @@ config: scripts_basic outputmakefile FORCE
 
 else
 # ===========================================================================
-# Build targets only - this includes leanos, arch specific targets, clean
+# Build targets only - this includes flightos, arch specific targets, clean
 # targets and others. In general all targets except *config targets.
 
 # Additional helpers built in scripts/
@@ -454,8 +454,8 @@ endif # $(dot-config)
 # The all: target is the default when no target is given on the
 # command line.
 # This allow a user to issue only 'make' to build the application
-# Defaults to leanos, but the arch makefile usually adds further targets
-all: leanos
+# Defaults to flightos, but the arch makefile usually adds further targets
+all: flightos
 
 # The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
 # values of the respective KBUILD_* variables
@@ -585,7 +585,7 @@ KBUILD_CFLAGS   += $(ARCH_CFLAGS)   $(KCFLAGS)
 # set in the environment
 # Also any assignments in arch/$(ARCH)/Makefile take precedence over
 # this default value
-export KBUILD_IMAGE ?= leanos
+export KBUILD_IMAGE ?= flightos
 
 #
 # INSTALL_PATH specifies where to place the updated kernel and system map
@@ -602,40 +602,40 @@ xentium-$(CONFIG_BUILD_XEN_KERNELS) := dsp/
 
 -include arch/$(ARCH)/Makefile
 
-leanos-dirs	:= $(patsubst %/,%,$(filter %/, \
+flightos-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(init-y) \
 		     $(core-y) \
 		     $(kernel-y) \
 		     $(libs-y)) \
 		     $(xentium-y))
 #
-leanos-core	:= $(patsubst %/, %/built-in.o, $(core-y))
-leanos-kernel	:= $(patsubst %/, %/built-in.o, $(kernel-y))
-leanos-init	:= $(patsubst %/, %/built-in.o, $(init-y))
-leanos-libs	:= $(patsubst %/, %/lib.a, $(libs-y))
+flightos-core	:= $(patsubst %/, %/built-in.o, $(core-y))
+flightos-kernel	:= $(patsubst %/, %/built-in.o, $(kernel-y))
+flightos-init	:= $(patsubst %/, %/built-in.o, $(init-y))
+flightos-libs	:= $(patsubst %/, %/lib.a, $(libs-y))
 
 
-# Externally visible symbols (used by link-leanos.sh)
-export KBUILD_LEANOS_INIT := $(leanos-init)
-export KBUILD_LEANOS_MAIN := $(leanos-core) $(leanos-kernel) $(leanos-libs)
+# Externally visible symbols (used by link-flightos.sh)
+export KBUILD_FLIGHTOS_INIT := $(flightos-init)
+export KBUILD_FLIGHTOS_MAIN := $(flightos-core) $(flightos-kernel) $(flightos-libs)
 export KBUILD_LDS          := arch/$(SRCARCH)/kernel/kernel.lds
-export LDFLAGS_leanos
+export LDFLAGS_flightos
 
 
-leanos-deps := $(KBUILD_LDS) $(KBUILD_LEANOS_INIT) $(KBUILD_LEANOS_MAIN)
+flightos-deps := $(KBUILD_LDS) $(KBUILD_FLIGHTOS_INIT) $(KBUILD_FLIGHTOS_MAIN)
 
-quiet_cmd_leanos = LD      $@
-      cmd_leanos = $(CC) $(LDFLAGS) -o $@                          \
-      -Wl,--start-group $(leanos-deps) -Wl,--end-group
+quiet_cmd_flightos = LD      $@
+      cmd_flightos = $(CC) $(LDFLAGS) -o $@                          \
+      -Wl,--start-group $(flightos-deps) -Wl,--end-group
 
 
 
-PHONY += leanos_prereq
-leanos_prereq: $(leanos-deps) FORCE
+PHONY += flightos_prereq
+flightos_prereq: $(flightos-deps) FORCE
 
 ifdef CONFIG_TRIM_UNUSED_KSYMS
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/adjust_autoksyms.sh \
-	  "$(MAKE) -f $(srctree)/Makefile leanos"
+	  "$(MAKE) -f $(srctree)/Makefile flightos"
 endif
 
 # standalone target for easier testing
@@ -643,32 +643,32 @@ include/generated/autoksyms.h: FORCE
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/adjust_autoksyms.sh true
 
 # Final link of vmlinux with optional arch pass after final link
-    cmd_link-leanos =                                                 \
-	$(CONFIG_SHELL) $< $(LD) $(LDFLAGS) $(LDFLAGS_leanos);
+    cmd_link-flightos =                                                 \
+	$(CONFIG_SHELL) $< $(LD) $(LDFLAGS) $(LDFLAGS_flightos);
 
 
-leanos: leanos_prereq
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-leanos.sh
+flightos: flightos_prereq
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-flightos.sh
 
 
 
 # Build samples along the rest of the kernel
 ifdef CONFIG_SAMPLES
-leanos-dirs += samples
+flightos-dirs += samples
 endif
 
 # The actual objects are generated when descending,
 # make sure no implicit rule kicks in
-$(sort $(leanos-deps)): $(leanos-dirs) ;
+$(sort $(flightos-deps)): $(flightos-dirs) ;
 
-# Handle descending into subdirectories listed in $(leanos-dirs)
+# Handle descending into subdirectories listed in $(flightos-dirs)
 # Preset locale variables to speed up the build process. Limit locale
 # tweaks to this spot to avoid wrong language settings when running
 # make menuconfig etc.
 # Error messages still appears in the original language
 
-PHONY += $(leanos-dirs)
-$(leanos-dirs): prepare scripts
+PHONY += $(flightos-dirs)
+$(flightos-dirs): prepare scripts
 	$(Q)$(MAKE) $(build)=$@
 
 
@@ -717,7 +717,7 @@ prepare: prepare0
 define filechk_version.h
 	(echo \#define LEAONS_VERSION_CODE $(shell                         \
 	expr $(VERSION) \* 65536 + 0$(PATCHLEVEL) \* 256 + 0$(SUBLEVEL)); \
-	echo '#define LEANOS_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))';)
+	echo '#define FLIGHTOS_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))';)
 endef
 
 $(version_h): $(srctree)/Makefile FORCE
@@ -760,12 +760,12 @@ endif
 # using awk while concatenating to the final file.
 
 PHONY += modules
-modules: $(leanos-dirs) $(if $(KBUILD_BUILTIN),leanos) modules.builtin
-	$(Q)$(AWK) '!x[$$0]++' $(leanos-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
+modules: $(flightos-dirs) $(if $(KBUILD_BUILTIN),flightos) modules.builtin
+	$(Q)$(AWK) '!x[$$0]++' $(flightos-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
 	@$(kecho) '  Building modules, stage 2.';
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
 
-modules.builtin: $(leanos-dirs:%=%/modules.builtin)
+modules.builtin: $(flightos-dirs:%=%/modules.builtin)
 	$(Q)$(AWK) '!x[$$0]++' $^ > $(objtree)/modules.builtin
 
 %/modules.builtin: include/config/auto.conf
@@ -775,7 +775,7 @@ modules.builtin: $(leanos-dirs:%=%/modules.builtin)
 PHONY += modules_embed_image
 modules_embed_image: modules
 	@$(kecho) '  Embedding module image, stage 3.';
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-leanos.sh embed
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-flightos.sh embed
 
 
 # Target to prepare building external modules
@@ -839,7 +839,7 @@ endif # CONFIG_MODULES
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += $(MODVERDIR)
-CLEAN_FILES += leanos
+CLEAN_FILES += flightos
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated .tmp_objdiff
@@ -852,16 +852,16 @@ MRPROPER_FILES += .config .config.old .version .old_version \
 #
 clean: rm-dirs  := $(CLEAN_DIRS)
 clean: rm-files := $(CLEAN_FILES)
-clean-dirs      := $(addprefix _clean_, . $(leanos-dirs))
+clean-dirs      := $(addprefix _clean_, . $(flightos-dirs))
 
-leanosclean:
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-leanos.sh clean
+flightosclean:
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-flightos.sh clean
 
 PHONY += $(clean-dirs) clean archclean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
-clean: $(clean-dirs) leanosclean
+clean: $(clean-dirs) flightosclean
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@find . $(RCS_FIND_IGNORE) \
@@ -916,7 +916,7 @@ help:
 	@echo  ''
 	@echo  'Other generic targets:'
 	@echo  '  all		  - Build all targets marked with [*]'
-	@echo  '* leanos		  - Build the application'
+	@echo  '* flightos		  - Build the application'
 	@echo  '  dir/            - Build all files in dir and below'
 	@echo  '  dir/file.[ois]  - Build specified target only'
 	@echo  '  dir/file.lst    - Build specified mixed source/assembly target only'

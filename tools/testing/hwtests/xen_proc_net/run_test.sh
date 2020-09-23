@@ -13,7 +13,7 @@ make || exit 1
 
 
 timeout 120 bash -c \
-	"printf \"load leanos\nrun\nquit\" |\
+	"printf \"load flightos\nrun\nquit\" |\
 	 grmon -leon2 -u -uart /dev/ttyS0  |\
        	 tee /dev/tty  			   |\
        	 grep SUCCESS &> /dev/null"

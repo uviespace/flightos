@@ -30,6 +30,6 @@ Prerequisites:
 Notes:
 ======
 
-The current .config of LeanOS will be overwritten and the image will
+The current .config of FlightOS will be overwritten and the image will
 be rebuilt.
 

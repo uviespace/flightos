@@ -1,7 +1,7 @@
 
 
 \title{Test Plan}
-\def \documentid {LEANOS-UVIE-TP-001}
+\def \documentid {FLIGHTOS-UVIE-TP-001}
 \date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
@@ -72,7 +72,7 @@
 \begin{figure}[htb]
 \begin{center}
 	\includegraphics[width=\columnwidth]{../requirements/images/OS_logical}
-	\caption{The logical model of LeanOS. Here, the "hardware" layer
+	\caption{The logical model of FlightOS. Here, the "hardware" layer
 	represents both the hardware and the hardware abstraction layer of
 	the software.}
 	\label{fig:logical_model}
@@ -80,11 +80,11 @@
 \end{figure}
 
 \noindent
-LeanOS\cite{ssdpOS}\cite{leanosADD}\cite{leanosSRS} is an operating system specifically
+FlightOS\cite{ssdpOS}\cite{flightosADD}\cite{flightosSRS} is an operating system specifically
 designed to support hardware devices with drivers and data processing on the
 \gls{Xentium} \glspl{DSP} of the \gls{SSDP}.\\
 
-In LeanOS, the \gls{SSDP} hardware is accessed in multiple layers of
+In FlightOS, the \gls{SSDP} hardware is accessed in multiple layers of
 abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
 thread/task management and timer operation are used as part of the operating
 system kernel and are also accessible by user applications via a system call
@@ -98,13 +98,13 @@ hardware modes or usage statistics may be exported by individual components for
 external (user) access. \\
 
 \noindent
-The compliance of LeanOS with its requirements and its operational environment
+The compliance of FlightOS with its requirements and its operational environment
 are partially verified by testing.
 
 
 \section{Purpose of the Document}
 
-This document defines test procedures for the LeanOS operating system.
+This document defines test procedures for the FlightOS operating system.
 In particular, it defines the:
 \begin{itemize}
 	\item types of tests
@@ -116,7 +116,7 @@ In particular, it defines the:
 
 \section{Incremental Testing}
 
-LeanOS is not envisaged to be implemented in one final form. Instead, it is
+FlightOS is not envisaged to be implemented in one final form. Instead, it is
 marked with version numbers for each release. This means that testing is
 version-dependent and is be applied in increments by executing a sub-set of
 tests only as modifications are made.
@@ -140,7 +140,7 @@ configuration files so the proper build may generated.\\
 
 \requirement{IUT-0001} {Hardware constraints}{%
 The test plan specified by the present requirements shall apply to all parts %
-of LeanOS.
+of FlightOS.
 }{}
 
 
@@ -175,7 +175,7 @@ the operational constraints applicable to the hardware used in the tests.%
 \chapter{Types of Tests}
 
 In order to satisfy the verification and validation needs of the test campaign,
-the following types of tests are defined for LeanOS:
+the following types of tests are defined for FlightOS:
 \begin{itemize}
 	\item unit and integration tests
 	\item hardware-software tests
@@ -184,7 +184,7 @@ the following types of tests are defined for LeanOS:
 
 \section {Unit and Integration Tests}
 
-LeanOS is developed as a collection of individual, interacting components.
+FlightOS is developed as a collection of individual, interacting components.
 A unit test verifies the behaviour of a single component, while an integration
 test verifies the behaviour of a number of interacting components. \\
 
@@ -196,9 +196,9 @@ hardware platform.\\
 \\
 
 \requirement{UIT-0001} {Unit/Integ. Tests}{%
-Unit and Integration Tests shall be defined and executed for LeanOS components.
+Unit and Integration Tests shall be defined and executed for FlightOS components.
 }{Tests can make use of the modified \emph{kselftest} framework provided %
-in the LeanOS source tree.
+in the FlightOS source tree.
 }%
 
 \requirement{UIT-0002} {Test Suite}{%
@@ -209,7 +209,7 @@ A unit and integration test suite shall be provided as a set of applications.
 A single mechanism shall be provided that automatically runs all unit and %
 integration tests in sequence.\\
 }{
-The \emph{kselftest} framework in the LeanOS source tree provides a %
+The \emph{kselftest} framework in the FlightOS source tree provides a %
 \emph{Makefile} setup that can be used for this purpose.}%
 
 \requirement{UIT-0004} {Test Results}{%
@@ -233,7 +233,7 @@ this category.\\
 \\
 
 \requirement{HST-0001} {Hardware Tests}{%
-Hardware-software tests shall be defined and executed for LeanOS components %
+Hardware-software tests shall be defined and executed for FlightOS components %
 with the objective of verifying the behaviour of components which directly %
 interact with the relevant target hardware.%
 }{}
@@ -258,18 +258,18 @@ using the \emph{git bisect run \ldots} functionality.}%
 \section {Acceptance Tests}
 
 Acceptance tests are performed by the user on the integrated processing unit.
-Their objective is to exercise the selected LeanOS configuration while running
-in its operational environment. The operational environment for LeanOS is
+Their objective is to exercise the selected FlightOS configuration while running
+in its operational environment. The operational environment for FlightOS is
 defined by the user according to their use case.\\
 
 
 
 \requirement{ACT-0001} {Acceptance Tests}{%
-Acceptance tests and their procedures shall be defined and executed for LeanOS.
+Acceptance tests and their procedures shall be defined and executed for FlightOS.
 }{}
 
 \requirement{ACT-0002} {Use Cases}{%
-The configuration and operational environment for an acceptance test of LeanOS
+The configuration and operational environment for an acceptance test of FlightOS
 shall be defined by the user according to their use case.
 }{}
 
@@ -278,7 +278,7 @@ shall be defined by the user according to their use case.
 
 \chapter{Test Environments}
 
-Test beds in which LeanOS tests are performed:
+Test beds in which FlightOS tests are performed:
 
 \begin{itemize}
 	\item general-purpose platform for regular unit and integration tests
@@ -308,7 +308,7 @@ The test environment for unit and integration tests is shown in
 \fig{fig:unittest}.\\
 
 \noindent
-The item under test is either one or a set of components of LeanOS. If needed,
+The item under test is either one or a set of components of FlightOS. If needed,
 stub and mockup functions, which simulate the expected behaviour of external
 dependcies, are defined to create a representative environment in which the item
 under test is running.\\
@@ -352,15 +352,15 @@ deviations are acceptable, provided a justification is given.\\
 \\
 
 \requirement{SCC-0001} {Statement Coverage}{%
-Unit and integration tests shall offer full statement coverage for LeanOS code.%
+Unit and integration tests shall offer full statement coverage for FlightOS code.%
 }{}%
 
 \requirement{SCC-0002} {Decision Coverage}{%
-Unit and integration tests shall offer full decision coverage for LeanOS code.%
+Unit and integration tests shall offer full decision coverage for FlightOS code.%
 }{}%
 
 \requirement{SCC-0003} {Condition Coverage}{%
-Unit and integration tests shall offer full condition coverage for LeanOS code.%
+Unit and integration tests shall offer full condition coverage for FlightOS code.%
 }{}%
 
 \requirement{SCC-0004} {Reduced Coverage}{%

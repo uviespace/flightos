@@ -1,27 +1,27 @@
 #!/bin/sh
 #
-# link leanos
+# link flightos
 #
-# leanos is linked from the objects selected by $(KBUILD_LEANOS_INIT) and
-# $(KBUILD_LEANOS_MAIN). Most are built-in.o files from top-level directories
+# flightos is linked from the objects selected by $(KBUILD_FLIGHTOS_INIT) and
+# $(KBUILD_FLIGHTOS_MAIN). Most are built-in.o files from top-level directories
 # in the kernel tree, others are specified in arch/$(ARCH)/Makefile.
-# Ordering when linking is important, and $(KBUILD_LEANOS_INIT) must be first.
+# Ordering when linking is important, and $(KBUILD_FLIGHTOS_INIT) must be first.
 #
-# leanos
+# flightos
 #   ^
 #   |
-#   +-< $(KBUILD_LEANOS_INIT)
+#   +-< $(KBUILD_FLIGHTOS_INIT)
 #   |   +--< init/version.o + more
 #   |
-#   +--< $(KBUILD_LEANOS_MAIN)
+#   +--< $(KBUILD_FLIGHTOS_MAIN)
 #   |    +--< drivers/built-in.o mm/built-in.o + more
 #   |
 #   +-< ${kallsymso} (see description in KALLSYMS section)
 #
-# leanos version (uname -v) cannot be updated during normal
+# flightos version (uname -v) cannot be updated during normal
 # descending-into-subdirs phase since we do not yet know if we need to
-# update leanos.
-# Therefore this step is delayed until just before final link of leanos.
+# update flightos.
+# Therefore this step is delayed until just before final link of flightos.
 #
 # System.map is generated to document addresses of all kernel symbols
 
@@ -38,7 +38,7 @@ info()
 }
 
 # Thin archive build here makes a final archive with
-# symbol table and indexes from leanos objects, which can be
+# symbol table and indexes from flightos objects, which can be
 # used as input to linker.
 #
 # Traditional incremental style of link does not require this step
@@ -51,12 +51,12 @@ archive_builtin()
 		info AR built-in.o
 		rm -f built-in.o;
 		${AR} rcsT${KBUILD_ARFLAGS} built-in.o			\
-					${KBUILD_LEANOS_INIT}		\
-					${KBUILD_LEANOS_MAIN}
+					${KBUILD_FLIGHTOS_INIT}		\
+					${KBUILD_FLIGHTOS_MAIN}
 	fi
 }
 
-# Link of leanos.o used for section mismatch analysis
+# Link of flightos.o used for section mismatch analysis
 # ${1} output file
 modpost_link()
 {
@@ -65,19 +65,19 @@ modpost_link()
 	if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
 		objects="--whole-archive built-in.o"
 	else
-		objects="${KBUILD_LEANOS_INIT}				\
+		objects="${KBUILD_FLIGHTOS_INIT}				\
 			--start-group					\
-			${KBUILD_LEANOS_MAIN}				\
+			${KBUILD_FLIGHTOS_MAIN}				\
 			--end-group"
 	fi
 	${LD} ${LDFLAGS} -r -o ${1} ${objects}
 }
 
-# Link of leanos
+# Link of flightos
 # ${1} - optional extra .o files
 # ${2} - output file
 # ${3} - extra flags
-leanos_link()
+flightos_link()
 {
 	local lds="${objtree}/${KBUILD_LDS}"
 
@@ -85,13 +85,13 @@ leanos_link()
 	# if we link against the (BCC) libc, we'll just
 	# call $CC instead of LD
 	if [ -n "${CONFIG_TARGET_COMPILER_BOOT_CODE}" ]; then
-		${CC} ${LDFLAGS} ${LDFLAGS_leanos} ${3} -o ${2}		\
-			${KBUILD_LEANOS_INIT} ${KBUILD_LEANOS_MAIN} ${1}
+		${CC} ${LDFLAGS} ${LDFLAGS_flightos} ${3} -o ${2}		\
+			${KBUILD_FLIGHTOS_INIT} ${KBUILD_FLIGHTOS_MAIN} ${1}
 	fi
 
 	if [ -n "${CONFIG_ARCH_CUSTOM_BOOT_CODE}" ]; then
-		${LD} ${LDFLAGS} ${LDFLAGS_leanos} ${3} -o ${2}		\
-			-T ${lds} ${KBUILD_LEANOS_INIT} ${KBUILD_LEANOS_MAIN} \
+		${LD} ${LDFLAGS} ${LDFLAGS_flightos} ${3} -o ${2}		\
+			-T ${lds} ${KBUILD_FLIGHTOS_INIT} ${KBUILD_FLIGHTOS_MAIN} \
 			${1}
 	fi
 
@@ -150,11 +150,11 @@ cleanup()
 	rm -f .tmp_System.map
 	rm -f .tmp_kallsyms*
 	rm -f .tmp_version
-	rm -f .tmp_leanos*
+	rm -f .tmp_flightos*
 	rm -f built-in.o
 	rm -f System.map
-	rm -f leanos
-	rm -f leanos.o
+	rm -f flightos
+	rm -f flightos.o
 }
 
 on_exit()
@@ -197,12 +197,12 @@ esac
 
 archive_builtin
 
-#link leanos.o
-info LD leanos.o
-modpost_link leanos.o
+#link flightos.o
+info LD flightos.o
+modpost_link flightos.o
 
-# modpost leanos.o to check for section mismatches
-${MAKE} -f "${srctree}/scripts/Makefile.modpost" leanos.o
+# modpost flightos.o to check for section mismatches
+${MAKE} -f "${srctree}/scripts/Makefile.modpost" flightos.o
 
 # Update version
 info GEN .version
@@ -218,64 +218,64 @@ fi;
 ${MAKE} -f "${srctree}/scripts/Makefile.build" obj=init GCC_PLUGINS_CFLAGS="${GCC_PLUGINS_CFLAGS}"
 
 kallsymso=""
-kallsyms_leanos=""
+kallsyms_flightos=""
 if [ -n "${CONFIG_KALLSYMS}" ]; then
 
 	# kallsyms support
-	# Generate section listing all symbols and add it into leanos
+	# Generate section listing all symbols and add it into flightos
 	# It's a three step process:
-	# 1)  Link .tmp_leanos1 so it has all symbols and sections,
+	# 1)  Link .tmp_flightos1 so it has all symbols and sections,
 	#     but __kallsyms is empty.
 	#     Running kallsyms on that gives us .tmp_kallsyms1.o with
 	#     the right size
-	# 2)  Link .tmp_leanos2 so it now has a __kallsyms section of
+	# 2)  Link .tmp_flightos2 so it now has a __kallsyms section of
 	#     the right size, but due to the added section, some
 	#     addresses have shifted.
 	#     From here, we generate a correct .tmp_kallsyms2.o
 	# 2a) We may use an extra pass as this has been necessary to
 	#     woraround some alignment related bugs.
 	#     KALLSYMS_EXTRA_PASS=1 is used to trigger this.
-	# 3)  The correct ${kallsymso} is linked into the final leanos.
+	# 3)  The correct ${kallsymso} is linked into the final flightos.
 	#
-	# a)  Verify that the System.map from leanos matches the map from
+	# a)  Verify that the System.map from flightos matches the map from
 	#     ${kallsymso}.
 
 	kallsymso=.tmp_kallsyms2.o
-	kallsyms_leanos=.tmp_leanos2
+	kallsyms_flightos=.tmp_flightos2
 
 	# step 1
-	leanos_link "" .tmp_leanos1
-	kallsyms .tmp_leanos1 .tmp_kallsyms1.o
+	flightos_link "" .tmp_flightos1
+	kallsyms .tmp_flightos1 .tmp_kallsyms1.o
 
 	# step 2
-	leanos_link .tmp_kallsyms1.o .tmp_leanos2
-	kallsyms .tmp_leanos2 .tmp_kallsyms2.o
+	flightos_link .tmp_kallsyms1.o .tmp_flightos2
+	kallsyms .tmp_flightos2 .tmp_kallsyms2.o
 
 	# step 2a
 	if [ -n "${KALLSYMS_EXTRA_PASS}" ]; then
 		kallsymso=.tmp_kallsyms3.o
-		kallsyms_leanos=.tmp_leanos3
+		kallsyms_flightos=.tmp_flightos3
 
-		leanos_link .tmp_kallsyms2.o .tmp_leanos3
+		flightos_link .tmp_kallsyms2.o .tmp_flightos3
 
-		kallsyms .tmp_leanos3 .tmp_kallsyms3.o
+		kallsyms .tmp_flightos3 .tmp_kallsyms3.o
 	fi
 fi
 
-info LD leanos
-leanos_link "${kallsymso}" leanos
+info LD flightos
+flightos_link "${kallsymso}" flightos
 
 if [ -n "${CONFIG_BUILDTIME_EXTABLE_SORT}" ]; then
-	info SORTEX leanos
-	sortextable leanos
+	info SORTEX flightos
+	sortextable flightos
 fi
 
 info SYSMAP System.map
-mksysmap leanos System.map
+mksysmap flightos System.map
 
 # step a (see comment above)
 if [ -n "${CONFIG_KALLSYMS}" ]; then
-	mksysmap ${kallsyms_leanos} .tmp_System.map
+	mksysmap ${kallsyms_flightos} .tmp_System.map
 
 	if ! cmp -s System.map .tmp_System.map; then
 		echo >&2 Inconsistent kallsyms data
@@ -313,7 +313,7 @@ if [ "$1" = "embed" ]; then
 		"${CONFIG_EMBED_APPLICATION}"
 		
 
-	leanos_link "${kallsymso}" leanos "${embedflags}"
+	flightos_link "${kallsymso}" flightos "${embedflags}"
 	exit
 fi
 

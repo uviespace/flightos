@@ -2,7 +2,7 @@
 #
 # Xentium kernels are built as executables, with library functions
 # explicitly listed as object dependencies. The executables are later collected
-# in scripts/link-leanos.sh and added to the embedded AR image.
+# in scripts/link-flightos.sh and added to the embedded AR image.
 #
 # The address of the .text section for the first xentium kernel is determined
 # by the confiuration in dsp/xentium/sysroot/lib/default.ld, all subsequent

@@ -1,7 +1,7 @@
 
 
 \title{Architectural Design Document}
-\def \documentid {LEANOS-UVIE-ADD-001}
+\def \documentid {FLIGHTOS-UVIE-ADD-001}
 \date{Issue 1.0, June 1, 2017}
 
 \newcommand\affil[1]{\textsuperscript#1}
@@ -65,8 +65,8 @@
 \section{Purpose of the Document}
 
 This document specifies the software architecture for the operating system
-kernel LeanOS. This document targets developers, testers and advanced users of
-LeanOS. It is assumed that the reader is familiar with the user requirements
+kernel FlightOS. This document targets developers, testers and advanced users of
+FlightOS. It is assumed that the reader is familiar with the user requirements
 and/or the software user manual. \\
 
 
@@ -79,7 +79,7 @@ found in Annex F of ECSS-E-ST-40C \cite{ECSS40C}.
 
 The architectural design aims to be at a high degree of encapsulation, with a
 comparatively restricted number of system call interfaces to user space.
-The user \gls{API} of LeanOS will orient itself to \gls{POSIX} standards where
+The user \gls{API} of FlightOS will orient itself to \gls{POSIX} standards where
 applicable. Extra functionality that is typically found in supporting
 C libraries is part of the user space and must be implemented accordingly.
 
@@ -105,12 +105,12 @@ C libraries is part of the user space and must be implemented accordingly.
 \begin{figure}[htb]
 \begin{center}
 	\includegraphics[width=0.4\columnwidth]{images/OS_fundamental_architecture}
-	\caption{The fundamental architecture of LeanOS}
+	\caption{The fundamental architecture of FlightOS}
 	\label{fig:fundamental_architecture}
 \end{center}
 \end{figure}
 
-The fundamental architecture of LeanOS is shown in
+The fundamental architecture of FlightOS is shown in
 \fig{fig:fundamental_architecture}. At the top is the user space, where user
 applications are set up and executed. The C library is part of the user space.
 It provides the system call interface that connects the user to kernel space
@@ -120,7 +120,7 @@ space. Here, the tasks of the operating system kernel are executed.
 Kernel space can be further divided into three gross layers. At the top is the
 system call interface, which implements any I/O functionality to the user space.
 Below the system call interface is the architecture-independent kernel code.
-While LeanOS is not designed with a high degree of portability in mind, it is
+While FlightOS is not designed with a high degree of portability in mind, it is
 nonetheless sensible not to mix hardware dependent code into layers that run
 on abstract functional concepts. On the lowest level sits the
 architecture-dependent code, which forms what is typically called a \gls{BSP}.
@@ -129,13 +129,13 @@ This code serves as platform-specific glue to the underlying hardware.
 
 \section{Software Dynamic Architecture}
 
-LeanOS itself has no real time requirements. It does offer real time support for
+FlightOS itself has no real time requirements. It does offer real time support for
 threads in both kernel and user space, these are however specific to the
 implementation of user space code or drivers/modules.
 
 \section{Software Behaviour}
 
-The behaviour of LeanOS is configuration-dependent. Usually, the kernel will
+The behaviour of FlightOS is configuration-dependent. Usually, the kernel will
 configure itself and the hardware, followed by user space initialisation.
 
 Without user space, all actions by the drivers or other subcomponents will be
@@ -147,13 +147,13 @@ drivers will usually ignore their inputs and drop all received.
 
 \section{Interfaces Context}
 
-The internal and external software interfaces of LeanOS are described as part
+The internal and external software interfaces of FlightOS are described as part
 of its source code in Doxygen markup, from which a document can be generated.
 
 \section{Long Lifetime Software}
 
-LeanOS is designed with the \gls{SSDP} as a target platform. To allow re-use
-and adaptation to new hardware, the software components of LeanOS are designed
+FlightOS is designed with the \gls{SSDP} as a target platform. To allow re-use
+and adaptation to new hardware, the software components of FlightOS are designed
 to be modular. Unless neeeded for particular drivers, all hardware access is
 abstracted into a separate layer as much as possible, so improved portability
 is ensured.
@@ -161,7 +161,7 @@ is ensured.
 
 \section{Memory and CPU Budget}
 
-LeanOS is designed to work within the constraints of the \gls{SSDP} hardware
+FlightOS is designed to work within the constraints of the \gls{SSDP} hardware
 specification. Care is taken to minimise overheads, but run time needs of the
 user ultimately define memory and CPU usage of the operating system.
 
@@ -171,7 +171,7 @@ user ultimately define memory and CPU usage of the operating system.
 The high level design of software functionality is done with the help of
 \emph{yEd}, which is a general-purpose diagramming program supporting the
 creation of UML, flowcharts and entitiy relationship diagrams.
-LeanOS is written primarily in C, hence certain restrictions apply in the use of
+FlightOS is written primarily in C, hence certain restrictions apply in the use of
 UML, which is mainly used of object oriented programming languages such as C++.
 \\
 
@@ -180,16 +180,16 @@ or communication between components. The detailed internal functional design of
 a component is left to the implementation and is described as part of the
 version dependent issue of the source code. This is done to ensure that a
 certain amount of flexibility is present in the implementation and changes that
-do not affect the fundamental design architecture of LeanOS can be applied
+do not affect the fundamental design architecture of FlightOS can be applied
 quickly and efficiently, since it is foremost a tool to the user with the
 purpose of creating a run-time, not a product implementing a well constrained
 task.\\
 
-The Linux kernel coding style is applied to all C code in LeanOS. Its use is
+The Linux kernel coding style is applied to all C code in FlightOS. Its use is
 enforced by the \emph{checkpatch.pl} utility found in the Linux kernel source
 tree.\\
 
-No external software packages are reused in the implementation of LeanOS.
+No external software packages are reused in the implementation of FlightOS.
 
 
 \chapter{Software Design}
@@ -198,7 +198,7 @@ No external software packages are reused in the implementation of LeanOS.
 \section{General}
 
 
-The purpose of LeanOS is to create an operating system that is easy to use and on
+The purpose of FlightOS is to create an operating system that is easy to use and on
 point with regard to the features of the target platform. Still, it is designed
 to be flexible enough that the operating system kernel may be used with other
 (\gls{LEON3}) platforms. One of its distinguishing features is its focus on
@@ -226,7 +226,7 @@ matrix.
 \begin{figure}[htb]
 \begin{center}
 	\includegraphics[width=\columnwidth]{../requirements/images/OS_logical}
-	\caption{The architectural model of LeanOS. Here, the "hardware" layer
+	\caption{The architectural model of FlightOS. Here, the "hardware" layer
 	represents both the hardware and the hardware abstraction layer of
 	the software.}
 	\label{fig:logical_model}
@@ -234,7 +234,7 @@ matrix.
 \end{figure}
 
 
-In LeanOS, the \gls{SSDP} hardware is accessed in multiple layers of
+In FlightOS, the \gls{SSDP} hardware is accessed in multiple layers of
 abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
 thread/task management and timer operation are used as part of the operating
 system kernel and are also accessible by user applications via a system call
@@ -255,7 +255,7 @@ modes or usage statistics may be exported by individual components for external
 
 \design{GEN-0001}%
 {Boot}{%
-This is the hardware entry point of LeanOS. The boot procedure sets up and
+This is the hardware entry point of FlightOS. The boot procedure sets up and
 configures the \gls{LEON3-FT} processor for operation, initialises a minimum set of 
 needed hardware devices and memories as well as the initial system stack.
 }%
@@ -281,7 +281,7 @@ system call or sysctl interfaces.
 {In order to operate a \gls{SPARC} v8 \gls{CPU} properly, a trap table must be
 configured, in particular to handle register window under and overflow traps if
 used with regular \gls{GCC} code generation for the target platform.
-LeanOS configures a callback system for interrupt traps that can later be used
+FlightOS configures a callback system for interrupt traps that can later be used
 to install custom handlers, for example as part of driver modules.\newline
 
 Interrupt statistics are exported via the system control interface.
