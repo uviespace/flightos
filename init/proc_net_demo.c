@@ -208,11 +208,11 @@ void pn_new_input_task(struct proc_net *pn, size_t n)
 }
 
 
-int demo(void *p __attribute__((unused)))
+int proc_net_demo(void *p __attribute__((unused)))
 {
 	struct proc_net *pn;
 
-	printk("DEMO STARTING\n");
+	printk("PROC_NET DEMO STARTING\n");
 
 	pn = pn_create();
 
@@ -232,17 +232,17 @@ int demo(void *p __attribute__((unused)))
 	pn_process_outputs(pn);
 
 
-	printk("DEMO COMPLETE\n");
+	printk("PROC_NET DEMO COMPLETE\n");
 
 	return 0;
 }
 
 
-void demo_start(void)
+void proc_net_demo_start(void)
 {
 	struct task_struct *t;
 
-	t = kthread_create(demo, NULL, KTHREAD_CPU_AFFINITY_NONE, "DEMO");
+	t = kthread_create(demo, NULL, KTHREAD_CPU_AFFINITY_NONE, "PROC_NET_DEMO");
 
 	/* allocate 98% of the cpu */
 	kthread_set_sched_edf(t, 100*1000, 99*1000, 98*1000);
