@@ -1,253 +1,235 @@
 
-/**
- * This creates a number processing nodes in a processing network.
- * Two special trackers are used for input and output.
- */
-
-
 #include <kernel/kernel.h>
 #include <kernel/kmem.h>
 #include <kernel/kthread.h>
-
-#include <data_proc_task.h>
-#include <data_proc_tracker.h>
-#include <data_proc_net.h>
-
-
-#define CRIT_LEVEL	10
-
-#define OP_ADD		0x1234
-#define OP_SUB		0x1235
-#define OP_MUL		0x1236
-
-#define STEPS	3
+#include <kernel/err.h>
+#include <kernel/smp.h>
+#include <asm/io.h>
 
 
 
-int op_output(unsigned long op_code, struct proc_task *t)
+static volatile double per_loop_avg[CONFIG_SMP_CPUS_MAX];
+
+static int copytask(void *data)
 {
-	ssize_t i;
-	ssize_t n;
-
-	unsigned int *p = NULL;
-
-
-	n = pt_get_nmemb(t);
-	printk("OUT: op code %d, %d items\n", op_code, n);
-
-	if (!n)
-		goto exit;
-
-
-	p = (unsigned int *) pt_get_data(t);
-	if (!p)
-		goto exit;
-
-
-
-	for (i = 0; i < n; i++) {
-		printk("\t%d\n", p[i]);
-	}
-
-exit:
-	kfree(p);	/* clean up our data buffer */
-
-	pt_destroy(t);
-
-	return PN_TASK_SUCCESS;
-}
-
-
-int op_add(unsigned long op_code, struct proc_task *t)
-{
-
-	ssize_t i;
-	ssize_t n;
-
-	unsigned int *p;
-
-
-	n = pt_get_nmemb(t);
-
-	if (!n)
-		return PN_TASK_SUCCESS;
-
-
-	p = (unsigned int *) pt_get_data(t);
-
-	if (!p)	/* we have elements but data is NULL, error*/
-		return PN_TASK_DESTROY;
-
-	printk("ADD: op code %d, %d items\n", op_code, n);
-
-	for (i = 0; i < n; i++) {
-		p[i] += 10;
-	}
-
-
-	return PN_TASK_SUCCESS;
-}
-
-int op_sub(unsigned long op_code, struct proc_task *t)
-{
-
-	ssize_t i;
-	ssize_t n;
-
-	unsigned int *p;
-
-
-	n = pt_get_nmemb(t);
-
-	if (!n)
-		return PN_TASK_SUCCESS;
-
-
-	p = (unsigned int *) pt_get_data(t);
-
-	if (!p)	/* we have elements but data is NULL, error*/
-		return PN_TASK_DESTROY;
-
-	printk("SUB: op code %d, %d items\n", op_code, n);
-
-	for (i = 0; i < n; i++) {
-		p[i] -= 2;
-	}
-
-
-	return PN_TASK_SUCCESS;
-}
-
-int op_mul(unsigned long op_code, struct proc_task *t)
-{
-
-	ssize_t i;
-	ssize_t n;
-
-	unsigned int *p;
-
-
-	n = pt_get_nmemb(t);
-
-	if (!n)
-		return PN_TASK_SUCCESS;
-
-
-	p = (unsigned int *) pt_get_data(t);
-
-	if (!p)	/* we have elements but data is NULL, error*/
-		return PN_TASK_DESTROY;
-
-	printk("MUL: op code %d, %d items\n", op_code, n);
-
-	for (i = 0; i < n; i++) {
-		p[i] *= 3;
-	}
-
-
-	return PN_TASK_SUCCESS;
-}
-
-
-int pn_prepare_nodes(struct proc_net *pn)
-{
-	struct proc_tracker *pt;
-
-
-	/* create and add processing node trackers for the each operation */
-
-	pt = pt_track_create(op_add, OP_ADD, CRIT_LEVEL);
-	BUG_ON(!pt);
-	BUG_ON(pn_add_node(pn, pt));
-
-	pt = pt_track_create(op_sub, OP_SUB, CRIT_LEVEL);
-	BUG_ON(!pt);
-	BUG_ON(pn_add_node(pn, pt));
-
-	pt = pt_track_create(op_mul, OP_MUL, CRIT_LEVEL);
-	BUG_ON(!pt);
-	BUG_ON(pn_add_node(pn, pt));
-
-	BUG_ON(pn_create_output_node(pn, op_output));
-
-	return 0;
-}
-
-
-
-void pn_new_input_task(struct proc_net *pn, size_t n)
-{
-	struct proc_task *t;
-
-	static int seq;
-
+#define BUFLEN	1024*1024
 	int i;
-	unsigned int *data;
+	int cpu;
+	int *go;
+
+	ktime cnt = 0;
+	ktime start, stop;
+	ktime total = 0;
+
+//	static uint32_t *common[CONFIG_SMP_CPUS_MAX];
+	static uint32_t *cpu_buf[CONFIG_SMP_CPUS_MAX];
 
 
-	t = pt_create(NULL, 0, STEPS, 0, seq++);
 
-	BUG_ON(!t);
-
-	BUG_ON(pt_add_step(t, OP_ADD, NULL));
-	BUG_ON(pt_add_step(t, OP_SUB, NULL));
-	BUG_ON(pt_add_step(t, OP_MUL, NULL));
+	go = (int *) data;
 
 
+	cpu = smp_cpu_id();
 
-	data = kzalloc(sizeof(unsigned int) * n);
-
-	for (i = 0; i < n; i++)
-		data[i] = i;
-
-	pt_set_data(t, data, n * sizeof(unsigned int));
-	pt_set_nmemb(t, n);
+	cpu_buf[smp_cpu_id()] = kmalloc(BUFLEN * sizeof(uint32_t));
 
 
-	pn_input_task(pn, t);
+	if (!cpu_buf[cpu])
+		return 0;
+
+	(*go) = 1;	/* signal ready */
+
+	/* wait for trigger */
+	while (ioread32be(go) != CONFIG_SMP_CPUS_MAX);
+
+	while (ioread32be(go)) {
+		start = ktime_get();
+
+		for (i = 0 ; i < BUFLEN; i++) {
+			cpu_buf[cpu][i] = cpu_buf[CONFIG_SMP_CPUS_MAX - cpu - 1][i];
+		}
+
+		stop = ktime_get();
+
+		total += stop - start;
+
+		cnt++;
+
+		per_loop_avg[cpu] = ( ((double) total / (double) cnt) / (double) (BUFLEN));
+
+	}
+
+	return 0;
 }
 
-
-int demo(void *p __attribute__((unused)))
+int copy_resprint(void *data)
 {
-	struct proc_net *pn;
+	int i;
+	int *go;
 
-	printk("DEMO STARTING\n");
+	ktime start;
 
-	pn = pn_create();
-
-	BUG_ON(!pn);
-
-	pn_prepare_nodes(pn);
+	double res[CONFIG_SMP_CPUS_MAX];
 
 
-	pn_new_input_task(pn, 5);
-	pn_new_input_task(pn, 0);
-	pn_new_input_task(pn, 3);
+	go = (int *) data;
 
-	pn_process_inputs(pn);
+	/* wait for trigger */
+	while (ioread32be(go) != CONFIG_SMP_CPUS_MAX);
 
-	while (pn_process_next(pn));
+	start = ktime_get();
 
-	pn_process_outputs(pn);
+	/* wait for about 60 seconds */
+	while (ktime_delta(ktime_get(), start) < ms_to_ktime(360 * 1000)) {
+
+		for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++)
+			res[i] = per_loop_avg[i];
+
+		printk("%g ", 0.001 * (double) ktime_to_ms(ktime_get()));
+
+		for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++)
+			printk("%g ", res[i]);
+
+		printk("\n");
+	}
 
 
-	printk("DEMO COMPLETE\n");
+	(*go) = 0; /* signal stop */
 
 	return 0;
 }
 
 
-void demo_start(void)
+int copybench_start(void)
 {
+	int i;
+	int go;
+
 	struct task_struct *t;
 
-	t = kthread_create(demo, NULL, KTHREAD_CPU_AFFINITY_NONE, "DEMO");
 
-	/* allocate 98% of the cpu */
-	kthread_set_sched_edf(t, 100*1000, 99*1000, 98*1000);
 
-	if (kthread_wake_up(t) < 0)
-		printk("---- IASW NOT SCHEDULABLE---\n");
+	printk("COPYBENCH STARTING\n");
+
+	printk("Creating tasks, please stand by\n");
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+//	for (i = CONFIG_SMP_CPUS_MAX - 1; i >= 0; i--) {
+
+		go = 0;
+
+		t = kthread_create(copytask, &go, i, "COPYTASK");
+
+		if (!IS_ERR(t)) {
+			/* allocate 95% of the cpu, period = 1s */
+			kthread_set_sched_edf(t, 1000 * 1000, 980 * 1000, 950 * 1000);
+
+			if (kthread_wake_up(t) < 0) {
+				printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+				BUG();
+			}
+
+			while (!ioread32be(&go)); /* wait for task to become ready */
+
+		} else {
+			printk("Got an error in kthread_create!");
+			break;
+		}
+
+		printk("Copy task ready on cpu %d\n", i);
+	}
+
+	printk("Creating RR cpu-hopping printout task\n");
+
+	t = kthread_create(copy_resprint, &go, KTHREAD_CPU_AFFINITY_NONE, "PRINTTASK");
+	if (kthread_wake_up(t) < 0) {
+		printk("---- %s NOT SCHEDUL-ABLE---\n", t->name);
+		BUG();
+	}
+
+	printk("Triggering...\n");
+
+	go = CONFIG_SMP_CPUS_MAX; /* set trigger */
+	sched_yield();
+
+	while (ioread32be(&go)); /* wait for completion */
+
+	printk("Average time to cross-copy buffers:\n");
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+		printk("\tCPU %d: %ld ns per sample\n", per_loop_avg[i]);
+	}
+
+	printk("COPYBENCH DONE\n");
+
+	return 0;
 }
 
+
+int edftask(void *data)
+{
+	int i;
+	int loops = (* (int *) data);
+
+
+	for (i = 0; i < loops; i++);
+
+
+	return i;
+}
+
+
+int oneshotedf_start(void)
+{
+	int i;
+	int loops = 1700000000;
+
+	struct task_struct *t[CONFIG_SMP_CPUS_MAX];
+
+
+
+//	printk("EDF CREATE STARTING\n");
+
+//	printk("Creating tasks, please stand by\n");
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+
+		t[i] = kthread_create(edftask, &loops, i, "EDFTASK");
+
+		if (!IS_ERR(t)) {
+			/* creaate and launch edf thread */
+			kthread_set_sched_edf(t[i], 0, 100, 50);
+
+			if (kthread_wake_up(t[i]) < 0) {
+				printk("---- %s NOT SCHEDUL-ABLE---\n", t[i]->name);
+				BUG();
+			}
+		} else {
+			printk("Got an error in kthread_create!");
+			break;
+		}
+
+//		printk("Copy task ready on cpu %d\n", i);
+	}
+
+	sched_yield();
+
+	printk("%lld\n", ktime_to_ms(ktime_get()));
+	printk("Wakeup, creation, exec_start, exec_stop, deadline:\n");
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+		printk("\tCPU %d: %lld %lld %lld %lld %lld\n",
+		       i,
+		       ktime_to_us(ktime_delta(t[i]->wakeup_first,     t[i]->create)),
+		       ktime_to_us(ktime_delta(t[i]->wakeup,     t[i]->create)),
+		       ktime_to_us(ktime_delta(t[i]->exec_start, t[i]->create)),
+		       ktime_to_us(ktime_delta(t[i]->exec_stop, t[i]->create)),
+		       ktime_to_us(ktime_delta(t[i]->deadline,   t[i]->create)));
+	}
+
+	printk("COPYBENCH DONE\n");
+
+	return 0;
+
+
+}
