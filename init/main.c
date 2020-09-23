@@ -49,6 +49,11 @@
 /** XXX dummy **/
 extern int cpu_ready[CONFIG_SMP_CPUS_MAX];
 
+void demo_start(void);
+int copybench_start(void);
+int oneshotedf_start(void);
+
+
 /**
  * @brief kernel initialisation routines
  */
@@ -76,6 +81,8 @@ int kernel_main(void)
 	struct elf_module m __attribute__((unused));
 
 
+
+#ifdef CONFIG_EMBED_MODULES_IMAGE
 	printk(MSG "Loading module image\n");
 
 	/* load the embedded AR image */
@@ -105,6 +112,7 @@ int kernel_main(void)
 		module_load(&m, addr);
 
 	modules_list_loaded();
+#endif
 #endif
 
 
@@ -139,7 +147,7 @@ int kernel_main(void)
 
 	}
 
-	printk(MSG "Boot complete\n");
+//	printk(MSG "Boot complete\n");
 
 #ifdef CONFIG_EMBED_APPLICATION
 	/* dummy demonstrator */
@@ -155,6 +163,13 @@ int kernel_main(void)
 #endif
 #endif
 
+#if 0
+	copybench_start();
+#else
+
+	//demo_start();
+	oneshotedf_start();
+#endif
 
 	while(1)
 		cpu_relax();

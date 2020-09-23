@@ -51,14 +51,14 @@ static void kthread_unlock(void)
 
 
 void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
-			   unsigned long wcet_us, unsigned long deadline_rel_us)
+			   unsigned long deadline_rel_us, unsigned long wcet_us)
 {
 	struct sched_attr attr;
 	sched_get_attr(task, &attr);
 	attr.policy = SCHED_EDF;
 	attr.period       = us_to_ktime(period_us);
-	attr.deadline_rel = us_to_ktime(wcet_us);
-	attr.wcet         = us_to_ktime(deadline_rel_us);
+	attr.deadline_rel = us_to_ktime(deadline_rel_us);
+	attr.wcet         = us_to_ktime(wcet_us);
 	sched_set_attr(task, &attr);
 }
 
@@ -70,6 +70,7 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 
 void kthread_free(struct task_struct *task)
 {
+	return;
 	if (task->flags & TASK_NO_CLEAN) /* delete from list as well */
 		return;
 
@@ -107,7 +108,9 @@ int kthread_wake_up(struct task_struct *task)
 	kthread_lock();
 	now = ktime_get();
 
-	sched_wake(task, ktime_get());
+	sched_wake(task, now);
+
+	task->wakeup_first = now;
 
 	/* this may be a critical task, send reschedule */
 	if (task->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
@@ -213,6 +216,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 		return NULL;
 	}
 
+	task->create = ktime_get();
 	task->total  = 0;
 	task->slices = 0;
 	task->on_cpu = cpu;

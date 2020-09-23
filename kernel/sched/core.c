@@ -41,6 +41,7 @@ static void sched_update_runtime(struct task_struct *task, ktime now)
 
 	rt = ktime_sub(now, task->exec_start);
 
+	task->exec_stop = now;
 	task->runtime = ktime_sub(task->runtime, rt);
 	task->total   = ktime_add(task->total, rt);
 
@@ -348,7 +349,7 @@ int sched_get_attr(struct task_struct *task, struct sched_attr *attr)
 int sched_set_policy_default(struct task_struct *task)
 {
 	struct sched_attr attr = {.policy   = SCHED_RR,
-				  .priority = 1};
+				  .priority = 100};
 
 
 	return sched_set_attr(task, &attr);

@@ -79,7 +79,11 @@ struct task_struct {
 	ktime				wakeup; /* start of next period */
 	ktime				deadline; /* deadline of current period */
 
+	ktime				create; /* start of next period */
+
+	ktime				wakeup_first;
 	ktime				exec_start;
+	ktime				exec_stop;
 	ktime				total;
 	unsigned long			slices;
 

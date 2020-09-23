@@ -120,11 +120,11 @@ static void boot_cpus(void)
 
 	for (i = 1; i < CONFIG_SMP_CPUS_MAX; i++) {
 
-		printk("booting cpu %d\n", i);
+		pr_info("booting cpu %d\n", i);
 		cpu_wake(i);
 
 		while (!ioread32be(&cpu_ready[i]));
-		printk("cpu %d booted\n", i);
+		pr_info("cpu %d booted\n", i);
 
 	}
 }
@@ -141,7 +141,7 @@ void smp_cpu_entry(void)
 
 	arch_local_irq_enable();
 
-	printk("hi i'm cpu %d\n", leon3_cpuid());
+	pr_info("hi i'm cpu %d\n", leon3_cpuid());
 
 	BUG_ON(!leon3_cpuid());
 	/* signal ready */
