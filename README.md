@@ -2,7 +2,7 @@
 
 This is a development snapshot of the Vienna Flight OS intended for future use
 in software contributions by the
-[space instrumentation working group](https://www.univie.ac.at/space/gtknodes/index.html)
+[space instrumentation working group](https://space.univie.ac.at)
 at the Department of Astrophysics of the University of Vienna.
 
 The current focus is on LEON3/LEON4 SPARC processors, but ports to different
