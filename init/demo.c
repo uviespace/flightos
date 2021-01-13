@@ -6,13 +6,16 @@
 #include <kernel/smp.h>
 #include <asm/io.h>
 
+/* test duration */
+#define SECONDS	10
 
+/* copied buffer elements */
+#define BUFLEN	1024*1024
 
 static volatile double per_loop_avg[CONFIG_SMP_CPUS_MAX];
 
 static int copytask(void *data)
 {
-#define BUFLEN	1024*1024
 	int i;
 	int cpu;
 	int *go;
@@ -79,8 +82,10 @@ int copy_resprint(void *data)
 
 	start = ktime_get();
 
+	printk("Time [s] |  CPU(s) [ns / sample] \n");
 	/* wait for about 60 seconds */
-	while (ktime_delta(ktime_get(), start) < ms_to_ktime(360 * 1000)) {
+	while (ktime_delta(ktime_get(), start) < ms_to_ktime(SECONDS * 1000)) {
+
 
 		for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++)
 			res[i] = per_loop_avg[i];
@@ -157,7 +162,7 @@ int copybench_start(void)
 	printk("Average time to cross-copy buffers:\n");
 
 	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
-		printk("\tCPU %d: %ld ns per sample\n", per_loop_avg[i]);
+		printk("\tCPU %d: %g ns per sample\n", i, per_loop_avg[i]);
 	}
 
 	printk("COPYBENCH DONE\n");
@@ -227,7 +232,7 @@ int oneshotedf_start(void)
 		       ktime_to_us(ktime_delta(t[i]->deadline,   t[i]->create)));
 	}
 
-	printk("COPYBENCH DONE\n");
+	printk("oneshot_edf DONE\n");
 
 	return 0;
 

@@ -49,7 +49,6 @@
 /** XXX dummy **/
 extern int cpu_ready[CONFIG_SMP_CPUS_MAX];
 
-void demo_start(void);
 int copybench_start(void);
 int oneshotedf_start(void);
 
@@ -163,11 +162,10 @@ int kernel_main(void)
 #endif
 #endif
 
-#if 0
+#if 1
 	copybench_start();
 #else
 
-	//demo_start();
 	oneshotedf_start();
 #endif
 
