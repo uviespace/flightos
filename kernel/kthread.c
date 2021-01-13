@@ -70,7 +70,6 @@ void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 
 void kthread_free(struct task_struct *task)
 {
-	return;
 	if (task->flags & TASK_NO_CLEAN) /* delete from list as well */
 		return;
 
