@@ -150,11 +150,8 @@ static int pn_task_to_next_node(struct proc_net *pn, struct proc_task *t)
 {
 	unsigned long op;
 
-	static struct proc_tracker *pt_out;
+	struct proc_tracker *pt_out;
 
-
-	if (!pt_out)
-		pt_out = list_entry(pn->nodes.next, struct proc_tracker, node);
 
 
 	/* next steps's op code */
@@ -164,6 +161,9 @@ static int pn_task_to_next_node(struct proc_net *pn, struct proc_task *t)
 		pt_track_put(pn->out, t);
 		return 0;
 	}
+
+
+	pt_out = list_entry(pn->nodes.next, struct proc_tracker, node);
 
 	if (pt_out->op_code != op) {
 		pt_out = pn_find_tracker(pn, op);
