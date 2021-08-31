@@ -52,13 +52,13 @@ int printk(const char *fmt, ...)
 
 	va_list args;
 
-	
-	level = printk_get_level(fmt); 
+
+	level = printk_get_level(fmt);
 
 	va_start(args, fmt);
 
 	if (level) {
-		if (level < KERNEL_LEVEL) 
+		if (level <= KERNEL_LEVEL)
 			ret = vprintf(printk_skip_level(fmt), args);
 	} else {
 		ret = vprintf(fmt, args);
