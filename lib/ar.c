@@ -172,6 +172,12 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 	a->n_sym = swap_uint32(a->n_sym);
 #endif
 
+	/* if this record is empty, move to the next */
+	if (!a->n_sym) {
+		p += sizeof(uint32_t);
+		goto exit;
+	}
+
 
 	p += sizeof(a->n_sym);	/* move to symbol offsets */
 
@@ -233,8 +239,11 @@ static char *ar_process_sym_tbl(char *p, struct archive *a, struct ar_hdr *hdr)
 			a->sym[j++] = &p[i + 1];
 	}
 
+	/* move to next entry */
+	p += strsize;
 
-	return p + strsize;
+exit:
+	return p;
 
 error:
 	return NULL;
@@ -322,7 +331,7 @@ static char *ar_process_hdr(char *p, struct archive *a, struct ar_hdr *hdr)
 	int ret;
 
 
-	/* check if record is symbol index */
+	/* check if record is string table */
 	ret = strncmp(hdr->ar_name, GNU_AR_STR_TBL_MAG,
 		      strlen(GNU_AR_STR_TBL_MAG));
 	if (!ret) {
@@ -330,7 +339,7 @@ static char *ar_process_hdr(char *p, struct archive *a, struct ar_hdr *hdr)
 		goto exit;
 	}
 
-	/* check if record is symbol index */
+	/* check if record is symbol table */
 	ret = strncmp(hdr->ar_name, GNU_AR_SYM_TBL_MAG,
 		      strlen(GNU_AR_SYM_TBL_MAG));
 	if (!ret) {
