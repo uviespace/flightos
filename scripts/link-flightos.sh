@@ -288,7 +288,7 @@ fi
 # this is a 3rd pass option, we need modules.order beforehand
 if [ "$1" = "embed" ]; then
 
-	if [ ! -s ${srctree}/modules.order ] || [! -s ${CONFIG_EMBED_APPLICATION} ]; then
+	if [ ! -r ${srctree}/modules.order ] || [ ! -r ${CONFIG_EMBED_APPLICATION} ]; then
 		echo >&2
 		echo >&2 modules.order or application path empty or nonexistant, cannot embed image.
 		echo >&2 Maybe you have no loadable modules configured or no executable path specified?
