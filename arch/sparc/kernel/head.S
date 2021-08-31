@@ -99,8 +99,8 @@ setup_wim:
 
         sethi   %hi(FP_INITIAL), %g2
         or      %g2, %lo(FP_INITIAL), %g2
-        mov     %g2, %fp
-        sub     %fp, 104, %sp	! create a new frame
+        sub     %g2, 104, %sp	! create a new frame
+        mov     %g0, %fp	! make initial frame pointer invalid
 
         /* We have a stack now, so we can start handling traps. */
 	or	%g1, PSR_ET, %g1
