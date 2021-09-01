@@ -388,6 +388,8 @@ static int module_relocate(struct elf_module *m)
 			rel_sec = ".text";
 		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.data"))
 			rel_sec = ".data";
+		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.rodata"))
+			rel_sec = ".rodata";
 		else
 			BUG();
 
@@ -633,6 +635,11 @@ void modules_list_loaded(void)
 {
 	struct elf_module **m;
 
+
+	if (!_kmod.m) {
+		printk(MOD "no modules were loaded\n");
+		return;
+	}
 
 	m = _kmod.m;
 
