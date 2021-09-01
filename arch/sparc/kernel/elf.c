@@ -7,6 +7,8 @@
  *
  */
 
+#include <kernel/printk.h>
+#include <kernel/kernel_levels.h>
 #include <kernel/elf.h>
 
 
@@ -42,8 +44,10 @@ int elf_header_check(Elf_Ehdr *ehdr)
 		return -1;
 
 	/* .o files only */
-	if (!(ehdr->e_type == ET_REL))
+	if (!(ehdr->e_type == ET_REL)) {
+		pr_err("SPARC ELF: only relocatible code is supported\n");
 		return -1;
+	}
 
 	if(!elf_check_arch(ehdr))
 		return -1;
