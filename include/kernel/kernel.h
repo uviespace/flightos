@@ -20,6 +20,11 @@
 
 #define BUG_ON(condition) do { if (unlikely(condition)) BUG(); } while (0)
 
+#define MARK() do { \
+        printk("MARK: %s:%d\n", __func__, __LINE__); \
+} while (0)
+
+
 
 #define offset_of(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define member_size(TYPE, MEMBER) (sizeof(((TYPE *)0)->MEMBER))
