@@ -38,6 +38,14 @@ See Documentation/ subdirectory.
 
 ### Prerequisites
 
+**NOTE** only relase 2.1.2 of bcc2 is confirmed to work properly, v2.0.7 produces
+bad instructions for at least one instance (arch/sparc/kernel/bootmem.c),
+v2.2.0 appears to have major problems, which are yet to be identified in detail
+but appear to be related to the stack offset calculations or register usage, resulting
+in infinite frames due to recursively entering the original code segment
+when a window_overflow trap is triggered.
+
+
 - bcc or bcc2 (preferred) tool chain
 - GR712 or GR740 develpment board
 - grmon
