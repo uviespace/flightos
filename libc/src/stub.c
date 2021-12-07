@@ -68,6 +68,17 @@ char *fgets(char *s, int size, void *stream)
 	return NULL;
 }
 
+int fseek(void *stream, long offset, int whence)
+{
+	(void) stream;
+	(void) offset;
+	(void) whence;
+
+	printf("fseek) is not available on target\n");
+
+	return 0;
+}
+
 
 int sscanf(const char *str, const char *format, ...)
 {
