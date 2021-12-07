@@ -109,6 +109,9 @@ void arch_promote_to_task(struct task_struct *task)
 {
 #define PSR_CWP     0x0000001f
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
+
 	task->thread_info.ksp = (unsigned long) leon_get_fp();
 	task->thread_info.kpc = (unsigned long) __builtin_return_address(1) - 8;
 	task->thread_info.kpsr = get_psr();
@@ -117,6 +120,8 @@ void arch_promote_to_task(struct task_struct *task)
 
 	task->thread_fn = NULL;
 	task->data      = NULL;
+
+__diag_pop();
 
 
 	pr_debug(MSG "kernel stack %x %x\n", leon_get_fp(), leon_get_sp());

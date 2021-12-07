@@ -145,10 +145,8 @@ hw_div0_trap_handler:
 nmi_entry:
 	.global reg_access_trap_handler
 reg_access_trap_handler:
-	.global syscall_tbl
-syscall_tbl:
-	.global syscall_trap
-syscall_trap:
+#	.global syscall_tbl
+#syscall_tbl:
 	.global .udiv
 .udiv:
 	.global .umul

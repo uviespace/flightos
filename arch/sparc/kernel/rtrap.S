@@ -67,10 +67,6 @@ ret_trap_kernel:
 1:
 	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, g1)
 2:
-	/* no syscall implemented yet */
-!	sethi	%hi(PSR_SYSCALL), %twin_tmp1
-!	andn	%t_psr, %twin_tmp1, %t_psr
-
 	wr	%t_psr, %g0, %psr ! restore PSR, delayed-write instruction
 	nop			  ! need 2 delays, rett modifies CWP
         nop			  ! 3rd delay cycle is filled by jmp instr

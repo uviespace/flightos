@@ -188,7 +188,7 @@ static int module_load_mem(struct elf_module *m)
 	if (!m->sec)
 		goto error;
 
-
+MARK();
 	s = m->sec;
 
 	while (1) {
@@ -220,9 +220,10 @@ static int module_load_mem(struct elf_module *m)
 			goto error;
 
 		strcpy(s->name, src);
-		
-		pr_err(MOD "section %s index %d max %d\n", s->name, s, m->num_sec);
 
+		pr_err(MOD "section %s index %p max %d\n", s->name, s, m->num_sec);
+
+MARK();
 
 		if (sec->sh_type & SHT_NOBITS) {
 			pr_info(MOD "\tZero segment %10s at %p size %ld\n",
@@ -231,16 +232,19 @@ static int module_load_mem(struct elf_module *m)
 
 			bzero((void *) va_load, s->size);
 		} else {
+#if 0 /* FIXME this should move the segment to the proper memory address, we currently fake it below for testing */
 			pr_info(MOD "\tCopy segment %10s from %p to %p size %ld\n",
 			       s->name,
 			       (char *) m->ehdr + sec->sh_offset,
 			       (char *) va_load,
 			       sec->sh_size);
 
+MARK();
 			if (sec->sh_size)
 				memcpy((void *) va_load,
 				       (char *) m->ehdr + sec->sh_offset,
 				       sec->sh_size);
+#endif
 		}
 
 		s->addr = va_load;
@@ -358,22 +362,24 @@ static int module_relocate(struct elf_module *m)
 	size_t rel_cnt;
 
 	Elf_Shdr *sec;
+MARK();
 
-
-
+#if 0
 	/* no dynamic linkage, so it's either self-contained or bugged, we'll
 	 * assume the former, so cross your fingers and hope for the best
 	 */
 	if (m->ehdr->e_type != ET_REL)
 		if (m->ehdr->e_type != ET_DYN)
 			return 0;
-
+#endif
+	printk("e_type: %d\n", m->ehdr->e_type);
 	/* we only need RELA type relocations */
 
 	while (1) {
 
 		char *rel_sec;
 
+MARK();
 		idx = elf_find_sec_idx_by_type(m->ehdr, SHT_RELA, idx + 1);
 
 		if (!idx)
@@ -381,6 +387,8 @@ static int module_relocate(struct elf_module *m)
 
 		sec = elf_get_sec_by_idx(m->ehdr, idx);
 
+	
+MARK();
 		pr_info(MOD "\n"
 			MOD "Section Header info: %ld %s\n", sec->sh_info, elf_get_shstrtab_str(m->ehdr, idx));
 
@@ -390,8 +398,14 @@ static int module_relocate(struct elf_module *m)
 			rel_sec = ".data";
 		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.rodata"))
 			rel_sec = ".rodata";
-		else
+		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.text.startup"))
+			rel_sec = ".text.startup";
+		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.eh_frame"))
+			rel_sec = ".eh_frame";
+		else {
+			printk(MOD "unknown section %s\n", elf_get_shstrtab_str(m->ehdr, idx));
 			BUG();
+		}
 
 
 		if (sec) {
@@ -421,8 +435,8 @@ static int module_relocate(struct elf_module *m)
 				       symstr);
 
 
+				if (symstr && strlen(symstr)) {
 
-				if (strlen(symstr)) {
 						unsigned long symval;
 						Elf_Addr sym = (Elf_Addr) lookup_symbol(symstr);
 
@@ -431,7 +445,7 @@ static int module_relocate(struct elf_module *m)
 								 symstr);
 
 							if ((elf_get_symbol_type(m->ehdr, symstr) & STT_OBJECT)) {
-								char *secstr;
+								char *secstr = NULL;
 
 
 
@@ -459,7 +473,7 @@ static int module_relocate(struct elf_module *m)
 
 
 								if (!s) {
-									pr_debug(MOD "Error cannot locate section %s for symbol\n", secstr);
+									pr_debug(MOD "Error cannot locate section for symbol %s\n", symstr);
 									continue;
 								}
 								secstr = s->name;
@@ -595,6 +609,18 @@ int module_load(struct elf_module *m, void *p)
 
 	_kmod.m[_kmod.cnt++] = m;
 
+
+	if (elf_get_symbol_value(m->ehdr, "_start", &symval)) {
+		m->init = (void *) (symval); /* FIXME this is for testing only */
+
+		/* fake exec placement */
+		memcpy((void *) 0x60000000, (void *) 0x60010000,  0x100000);
+		goto exec;
+	}
+	else
+		pr_warn(MOD "_start not found\n");
+
+
 	if (elf_get_symbol_value(m->ehdr, "_module_init", &symval))
 		m->init = (void *) (m->va + symval);
 	else
@@ -606,7 +632,7 @@ int module_load(struct elf_module *m, void *p)
 	else
 		pr_warn(MOD "_module_exit() not found\n");
 
-
+exec:
 	pr_debug(MOD "Binary entrypoint is %lx; invoking _module_init() at %p\n",
 		m->ehdr->e_entry, m->init);
 

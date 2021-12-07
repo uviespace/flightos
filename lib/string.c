@@ -20,6 +20,7 @@
 #include <kernel/printk.h>
 #include <kernel/log2.h>
 #include <kernel/bitops.h>
+#include <kernel/kernel.h>
 
 
 /**
@@ -159,8 +160,11 @@ char *strdup(const char *s)
         char *dup;
 
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wnonnull-compare", "can't guarantee that this is nonnull");
         if (!s)
                 return NULL;
+__diag_pop();
 
         len = strlen(s) + 1;
         dup = kzalloc(len);
@@ -413,15 +417,7 @@ EXPORT_SYMBOL(strcpy);
 
 void bzero(void *s, size_t n)
 {
-	char *c;
-
-
-	c = (char *) s;
-
-	while (n--) {
-		(*c) = '\0';
-		c++;
-	}
+	memset(s, '\0', n);
 }
 EXPORT_SYMBOL(bzero);
 
@@ -440,8 +436,13 @@ int puts(const char *s)
 {
 	int n;
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wformat-truncation", "a NULL destination pointer indended");
+
 	n = vsnprintf(NULL, INT_MAX, s, NULL);
 	n+= vsnprintf(NULL, INT_MAX, "\n", NULL);
+
+__diag_pop();
 
 	return n;
 }
@@ -566,7 +567,12 @@ EXPORT_SYMBOL(vsprintf);
 
 int vprintf(const char *format, va_list ap)
 {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wformat-truncation", "a NULL destination pointer indended");
+
 	return vsnprintf(NULL, INT_MAX, format, ap);
+
+__diag_pop();
 }
 EXPORT_SYMBOL(vprintf);
 
@@ -728,10 +734,41 @@ EXPORT_SYMBOL(atoi);
 
 void *memset(void *s, int c, size_t n)
 {
-	char *p = s;
+	size_t i;
 
-	while (n--)
-		*p++ = c;
+	char byte;
+	char *p;
+
+	/* memset accepts only the least significant BYTE to set,
+	 * so we first prep by filling our integer to full width
+	 * with that byte
+	 */
+	p    = (char *) &c;
+	byte = (char) (c & 0xFF);
+	for (i = 0; i < sizeof(int); i++)
+		p[i] = byte;
+
+
+	/* now start filling the memory area */
+	p = s;
+
+	while (n) {
+		/* do larger stores in the central segment
+		 * for arch specific implementations, you could do larger than
+		 * int stores with precomputed offsets for increased efficiency
+		 */
+		if (n > sizeof(int)) {
+			if (IS_ALIGNED((uintptr_t) p, sizeof(int))) {
+				(* (int *) p) = c;
+				p += 4;
+				n -= 4;
+				continue;
+			}
+		}
+
+		*p++ = (char) (c & 0xFF);
+		n--;
+	}
 
 	return s;
 }

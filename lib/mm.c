@@ -330,6 +330,8 @@ static void mm_upmerge_blks(struct mm_pool *mp, struct mm_blk_lnk *blk)
 static unsigned long mm_fixup_validate(struct mm_pool *mp,
 				       const void *addr, unsigned long order)
 {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "__builtin_return_address is just called for informative purposes here");
 	if (!mp) {
 		pr_info("MM: invalid memory pool specified in call from %p.\n",
 			__caller(1));
@@ -366,6 +368,8 @@ static unsigned long mm_fixup_validate(struct mm_pool *mp,
 			order, mp->min_order, __caller(1));
 		order = mp->min_order;
 	}
+
+__diag_pop(); /* -Wframe-address */
 
 	return order;
 }

@@ -7,6 +7,7 @@
 #define ALIGN_MASK(x, mask)    (((x) + (mask)) & ~(mask))
 #define ALIGN(x, a)            ALIGN_MASK(x, (typeof(x))(a) - 1)
 #define ALIGN_PTR(x, a)        (typeof(x)) ALIGN((unsigned long) x, a)
+#define IS_ALIGNED(x, a)       (((x) & ((typeof(x))(a) - 1)) == 0)
 
 
 /* this is a bit crude, but must do for now */

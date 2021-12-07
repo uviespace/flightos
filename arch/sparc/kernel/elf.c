@@ -43,12 +43,6 @@ int elf_header_check(Elf_Ehdr *ehdr)
 	if (!(ehdr->e_ident[EI_VERSION] == EV_CURRENT))
 		return -1;
 
-	/* .o files only */
-	if (!(ehdr->e_type == ET_REL)) {
-		pr_err("SPARC ELF: only relocatible code is supported\n");
-		return -1;
-	}
-
 	if(!elf_check_arch(ehdr))
 		return -1;
 

@@ -88,8 +88,9 @@ static void mem_init(void)
 #endif
 
 #if (SPARC_PHYS_BANKS > 0)
-	sp_banks[1].base_addr = 0x60000000;
-	sp_banks[1].num_bytes = 0x04000000;
+	sp_banks[1].base_addr = 0x60100000;
+	sp_banks[1].num_bytes = 0x04000000-0x100000;
+#warning "SPARC PHYS BANK 2 currently reconfigured for start at 0x60100000"
 #else
 #warning "Configuration error: SPARC_PHYS_BANKS size insufficient."
 #endif
