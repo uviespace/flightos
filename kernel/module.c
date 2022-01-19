@@ -615,6 +615,11 @@ int module_load(struct elf_module *m, void *p)
 
 		/* fake exec placement */
 		memcpy((void *) 0x60000000, (void *) 0x60010000,  0x100000);
+#if 1
+		printk("WARNING: fake-zeroing bss at 0x%x!\n", 0x600380c8);
+		bzero((void *) (0x600386a8), 0x011110);
+#endif
+
 		goto exec;
 	}
 	else

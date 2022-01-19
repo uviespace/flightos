@@ -246,8 +246,7 @@ int kernel_main(void)
 	/* wait for cpus */
 
 	for (i = 1; i < CONFIG_SMP_CPUS_MAX; i++) {
-
-		//printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
+printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		cpu_ready[i] = 2;
 		while (ioread32be(&cpu_ready[i]) != 0x3);
 		iowrite32be(0x4, &cpu_ready[i]);
@@ -261,8 +260,10 @@ int kernel_main(void)
 	/* dummy demonstrator */
 	addr = module_read_embedded("executable_demo");
 #else
+#if 0
 	/* CrIa */
 	addr = module_read_embedded("myapp");
+#endif
 #endif
 
 	addr = (void *) 0x60000000;
@@ -275,8 +276,8 @@ int kernel_main(void)
 #endif
 #endif	/* CONFIG_EMBED_APPLICATION */
 
-#if 0
 	copybench_start();
+#if 0
 	oneshotedf_start();
 #endif
 	printk("entering main idle loop\n");
