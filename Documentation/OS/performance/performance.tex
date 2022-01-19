@@ -1,0 +1,197 @@
+\title{Performance Figures}
+\def \documentid {FLIGHTOS-UVIE-PERF-001}
+\date{Draf 0.1, January 19, 2021}
+
+\newcommand\affil[1]{\textsuperscript#1}
+
+\def\preparedby {Armin Luntzer\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
+\def\approvedby {Franz Kerschbaum\affil{1}}
+
+\def\affiliations{
+	\affil{1} Department of Astrophysics, University of Vienna
+}
+
+
+
+
+\input{../shared/template/univie.tex}
+\input{../shared/template/titlepage.tex}
+%\input{../shared/glossary.tex}
+
+
+\usepackage{vhistory}
+
+\usepackage[giveninits=true]{biblatex}
+\addbibresource{../shared/bibliography.bib}
+
+\usepackage{listings}
+
+\lstdefinestyle{customc}{
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  xleftmargin=\parindent,
+  language=C,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\bfseries\color{uvie-orangered!75},
+  commentstyle=\itshape\color{uvie-gray},
+  identifierstyle=\color{uvie-blue},
+  stringstyle=\color{uvie-goldenyellow},
+}
+
+\usepackage{appendix}
+
+\begin{document}
+\lstset{style=customc} 
+
+
+\setmainfont{MyriadPro-SemiCondensed}
+\uvietitlepage%
+{UVIE FlightOS}%
+{\doctitle}%
+{../shared/images/logo2.pdf}
+\setmainfont{MyriadPro}
+
+\approvalpage
+
+\tableofcontents
+\newpage
+
+
+
+\begin{versionhistory}
+  \vhEntry{0.1}{19.01.2021}{AL}{Initial version}
+\end{versionhistory}
+
+
+\chapter{Introduction}
+
+\section{Purpose of the Document}
+
+This document is a collection of various performance figures of the FlightOS
+operating system on target platforms such as the GR712 or GR740.
+
+\chapter{Applicable and Reference Documents} % does not break automatically for some reason
+
+\printbibliography[heading=none]
+
+
+\chapter{Terms, Definitions and Abbreviated Items}
+%\printglossary[type=acronym]
+%\printglossary[type=main, style=altlist]
+
+
+\chapter{Timing System}\label{chap:timing}
+
+\section{Overview}
+
+The internal timekeeping system in FlightOS relies upon a hardware
+clock device which returns the current system uptime in seconds and nanoseconds.
+This clock device is implemented in the architecture specific section with
+an interface compatible to \emph{struct clocksource} and registered to
+the main kernel \emph{ktime} interface by the architecture specific
+bootup sequence.
+
+Upon registration of the clocksource, the ktime subsystem calibrates the
+uptime clock readout overhead by reading the uptime clock for a configurable
+number of repetitions. For each readout, the $\Delta t$ to the previous
+update is calculated and accumulated. The accumulated $\Delta t$ is the
+averaged over the number of loops and divided by 2 to account for the
+period between two successive readouts. This value is then stored and
+added to all timesamps retrieved by calls to \emph{ktime\_get()} as a
+correcting offset.
+
+Another timing-related kernel subsystem are \emph{clockevent} devices,
+which are registered by the architecture specific bootup code. These devices
+can have properties such as periodic and on-shot timeouts, or absolute timings
+given a particular ktime.
+
+Available clockevent devices are offered to the \emph{tick} subsystem by the 
+architecture code for each booting SMP CPU to support thread scheduling. The
+tick system checks the device properties and may also exchange an already
+registered clockevent device for one with better characteristics. When a
+clockevent device is registered, its minimum processable tick length
+is calibrated and also serves as a benchmark of interrupt jitter.
+
+
+
+\section{Performance Figures: GR712}
+
+In the GR712, the \emph{General Purpose Timer Unit with Time Latch Capability}\cite{GR712UM}
+is used as the architecture-specific uptime clock. The prescaler for this timer
+is set to 4 by default. One of the timers is configured to underflow once
+per second. The needed value depends on the CPU clock frequency and therefore
+the calculated baseline precision of the clock is \emph{ (4 + 1) / freq)} or 500 ns 
+for a system clock of 10 MHz.
+
+
+The measured precision is however lower, as it is increased by the
+instruction in the code path to read out the uptime clock.
+
+For the \emph{GR712RC Dual-Core LEON3-FT Development Board} at a clock speed of
+80 MHz, the total readout overhead amounts to < 850 ns.
+
+For the \emph{GR712 CHEOPS DPU prototype board} clocked at 25 MHz
+the overhead is < 2700 ns.
+
+
+
+\chapter{Interrupt Timings}
+
+\section{Overview}
+
+Interrupts and interrupt handling timings as well as their jitter depend on a
+multitude of factors such as concurrent number of raised interrupts, memory bus
+loads, states of instruction and data caches and so on. This chapter is only
+concerned with the software related effects.
+
+The \emph{tick} subsystem of the kernel can be used to establish a baseline
+of interrupt jitter and predictability, as the clockevent devices (\ref{chap:timing})
+are calibrated at bootup. This is done by registering a special tick calibration
+hander to the ISR-driven callback of the clockevent device. The clockevent
+timeout is then programmed to the calibrated kernel uptime clock readout overhead
+and the minimum tick period of the device is monitored for each pass of a loop,
+which increased the clockevent timeout by the uptime clock overhead until the
+minimum tick period parameter for the device is set by the calibration callback
+handler. This is done because a clockevent device is required to
+cause a timer IRQ to be raised every time a timeout is programmed, regardless
+of the underlying precision of the clock. That means that even a timeout of 0
+must result in an (immediate) interrupt).
+
+When a value for the minimum tick period is established, a calibration loop
+is executed to establish an average minimum period by repeating the
+above process multiple time for the found timeout period. The average
+minimum tick timeout is then doubled for extra margin and set in the
+configuration paramters of the clockevent device.
+
+The values for the minimum tick period represent the lower limit of the
+achievable scheduling event cadence for the given system configuration.
+
+
+\section{Performance Figures: GR712}
+
+On the GR712, the \emph{General Purpose Timer Unit}\cite{GR712UM} is used for
+the architecture-specific clockevent devices. The prescaler for these timers
+is set to 7 by default. The timer precision also depends on the CPU clock
+frequency and therefore the calculated baseline precision of these clockevent
+devices is \emph{ (7 + 1) / freq)} or 800 ns for a system clock of 10 MHz.
+
+The measured minimum timeout is however much higher, as it is defined by the
+instructions executed in the code path of the clockdevice implmentation and the
+setup of the interrupt context in the CPU.
+
+For the \emph{GR712RC Dual-Core LEON3-FT Development Board} at a clock speed of
+80 MHz, the timer units calibrate to $10 \pm 0.2$ µs and $12 \pm 0.5$ µs for
+CPUs 0 and 1 respectively.
+
+The same test was run on the \emph{GR712 CHEOPS DPU prototype board} clocked
+at 25 MHz and resulted in $30\pm 0.3$ µs and $32 \pm 0.3$ µs.
+
+Note that the above values are doubled in the software for extra safety margin.
+
+
+
+
+
+\end{document}
