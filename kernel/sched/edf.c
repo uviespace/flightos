@@ -1002,7 +1002,7 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 	}
 
 	if (attr->wcet < tick_min) {
-		pr_err(MSG "Cannot schedule EDF task with WCET of %llu ns, "
+		pr_err(MSG "Cannot schedule EDF task with WCET of %lld ns, "
 		           "minimum tick duration is %lld\n", attr->wcet,
 			   tick_min);
 		goto error;
@@ -1010,7 +1010,7 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 
 	if (ktime_delta(attr->deadline_rel, attr->wcet) < tick_min) {
 		pr_err(MSG "Cannot schedule EDF task with WCET-deadline delta "
-		           "of %llu ns, minimum tick duration is %lld\n",
+		           "of %lld ns, minimum tick duration is %lld\n",
 			   ktime_delta(attr->deadline_rel, attr->wcet),
 			   tick_min);
 		goto error;
@@ -1020,13 +1020,13 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 	if (attr->period > 0) {
 
 		if (attr->wcet >= attr->period) {
-			pr_err(MSG "Cannot schedule EDF task with WCET %u >= "
-			       "PERIOD %u!\n", attr->wcet, attr->period);
+			pr_err(MSG "Cannot schedule EDF task with WCET %lld >= "
+			       "PERIOD %lld!\n", attr->wcet, attr->period);
 			goto error;
 		}
 		if (attr->deadline_rel >= attr->period) {
-			pr_err(MSG "Cannot schedule EDF task with DEADLINE %llu >= "
-			       "PERIOD %llu !\n", attr->deadline_rel, attr->period);
+			pr_err(MSG "Cannot schedule EDF task with DEADLINE %lld >= "
+			       "PERIOD %lld!\n", attr->deadline_rel, attr->period);
 			goto error;
 		}
 
@@ -1043,8 +1043,8 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 
 
 	if (attr->wcet >= attr->deadline_rel) {
-		pr_err(MSG "Cannot schedule EDF task with WCET %llu >= "
-		           "DEADLINE %llu !\n", attr->wcet, attr->deadline_rel);
+		pr_err(MSG "Cannot schedule EDF task with WCET %lld >= "
+		           "DEADLINE %lld !\n", attr->wcet, attr->deadline_rel);
 		goto error;
 	}
 
