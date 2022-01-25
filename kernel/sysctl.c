@@ -81,6 +81,7 @@ const char *sysobj_name(const struct sysobj *sobj)
         return sobj->name;
 }
 
+EXPORT_SYMBOL(sysobj_name);
 
 /**
  * @brief join a sysobject to its sysset
@@ -149,6 +150,7 @@ void sysobj_init(struct sysobj *sobj)
 
         return;
 }
+EXPORT_SYMBOL(sysobj_init);
 
 
 /**
@@ -225,6 +227,7 @@ int32_t sysobj_add(struct sysobj *sobj, struct sysobj *parent,
 
         return 0;
 }
+EXPORT_SYMBOL(sysobj_add);
 
 
 /**
@@ -248,6 +251,7 @@ struct sysobj *sysobj_create_and_add(const char *name, struct sysobj *parent)
 
 	return sobj;
 }
+EXPORT_SYMBOL(sysobj_create_and_add);
 
 
 /**
@@ -275,6 +279,7 @@ void sysobj_list_attr(struct sysobj *sobj)
 	}
 	printk(" }");
 }
+EXPORT_SYMBOL(sysobj_list_attr);
 
 
 /**
@@ -311,6 +316,7 @@ void sysobj_show_attr(struct sysobj *sobj, const char *name, char *buf)
 
 	}
 }
+EXPORT_SYMBOL(sysobj_show_attr);
 
 
 /**
@@ -348,6 +354,7 @@ void sysobj_store_attr(struct sysobj *sobj, const char *name, const char *buf, s
 
 	}
 }
+EXPORT_SYMBOL(sysobj_store_attr);
 
 
 /**
@@ -433,6 +440,7 @@ struct sysset *sysset_create(const char *name,
 
         return sysset;
 }
+EXPORT_SYMBOL(sysset_create);
 
 
 /**
@@ -459,6 +467,7 @@ struct sysset *sysset_create_and_add(const char *name,
 
         return sysset;
 }
+EXPORT_SYMBOL(sysset_create_and_add);
 
 
 /**
@@ -526,6 +535,7 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 
         return ret;
 }
+EXPORT_SYMBOL(sysset_find_obj);
 
 
 /**
@@ -569,6 +579,7 @@ void sysset_show_tree(struct sysset *sysset)
 	}
 	rec--;
 }
+EXPORT_SYMBOL(sysset_show_tree);
 
 
 /**
