@@ -21,6 +21,7 @@
 #include <kernel/log2.h>
 #include <kernel/bitops.h>
 #include <kernel/kernel.h>
+#include <kernel/tty.h>
 
 
 /**
@@ -455,32 +456,13 @@ EXPORT_SYMBOL(puts);
  * @param c the character to write
  *
  * @return the number of characters written to buf
- *
- * FIXME: this must be replaced by a different mechanic, e.g. provided
- *	  by the architecture or a driver
  */
 
 int putchar(int c)
 {
-#define TREADY 4
+	char o = 0xff & c;
 
-#if defined(CONFIG_LEON3)
-	static volatile int *console = (int *)0x80000100;
-#endif
-
-#if defined(CONFIG_LEON4)
-	static volatile int *console = (int *)0xFF900000;
-#endif
-	while (!(console[1] & TREADY));
-
-	console[0] = 0x0ff & c;
-
-	if (c == '\n') {
-		while (!(console[1] & TREADY));
-		console[0] = (int) '\r';
-	}
-
-	return c;
+	return tty_write(&o, 1);
 }
 
 

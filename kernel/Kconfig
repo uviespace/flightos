@@ -112,5 +112,12 @@ config XENTIUM
 
 endmenu
 
+config TESTMODULE
+	tristate "a test module"
+	default m
+	depends on SYSCTL
+	help
+	 an example module for testing of the module loader
+
 
 
