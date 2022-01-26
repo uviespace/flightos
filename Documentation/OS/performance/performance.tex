@@ -191,7 +191,28 @@ at 25 MHz and resulted in $30\pm 0.3$ µs and $32 \pm 0.3$ µs.
 Note that the above values are doubled in the software for extra safety margin.
 
 
+\chapter{Scheduling}
+
+\section{Overview}
+
+TBW
 
 
+\section{Performance Figures: GR712}
+
+\emph{GR712 CHEOPS DPU prototype board} clocked at 80 MHz, test setup:
+To determine the absolute scheduling precision an \emph{Earliest Deadline First}
+real-time thread was configured for a 1 second period, with a
+allocated WCET of 2 ms and a deadline of 3 ms. In parallel and on the same
+CPU, a high frequency EDF thread for flushing the tty character queue to
+the UART for printout of result was configured at a period of 500 µs, WCET 50µs
+and deadline of 450ms to create at least scheduling events (and therefore timer
+interrupt requests) at a minimum rate of 2 kHz.
+(Note: the typical values for the tty queue are P=10 ms, WCET=50 µs and D=9 ms)
+
+A long duration test (> 1hr) yielded a jitter of < 2 µs for the
+absolute scheduling period since the start of the thread and is therefore
+on the scale of the readout overhead and jitter of the main system uptime clock.
+This value also represents the scale of interrupt jitter in general.
 
 \end{document}
