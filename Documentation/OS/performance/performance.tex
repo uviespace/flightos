@@ -200,7 +200,7 @@ TBW
 
 \section{Performance Figures: GR712}
 
-\emph{GR712 CHEOPS DPU prototype board} clocked at 80 MHz, test setup:
+\emph{GR712RC Dual-Core LEON3-FT Development Board} clocked at 80 MHz, test setup:
 To determine the absolute scheduling precision an \emph{Earliest Deadline First}
 real-time thread was configured for a 1 second period, with a
 allocated WCET of 2 ms and a deadline of 3 ms. In parallel and on the same
@@ -210,9 +210,18 @@ and deadline of 450ms to create at least scheduling events (and therefore timer
 interrupt requests) at a minimum rate of 2 kHz.
 (Note: the typical values for the tty queue are P=10 ms, WCET=50 µs and D=9 ms)
 
-A long duration test (> 1hr) yielded a jitter of < 2 µs for the
-absolute scheduling period since the start of the thread and is therefore
+A long duration test (> 1hr) yielded a maximum peak-to-peak jitter of <= 2 µs with
+an average <= 1 µs for the absolute scheduling period since the start of the thread
+and is therefore
 on the scale of the readout overhead and jitter of the main system uptime clock.
 This value also represents the scale of interrupt jitter in general.
+
+For the \emph{GR712 CHEOPS DPU prototype board} at a clock speed of
+25 MHz, the tty queue RT thread parameters were increased by a factor of 4
+to account for the inherently lower timing resolution due to the system clock speed.
+The configuration of the thread measuring the timing precision was kept the same
+as with the 80 MHz clock.
+A maximum peak-to-peak jitter of <= 4µs with an average of <= 1µs was observed
+during a long duration test.
 
 \end{document}
