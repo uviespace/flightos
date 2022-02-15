@@ -44,7 +44,7 @@
 #define LEON3_BASE_ADDRESS_GRTIMER	0x80100600
 
 #define LEON3_IRL_SIZE	16 /* number of interrupts on primary */
-#define LEON3_EIRL_SIZE	16 /* number of interrupts on extended */
+#define LEON3_EIRL_SIZE	32 /* number of interrupts on extended */
 
 
 

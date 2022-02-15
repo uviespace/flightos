@@ -86,7 +86,7 @@ static struct leon2_eirqctrl_registermap *leon_eirqctrl_regs;
 #ifdef CONFIG_LEON3
 
 #define IRL_SIZE	LEON3_IRL_SIZE
-#define EIRL_SIZE	LEON3_IRL_SIZE
+#define EIRL_SIZE	LEON3_EIRL_SIZE
 
 static struct leon3_irqctrl_registermap *leon_irqctrl_regs;
 
@@ -95,7 +95,7 @@ static struct leon3_irqctrl_registermap *leon_irqctrl_regs;
 #ifdef CONFIG_LEON4
 
 #define IRL_SIZE	LEON3_IRL_SIZE
-#define EIRL_SIZE	LEON3_IRL_SIZE
+#define EIRL_SIZE	LEON3_EIRL_SIZE
 
 static struct leon4_irqctrl_registermap *leon_irqctrl_regs;
 
@@ -248,7 +248,6 @@ static struct sobj_attribute eirl_attr[] = {
 	__ATTR(10, eirl_show, eirl_store), __ATTR(11, eirl_show, eirl_store),
 	__ATTR(12, eirl_show, eirl_store), __ATTR(13, eirl_show, eirl_store),
 	__ATTR(14, eirl_show, eirl_store), __ATTR(15,  eirl_show, eirl_store),
-#ifdef CONFIG_LEON2
 	__ATTR(16, eirl_show, eirl_store), __ATTR(17, eirl_show, eirl_store),
 	__ATTR(18, eirl_show, eirl_store), __ATTR(19, eirl_show, eirl_store),
 	__ATTR(20, eirl_show, eirl_store), __ATTR(21, eirl_show, eirl_store),
@@ -257,7 +256,6 @@ static struct sobj_attribute eirl_attr[] = {
 	__ATTR(26, eirl_show, eirl_store), __ATTR(27, eirl_show, eirl_store),
 	__ATTR(28, eirl_show, eirl_store), __ATTR(29, eirl_show, eirl_store),
 	__ATTR(30, eirl_show, eirl_store), __ATTR(31, eirl_show, eirl_store),
-#endif /* CONFIG_LEON2 */
 };
 
 __extension__
@@ -655,10 +653,6 @@ static int leon_eirq_dispatch(unsigned int irq)
 	while (1) {
 
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-		/* no pending EIRQs remain */
-		if (!(leon_irqctrl_regs->irq_pending >> IRL_SIZE))
-			break;
-
 		eirq = leon_irqctrl_regs->extended_irq_id[cpu];
 #endif /* CONFIG_LEON3 */
 
@@ -691,6 +685,14 @@ static int leon_eirq_dispatch(unsigned int irq)
 			else if (leon_irq_queue(p_elem) < 0)
 				p_elem->handler(eirq, p_elem->data);
 		}
+
+
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+		/* XXX this appears to never contain anything */
+		/* no pending EIRQs remain */
+		if (!(leon_irqctrl_regs->irq_pending >> IRL_SIZE))
+			break;
+#endif /* CONFIG_LEON3 */
 	}
 
 
@@ -1022,7 +1024,7 @@ static int irq_dispatch_init_sysctl(void)
 	struct sysobj *sobj;
 
 
-	sset = sysset_create_and_add("irl", NULL, sys_set);
+	sset = sysset_create_and_add("irl", NULL, sysctl_root());
 
 	sobj = sysobj_create();
 
