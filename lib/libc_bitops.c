@@ -58,9 +58,15 @@ static int fls(int x)
  *	  If a is zero, the result is undefined.
  */
 
-int __attribute__((weak)) __clzsi2(unsigned int a);
 int __attribute__((weak)) __clzsi2(unsigned int a)
 {
 	return 32 - fls(a);
 }
 EXPORT_SYMBOL(__clzsi2);
+
+
+int __attribute__((weak)) __clzdi2(long val)
+{
+	return 32 - fls((int)val);
+}
+EXPORT_SYMBOL(__clzdi2);

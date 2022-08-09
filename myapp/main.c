@@ -25,13 +25,13 @@
 	long _a3 = (long) (a3);					\
 	long _a4 = (long) (a4);					\
 	long _a5 = (long) (a5);					\
-	register long _g1 __asm__ ("g1") = (id);		\
-	register long _o0 __asm__ ("o0") = _a0;			\
-	register long _o1 __asm__ ("o1") = _a1;			\
-	register long _o2 __asm__ ("o2") = _a2;			\
-	register long _o3 __asm__ ("o3") = _a3;			\
-	register long _o4 __asm__ ("o4") = _a4;			\
-	register long _o5 __asm__ ("o5") = _a5;			\
+	long _g1 = (id);					\
+	long _o0 = _a0;						\
+	long _o1 = _a1;						\
+	long _o2 = _a2;						\
+	long _o3 = _a3;						\
+	long _o4 = _a4;						\
+	long _o5 = _a5;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -59,12 +59,12 @@
 	long _a2 = (long) (a2);					\
 	long _a3 = (long) (a3);					\
 	long _a4 = (long) (a4);					\
-	register long _g1 __asm__ ("g1") = (id);		\
-	register long _o0 __asm__ ("o0") = _a0;			\
-	register long _o1 __asm__ ("o1") = _a1;			\
-	register long _o2 __asm__ ("o2") = _a2;			\
-	register long _o3 __asm__ ("o3") = _a3;			\
-	register long _o4 __asm__ ("o4") = _a4;			\
+	long _g1 = (id);					\
+	long _o0 = _a0;						\
+	long _o1 = _a1;						\
+	long _o2 = _a2;						\
+	long _o3 = _a3;						\
+	long _o4 = _a4;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -90,11 +90,11 @@
 	long _a1 = (long) (a1);					\
 	long _a2 = (long) (a2);					\
 	long _a3 = (long) (a3);					\
-	register long _g1 __asm__ ("g1") = (id);		\
-	register long _o0 __asm__ ("o0") = _a0;			\
-	register long _o1 __asm__ ("o1") = _a1;			\
-	register long _o2 __asm__ ("o2") = _a2;			\
-	register long _o3 __asm__ ("o3") = _a3;			\
+	long _g1 = (id);					\
+	long _o0 = _a0;						\
+	long _o1 = _a1;						\
+	long _o2 = _a2;						\
+	long _o3 = _a3;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -117,10 +117,10 @@
 	long _a0 = (long) (a0);					\
 	long _a1 = (long) (a1);					\
 	long _a2 = (long) (a2);					\
-	register long _g1 __asm__ ("g1") = (id);		\
-	register long _o0 __asm__ ("o0") = _a0;			\
-	register long _o1 __asm__ ("o1") = _a1;			\
-	register long _o2 __asm__ ("o2") = _a2;			\
+	long _g1 = (id);					\
+	long _o0 = _a0;						\
+	long _o1 = _a1;						\
+	long _o2 = _a2;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -137,13 +137,15 @@
 	_o0;	/* retval */					\
 })
 
+
+
 #define SYSCALL2(id, a0, a1)					\
 ({								\
 	long _a0 = (long) (a0);					\
 	long _a1 = (long) (a1);					\
-	register long _g1 __asm__ ("g1") = (id);		\
-	register long _o0 __asm__ ("o0") = _a0;			\
-	register long _o1 __asm__ ("o1") = _a1;			\
+	long _g1 = (id);					\
+	long _o0 = _a0;						\
+	long _o1 = _a1;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -158,11 +160,12 @@
 	_o0;	/* retval */					\
 })
 
+
 #define SYSCALL1(id, a0)					\
 ({								\
 	long _a0 = (long) (a0);					\
-	register long _g1 __asm__ ("g1") = (id);		\
-	register long _o0 __asm__ ("o0") = _a0;			\
+	long _g1 = (id);					\
+	long _o0 = _a0;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -179,7 +182,7 @@
 #define SYSCALL0(id)						\
 ({								\
 	long _a0 = (long) (a0);					\
-	register long _g1 __asm__ ("g1") = (id);		\
+	long _g1 = (id);					\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\
@@ -196,25 +199,28 @@
 
 
 
-
-
 int main(void)
 {
+	static int meh = 3;
+	static volatile int chomp[32];
 	int ret;
 
 	char hi[] = "Hello World, i am an executable";
 	char hi2[] = "And I am a string!";
 
-	ret = SYSCALL2(0, __LINE__, hi);
-	x_printf("syscall returned = %d\n", ret);
+	x_printf("meh at %d, chomp %d\n", meh, chomp[5]);
+	meh = SYSCALL2(0, __LINE__, hi);
+	x_printf("syscall returned = %d\n", meh);
+
+	chomp[5] = meh *2 +1;
 
 	ret = SYSCALL3(1, __LINE__, hi, hi2);
 	x_printf("syscall returned = %d\n", ret);
 
 
-	x_printf("entering infinite loop\n");
+	x_printf("leaving now, meh at %d, chomp %d\n", meh, chomp[5]);
 
-	while (1);
 
-	return 0;
+
+	return 0xf1;
 }

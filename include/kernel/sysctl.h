@@ -46,9 +46,6 @@ struct sobj_attribute {
 	ssize_t (*store)(struct sysobj *sobj, struct sobj_attribute *sattr, const char *buf, size_t len);
 };
 
-extern struct sysset *sys_set;
-extern struct sysset *driver_set;
-
 
 struct sysobj *sysobj_create(void);
 
@@ -67,6 +64,7 @@ struct sysset *sysset_create_and_add(const char *name,
 void sysset_show_tree(struct sysset *sysset);
 struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path);
 
+struct sysset *sysctl_root(void);
 
 
 #endif

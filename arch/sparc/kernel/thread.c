@@ -59,7 +59,7 @@ static void th_starter(void)
 	ts = get_uptime();
 	stop = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
 
-//	printk("thread: %p returned after %gs\n", task->stack, stop-start);
+	printk("thread: %p returned after %gs\n", task->stack, stop-start);
 
 	flags = arch_local_irq_save();
 	task->state = TASK_DEAD;

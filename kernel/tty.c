@@ -22,6 +22,13 @@
 #include <kernel/kmem.h>
 #include <kernel/kthread.h>
 #include <kernel/printk.h>
+#include <asm-generic/io.h>
+
+
+/* if 0, unbuffered output is used (useful for crashes and debug message
+ * printing
+ */
+#define ASYNC_OUTPUT 0
 
 
 
@@ -137,12 +144,12 @@ static int tty_tx(void *data)
 	while (1) {
 
 
-		if (!(console[1] & TX_FULL)) {
+		if (!(ioread32be(&console[1]) & TX_FULL)) {
 			while (queue_get(q, &c)) {
 
 				console[0] = c;
 
-				if ((console[1] & TX_FULL))
+				if ((ioread32be(&console[1]) & TX_FULL))
 					break;
 
 			}
@@ -190,10 +197,45 @@ static int tty_write_internal(void *buf, size_t nbyte)
 	return cnt;
 }
 
+static int tty_write_internal_old(void *buf, size_t nbyte)
+{
+	char *c = buf;
+
+
+#define TREADY 4
+
+#if defined(CONFIG_LEON3)
+       static volatile int *console = (int *)0x80000100;
+#endif
+
+#if defined(CONFIG_LEON4)
+       static volatile int *console = (int *)0xFF900000;
+#endif
+       while (!(ioread32be(&console[1]) & TREADY));
+
+       console[0] = 0x0ff & c[0];
+
+       if (c[0] == '\n') {
+               while (!(ioread32be(&console[1]) & TREADY));
+               console[0] = (int) '\r';
+	       }
+
+
+
+	return 0;
+}
+
+
 
 int tty_write(void *buf, size_t nbyte)
 {
-	return tty_write_internal(buf, nbyte);
+#if ASYNC_OUTPUT
+	tty_write_internal(buf, nbyte);
+#else  /* in case of no printout */
+	tty_write_internal_old(buf, nbyte);
+#endif
+
+	return 0;
 }
 
 
@@ -201,14 +243,19 @@ int tty_write(void *buf, size_t nbyte)
  * @brief initalises tty
  */
 
-static int tty_init(void)
+int tty_init(void)
 {
 	struct task_struct *t;
 
-
 	t = kthread_create(tty_tx, &the_q, KTHREAD_CPU_AFFINITY_NONE, "TTY_TX");
 
+#if ASYNC_OUTPUT
+       	/* BUG: failure at kernel/sched/core.c:154/schedule()! after CPU1 boots */
+      /* likely no problem, disabled BUG() call there */
+	kthread_set_sched_edf(t, 10 * 1000, 9 * 1000, 50);
+#endif
 	if (kthread_wake_up(t) < 0) {
+		printk("ALARM!\n");
 		/* KERNEL ALARM */
 	}
 
@@ -221,5 +268,5 @@ static int tty_init(void)
 
 	return 0;
 }
-subsys_initcall(tty_init);
+device_initcall(tty_init);
 

@@ -21,14 +21,14 @@
  * return 0 on success
  */
 
-int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym, const char *sec_name)
+int apply_relocate_add(struct elf_binary *m, Elf_Rela *rel, Elf_Addr sym, const char *sec_name)
 {
 	Elf_Addr rsym;
 
 	uint8_t  *loc8;
 	uint32_t *loc32;
 
-	struct module_section *text;
+	struct elf_section *text;
 
 
 
@@ -47,7 +47,7 @@ int apply_relocate_add(struct elf_module *m, Elf_Rela *rel, Elf_Addr sym, const 
 	}
 
 
-	text = find_mod_sec(m, sec_name);
+	text = find_elf_sec(m, sec_name);
 
 	loc8  = (uint8_t  *) (text->addr + rel->r_offset);
 	loc32 = (uint32_t *) loc8;

@@ -21,7 +21,10 @@ struct kernel_symbol {
 #define KERNEL_SYMBOL_STR(x) __KERNEL_SYMBOL_STR(x)
 
 #if 0
-/* For every exported symbol, place a struct in the __ksymtab section */
+/* For every exported symbol, place a struct kernel_symbol in the __ksymtab section;
+ * note that requires an update to the linker script to actually create the
+ * section
+ */
 #define ___EXPORT_SYMBOL(sym, sec)                                      \
         extern typeof(sym) sym;                                         \
         static const char __kstrtab_##sym[]                             \
@@ -32,15 +35,12 @@ struct kernel_symbol {
         __attribute__((section("___ksymtab" sec "+" #sym), used))       \
         = { (unsigned long)&sym, __kstrtab_##sym }
 #else
-#define ___EXPORT_SYMBOL(sym, sec)                                      \
-	extern typeof(sym) sym;                                         \
-	static const char __kstrtab_##sym[]                             \
-        = KERNEL_SYMBOL_STR(sym);                                       \
-        static const struct kernel_symbol __ksymtab_##sym               \
-        __attribute__((used))                                           \
-        = { (unsigned long)&sym, __kstrtab_##sym }
 
-#endif
+/* we only prepare this so we may use it later */
+#define ___EXPORT_SYMBOL(sym, sec)                                      \
+	extern   __attribute__((used)) typeof(sym) sym;
+
+#endif /* 0 */
 
 #define __EXPORT_SYMBOL ___EXPORT_SYMBOL
 

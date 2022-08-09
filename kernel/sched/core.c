@@ -151,7 +151,18 @@ void schedule(void)
 		return;
 
 	/* booted yet? */
+#if 0
+	/* XXX this should be fine. It appears we can just return
+	 * in case we get early high-frequency threads and a particular
+	 * CPU is not fully booted
+	 * TODO more tests, or boot all CPUs really early (initcall territory)
+	 */
+
 	BUG_ON(!current_set[cpu]);
+#else
+	if(!current_set[cpu])
+		return;
+#endif
 
 
 	arch_local_irq_disable();

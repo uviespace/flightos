@@ -61,9 +61,8 @@
 #include <list.h>
 
 
-/* our standard sets */
-struct sysset *sys_set;
-struct sysset *driver_set;
+/* our standard sysset root */
+static struct sysset *sys_set;
 
 
 
@@ -583,11 +582,25 @@ EXPORT_SYMBOL(sysset_show_tree);
 
 
 /**
+ * @brief retrieve the sysset root
+ *
+ * @return a reference to the sysset root
+ */
+
+struct sysset *sysctl_root(void)
+{
+	return sys_set;
+}
+
+
+/**
  * @brief initalises sysctl
  */
 
 static int sysctl_init(void)
 {
+	struct sysset *driver_set;
+
 	if (sys_set)
 		return -1;
 

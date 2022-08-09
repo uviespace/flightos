@@ -48,6 +48,9 @@
 
 
 #define SYSCALL_DEFINEx(x, name, ...)						\
+	__diag_push();								\
+	__diag_ignore(GCC, 7, "-Wattribute-alias",				\
+		      "Type aliasing is used to sanitize syscall arguments");\
 	long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))				\
 		__attribute__((alias(__stringify(SyS##name))));			\
 	static inline long __syscall##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
@@ -58,6 +61,7 @@
 		__MAP(x,__SC_TEST,__VA_ARGS__);					\
 		return ret;							\
 	}									\
+	__diag_pop();								\
 	static inline long __syscall##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 
 

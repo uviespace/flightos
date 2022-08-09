@@ -10,7 +10,7 @@ KBUILD_CFLAGS  += -m32 -mcpu=leon3 -mhard-float --param max-inline-recursive-dep
 endif
 
 ifeq ($(CONFIG_LEON3),y)
-ARCH_CFLAGS = -mcpu=leon3 -mfix-gr712rc -mhard-float --param max-inline-recursive-depth=0
+ARCH_CFLAGS = -mcpu=leon3 -mfix-gr712rc -mhard-float --param max-inline-recursive-depth=0  -Wno-attribute-alias
 endif
 
 

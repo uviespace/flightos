@@ -1,33 +1,31 @@
 /**
- * @file kernel/module.c
+ * @file kernel/application.c
  *
- * @ingroup elf_loader
+ * @ingroup kernel_application
+ * @defgroup kernel_application Loadable Kernel Module Support
  *
- * @brief implements loadable kernel modules
+ * @brief implements loadable kernel applications
  *
- * TODO 1. module chainloading, reference counting and dependency
- *	   tracking for automatic unloading of unused modules
- *	2. code cleanup
- *	3. ???
- *	4. profit
+ *
  */
 
 #include <kernel/printk.h>
 #include <kernel/string.h>
 #include <kernel/err.h>
-#include <kernel/module.h>
 #include <kernel/ksym.h>
 #include <kernel/kmem.h>
 #include <kernel/kernel.h>
+#include <kernel/kthread.h>
+
+#include <kernel/module.h>
 
 
-
-#define MOD "MODULE: "
+#define MSG "APP: "
 
 
 /* if we need more space, this is how many entries we will add */
-#define MODULE_REALLOC 10
-/* this is where we keep track of loaded modules */
+#define APP_REALLOC 10
+/* this is where we keep track of loaded applications */
 static struct {
 	struct elf_binary **m;
 	int    sz;
@@ -36,15 +34,16 @@ static struct {
 
 
 
+
 /**
- * @brief load the run time sections of a module into memory
+ * @brief load the run time sections of a application into memory
  *
  * @param m a struct elf_binary
  *
  * @return 0 on success, -ENOMEM on error
  */
 
-static int module_load_mem(struct elf_binary *m)
+static int application_load_mem(struct elf_binary *m)
 {
 	unsigned int idx = 0;
 	unsigned long va_load;
@@ -57,17 +56,43 @@ static int module_load_mem(struct elf_binary *m)
 	struct elf_section *s;
 
 
-	m->base = kmalloc(m->size + m->align);
+	if (m->ehdr->e_type == ET_REL) {
+		/* this is for relocatible binaries, we can put them anywhere */
+		m->base = kmalloc(m->size + m->align);
 
-	if (!m->base)
+		if (!m->base)
+			goto error;
+
+		/* exec info */
+		/* XXX we only do 1:1 mapping or PA only at the moment */
+		m->va = (unsigned long) ALIGN_PTR(m->base, m->align);
+		m->pa = m->va;
+
+
+	} else if (m->ehdr->e_type == ET_EXEC) {
+		/* non-relocatible binaries, they have to be moved to the proper address */
+		pr_err(MSG "FIXME: for non-relocatible binaries, we require the memory\n"
+			   "address to either bei virtual (requires MMU) or physically reserved\n"
+			   "as a separate partition. There is currently no such mechanism implement.\n"
+			   "We hence just assume that the physical region in question is 1) not used\n"
+			   "and 2) actually exists.\n");
+
+		/* exec info */
+		/* XXX we only do 1:1 mapping or PA only at the moment */
+		m->va = m->ehdr->e_entry;
+		m->pa = m->va;
+
+	} else {
+		pr_err(MSG "unsupported elf type: %d\n", m->ehdr->e_type);
 		goto error;
+	}
 
-	/* exec info */
-	m->va = (unsigned long) ALIGN_PTR(m->base, m->align);
-	m->pa = (unsigned long) ALIGN_PTR(m->base, m->align);
 
-	pr_debug(MOD "\n" MOD "\n"
-		MOD "Loading module run-time sections\n");
+	printk(MSG "va: %08x pa: %08x, base: %08x, align: %08x size: %08x\n", m->va, m->pa, m->base, m->align, m->size);
+
+	pr_debug(MSG "\n"
+		 MSG "\n"
+		 MSG "Loading application run-time sections\n");
 
 	va_load = m->va;
 	pa_load = m->pa;
@@ -79,6 +104,7 @@ static int module_load_mem(struct elf_binary *m)
 	if (!m->sec)
 		goto error;
 
+MARK();
 	s = m->sec;
 
 	while (1) {
@@ -111,26 +137,26 @@ static int module_load_mem(struct elf_binary *m)
 
 		strcpy(s->name, src);
 
-		pr_err(MOD "section %s index %p max %d\n", s->name, s, m->num_sec);
-
-
-		if (sec->sh_type & SHT_NOBITS) {
-			pr_info(MOD "\tZero segment %10s at %p size %ld\n",
-			       s->name, (char *) va_load,
-			       sec->sh_size);
-
-			bzero((void *) va_load, s->size);
-		} else {
-#if 1 /* FIXME this should move the segment to the proper memory address, we currently fake it below for testing */
-			pr_info(MOD "\tCopy segment %10s from %p to %p size %ld\n",
-			       s->name,
-			       (char *) m->ehdr + sec->sh_offset,
-			       (char *) va_load,
-			       sec->sh_size);
+		pr_info(MSG "section %s index %p max %d\n", s->name, s, m->num_sec);
 
 MARK();
+
+		if (sec->sh_type & SHT_NOBITS) {
+			pr_info(MSG "\tZero segment %10s at %p size %ld\n",
+			       s->name, (char *) sec->sh_addr,
+			       sec->sh_size);
+
+			bzero((void *) sec->sh_addr, s->size);
+		} else {
+#if 1 /* FIXME this should move the segment to the proper memory address, we currently fake it below for testing */
+			pr_info(MSG "\tCopy segment %10s from %p to %p size %ld\n",
+			       s->name,
+			       (char *) m->ehdr + sec->sh_offset,
+			       (char *) sec->sh_addr,
+			       sec->sh_size);
+MARK();
 			if (sec->sh_size)
-				memcpy((void *) va_load,
+				memmove((void *) sec->sh_addr,
 				       (char *) m->ehdr + sec->sh_offset,
 				       sec->sh_size);
 #endif
@@ -142,7 +168,7 @@ MARK();
 		s++;
 
 		if (s > &m->sec[m->num_sec]) {
-			pr_err(MOD "Error out of section memory\n");
+			pr_err(MSG "Error out of section memory\n");
 			goto error;
 		}
 	}
@@ -164,7 +190,7 @@ MARK();
 		if (!s->addr)
 			goto error;
 
-		pr_info(MOD "\tcreating .alloc section of %d bytes at %x\n", s->size, s->addr);
+		pr_info(MSG "\tcreating .alloc section of %d bytes at %x\n", s->size, s->addr);
 
 		s->name = kmalloc(strlen(".alloc"));
 		if (!s->name)
@@ -207,7 +233,7 @@ MARK();
 			s->addr = (unsigned long) kzalloc(s->size);
 			if (!s->addr)
 				goto error;
-			pr_debug(MOD "\tcreating \"%s\" section of %d bytes at %x\n", obj[idx], s->size, s->addr);
+			pr_info(MSG "\tcreating \"%s\" section of %d bytes at %x\n", obj[idx], s->size, s->addr);
 			s->name = kmalloc(strlen(obj[idx]));
 			if (!s->name)
 				goto error;
@@ -236,14 +262,14 @@ error:
 
 
 /**
- * @brief apply relocations to a module
+ * @brief apply relocations to a application
  *
  * @param m a struct elf_binary
  *
  * @return 0 on success, otherwise error
  */
 
-static int module_relocate(struct elf_binary *m)
+static int application_relocate(struct elf_binary *m)
 {
 	unsigned int idx = 0;
 
@@ -251,25 +277,24 @@ static int module_relocate(struct elf_binary *m)
 	size_t rel_cnt;
 
 	Elf_Shdr *sec;
+MARK();
 
+#if 0
 	/* no dynamic linkage, so it's either self-contained or bugged, we'll
 	 * assume the former, so cross your fingers and hope for the best
 	 */
-	if (m->ehdr->e_type != ET_REL) {
-		pr_warn(MOD "code is not relocatable.\n");
-
-		if (m->ehdr->e_type != ET_DYN) {
-			pr_warn(MOD "code is not a shared object file.\n");
+	if (m->ehdr->e_type != ET_REL)
+		if (m->ehdr->e_type != ET_DYN)
 			return 0;
-		}
-	}
-
+#endif
 	printk("e_type: %d\n", m->ehdr->e_type);
 	/* we only need RELA type relocations */
+
 	while (1) {
 
 		char *rel_sec;
 
+MARK();
 		idx = elf_find_sec_idx_by_type(m->ehdr, SHT_RELA, idx + 1);
 
 		if (!idx)
@@ -278,8 +303,9 @@ static int module_relocate(struct elf_binary *m)
 		sec = elf_get_sec_by_idx(m->ehdr, idx);
 
 
-		pr_info(MOD "\n"
-			MOD "Section Header info: %ld %s\n", sec->sh_info, elf_get_shstrtab_str(m->ehdr, idx));
+MARK();
+		pr_info(MSG "\n"
+			MSG "Section Header info: %ld %s\n", sec->sh_info, elf_get_shstrtab_str(m->ehdr, idx));
 
 		if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.text"))
 			rel_sec = ".text";
@@ -292,7 +318,7 @@ static int module_relocate(struct elf_binary *m)
 		else if (!strcmp(elf_get_shstrtab_str(m->ehdr, idx), ".rela.eh_frame"))
 			rel_sec = ".eh_frame";
 		else {
-			printk(MOD "unknown section %s\n", elf_get_shstrtab_str(m->ehdr, idx));
+			printk(MSG "unknown section %s\n", elf_get_shstrtab_str(m->ehdr, idx));
 			BUG();
 		}
 
@@ -303,7 +329,7 @@ static int module_relocate(struct elf_binary *m)
 
 			rel_cnt = sec->sh_size / sec->sh_entsize;
 
-			pr_debug(MOD "Found %d RELA entries\n", rel_cnt);
+			pr_debug(MSG "Found %d RELA entries\n", rel_cnt);
 			/* relocation table in memory */
 			relatab = (Elf_Rela *) ((long)m->ehdr + sec->sh_offset);
 
@@ -315,7 +341,7 @@ static int module_relocate(struct elf_binary *m)
 				struct elf_section *s;
 				struct elf_section *text  = find_elf_sec(m, ".text"); /* ?? rel_sec ?? */
 
-				pr_debug(MOD "OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n",
+				pr_debug(MSG "OFF: %08lx INF: %8lx ADD: %3ld LNK: %ld SEC: %d NAME: %s\n",
 				       relatab[i].r_offset,
 				       relatab[i].r_info,
 				       relatab[i].r_addend,
@@ -330,7 +356,7 @@ static int module_relocate(struct elf_binary *m)
 						Elf_Addr sym = (Elf_Addr) lookup_symbol(symstr);
 
 						if (!sym) {
-							pr_debug(MOD "\tSymbol %s not found in library, trying to resolving in module\n",
+							pr_debug(MSG "\tSymbol %s not found in library, trying to resolving in application\n",
 								 symstr);
 
 							if ((elf_get_symbol_type(m->ehdr, symstr) & STT_OBJECT)) {
@@ -342,12 +368,12 @@ static int module_relocate(struct elf_binary *m)
 
 								switch (elf_get_symbol_shndx(m->ehdr, symstr)) {
 								case SHN_UNDEF:
-									pr_debug(MOD "\tundefined section index\n");
+									pr_debug(MSG "\tundefined section index\n");
 									break;
 								case SHN_ABS:
-									pr_debug(MOD "\tabsolute value section index\n");
+									pr_debug(MSG "\tabsolute value section index\n");
 								case SHN_COMMON:
-							     		pr_debug(MOD "\t %s common symbol index (must allocate) add: %d\n", symstr,
+							     		pr_debug(MSG "\t %s common symbol index (must allocate) add: %d\n", symstr,
 										relatab[i].r_addend);
 									s = find_elf_sec(m, symstr);
 									if (!s) {
@@ -362,13 +388,13 @@ static int module_relocate(struct elf_binary *m)
 
 
 								if (!s) {
-									pr_debug(MOD "Error cannot locate section for symbol %s\n", symstr);
+									pr_debug(MSG "Error cannot locate section for symbol %s\n", symstr);
 									continue;
 								}
 								secstr = s->name;
 								/* target address to insert at location */
 								reladdr = (long) s->addr;
-							pr_debug(MOD "\tRelative symbol address: %x, entry at %08lx, section %s\n", reladdr, s->addr, secstr);
+							pr_debug(MSG "\tRelative symbol address: %x, entry at %08lx, section %s\n", reladdr, s->addr, secstr);
 
 							/* needed ?? */
 							//elf_get_symbol_value(m->ehdr, symstr, (unsigned long *) &relatab[i].r_addend);
@@ -379,12 +405,12 @@ static int module_relocate(struct elf_binary *m)
 
 #if 0
 						if (!(elf_get_symbol_type(m->ehdr, symstr) & (STT_FUNC | STT_OBJECT))) {
-							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
+							pr_err(MSG "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
 #endif
 						if (!elf_get_symbol_value(m->ehdr, symstr, &symval)) {
-							pr_err(MOD "\tERROR, unresolved symbol %s\n", symstr);
+							pr_err(MSG "\tERROR, unresolved symbol %s\n", symstr);
 							return -1;
 						}
 
@@ -392,7 +418,7 @@ static int module_relocate(struct elf_binary *m)
 
 					}
 
-					pr_debug(MOD "\tSymbol %s at %lx val %lx sec %d\n", symstr, sym, symval, symsec);
+					pr_debug(MSG "\tSymbol %s at %lx val %lx sec %d\n", symstr, sym, symval, symsec);
 
 					apply_relocate_add(m, &relatab[i], sym, rel_sec);
 
@@ -403,22 +429,22 @@ static int module_relocate(struct elf_binary *m)
 					s = find_elf_idx(m, symsec-1);
 
 					if (!s) {
-						pr_debug(MOD "Error cannot locate section %s for symbol\n", secstr);
+						pr_debug(MSG "Error cannot locate section %s for symbol\n", secstr);
 							continue;
 					}
 					secstr = s->name;
 					/* target address to insert at location */
 					reladdr = (long) s->addr;
-					pr_debug(MOD "\tRelative symbol address: %x, entry at %08lx, section %s\n", reladdr, s->addr, secstr);
+					pr_debug(MSG "\tRelative symbol address: %x, entry at %08lx, section %s\n", reladdr, s->addr, secstr);
 
 					apply_relocate_add(m, &relatab[i], reladdr, rel_sec);
 				}
 
-				pr_debug(MOD "\n");
+				pr_debug(MSG "\n");
 
 
 			}
-			pr_debug(MOD "\n");
+			pr_debug(MSG "\n");
 		}
 	}
 
@@ -427,133 +453,167 @@ static int module_relocate(struct elf_binary *m)
 }
 
 
+
 /**
- * @brief unload a module
+ * @brief unload an application
  *
- * @param m a struct elf_binary
+ * @param app a struct elf_binary
  *
  */
 
-void module_unload(struct elf_binary *m)
+static void application_unload(struct elf_binary *app)
 {
 	int i;
 
-
-	if (m->exit) {
-		if (m->exit())
-			pr_err(MOD "Module exit call failed.\n");
+	if (app->sec) {
+		for (i = 0; i < app->num_sec; i++)
+			kfree(app->sec[i].name);
 	}
 
-	if (m->sec) {
-		for (i = 0; i < m->num_sec; i++)
-			kfree(m->sec[i].name);
-	}
+	kfree(app->sec);
+	kfree(app->base);
+	kfree(app);
+}
 
-	kfree(m->sec);
-	kfree(m->base);
+
+static int application_run_process(void *data)
+{
+	int ret;
+
+	struct elf_binary *app;
+
+
+	app = (struct elf_binary *) data;
+
+	ret = app->init();
+
+	pr_notice(MSG "application exited with code %d\n", ret);
+
+	application_unload(app);
+
+	return 0;
+}
+
+
+
+static int application_create_process(struct elf_binary *app,
+				      const char *namefmt,
+				      int cpu)
+{
+	int ret;
+
+	struct task_struct *t;
+
+
+	t = kthread_create(application_run_process, app, cpu, namefmt);
+
+	ret = kthread_wake_up(t);
+	if (ret < 0)
+		pr_err(MSG "Unable to create process, kthread_wake_up failed with %d\n", ret);
+
+	return ret;
 }
 
 
 /**
- * @brief load a module
+ * @brief load a application
  *
- * @param m a struct elf_binary
- * @param p the address where the module ELF file is located
+ * @param p the address where the application ELF file is located
+ * @param namefmt a application name format string
+ * @param cpu the cpu affinity, any number or KTHREAD_CPU_AFFINITY_NONE
  *
  * @return 0 on success, -1 on error
  */
 
-int module_load(struct elf_binary *m, void *p)
+int application_load(void *p, const char *namefmt, int cpu)
 {
+	struct elf_binary *app;
+
 	unsigned long symval;
 
 
+
+	app = (struct elf_binary *) kmalloc(sizeof(struct elf_binary));
+	if (!app)
+		goto error;
+
 	/* the ELF binary starts with the ELF header */
-	m->ehdr = (Elf_Ehdr *) p;
+	app->ehdr = (Elf_Ehdr *) p;
 
-	pr_debug(MOD "Checking ELF header\n");
+	pr_debug(MSG "Checking ELF header\n");
 
-	if (elf_header_check(m->ehdr))
+	if (elf_header_check(app->ehdr))
 		goto error;
 
-	pr_debug(MOD "Setting up module configuration\n");
+	pr_debug(MSG "Setting up application configuration\n");
 
-	if (setup_elf_binary(m))
+	if (setup_elf_binary(app))
 		goto error;
 
-	if (module_load_mem(m))
+	if (application_load_mem(app))
 		goto cleanup;
 
-	if (module_relocate(m))
+	if (application_relocate(app))
 		goto cleanup;
 
-	/* FIXME */
-	pr_warn(MOD "no .bss section clearing done!\n");
-
-	/* expand module tracker if needed */
+	/* resize array -> XXX function */
 	if (_kmod.cnt == _kmod.sz) {
-		_kmod.m = krealloc(_kmod.m, (_kmod.sz + MODULE_REALLOC) *
+		_kmod.m = krealloc(_kmod.m, (_kmod.sz + APP_REALLOC) *
 				   sizeof(struct elf_binary **));
 
-		bzero(&_kmod.m[_kmod.sz],
-		      sizeof(struct elf_binary **) * MODULE_REALLOC);
-		_kmod.sz += MODULE_REALLOC;
+		bzero(&_kmod.m[_kmod.sz], sizeof(struct elf_binary **) *
+		      APP_REALLOC);
+		_kmod.sz += APP_REALLOC;
 	}
 
-	_kmod.m[_kmod.cnt++] = m;
+	_kmod.m[_kmod.cnt++] = app;
 
 
-	if (elf_get_symbol_value(m->ehdr, "_module_init", &symval))
-		m->init = (void *) (m->va + symval);
-	else
-		pr_warn(MOD "_module_init() not found\n");
+	if (elf_get_symbol_value(app->ehdr, "_start", &symval)) {
+		app->init = (void *) (symval);
 
+		pr_info(MSG "Binary entrypoint is %lx; invoking _application_init() at %p\n",
+		app->ehdr->e_entry, app->init);
+	}
+	else {
+		pr_warn(MSG "symbol _start not found\n");
+		goto cleanup;
+	}
 
-	if (elf_get_symbol_value(m->ehdr, "_module_exit", &symval))
-		m->exit = (void *) (m->va + symval);
-	else
-		pr_warn(MOD "_module_exit() not found\n");
-
-exec:
-	pr_debug(MOD "Binary entrypoint is %lx; invoking _module_init() at %p\n",
-		m->ehdr->e_entry, m->init);
-
-	if (m->init) {
-		if (m->init()) {
-			pr_err(MOD "Module initialisation failed.\n");
-			goto cleanup;
-		}
+	if (application_create_process(app, namefmt, cpu)) {
+		pr_err(MSG "Failed to create process\n");
+		goto cleanup;
 	}
 
 
 	return 0;
 
 cleanup:
-	module_unload(m);
+	application_unload(app);
 error:
 	return -1;
 }
 
 
 /**
- * @brief list all loaded modules
+ * @brief list all loaded applications
  */
 
-void modules_list_loaded(void)
+void applications_list_loaded(void)
 {
 	struct elf_binary **m;
 
 
 	if (!_kmod.m) {
-		printk(MOD "no modules were loaded\n");
+		printk(MSG "no applications were loaded\n");
 		return;
 	}
 
 	m = _kmod.m;
 
 	while((*m)) {
-		printk(MOD "Contents of module %p loaded at base %p\n"
-		       MOD "\n",
+		printk(MSG "Contents of application %p loaded at base %p\n"
+		       MSG "\n",
 		       (*m), (*m)->base);
 
 		elf_dump_sections((*m)->ehdr);

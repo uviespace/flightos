@@ -17,15 +17,18 @@ __asm(
       "	.global	_start		\n\t"
       "_start:			\n\t"
       "				\n\t"
-      "	mov	0, %fp		\n\t"
+      " save	%sp, -0x40, %sp		! OS-provided stack		\n\t"
       "	ld	[%sp + 64], %o0		! argc				\n\t"
       "	add	%sp, 68, %o1		! argv				\n\t"
       "	andn	%sp, 7,	%sp		! align				\n\t"
       "	call	main							\n\t"
       "	 sub	%sp, 24, %sp		! full 92 byte stack frame	\n\t"
+      " mov	%o0, %i0		! retval			\n\t"
+      " ret								\n\t"
+      " restore								\n\t"
      );
 
 /**
- *  XXX: at some point we will need some kind of exit() call so we can inform
- *  the OS that the program returned from main()
+ *  XXX: at some point we will need some kind of explicit exit() call so we can
+ *  inform the OS that the program returned from main()
  */
