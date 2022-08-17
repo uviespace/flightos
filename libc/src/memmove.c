@@ -104,14 +104,12 @@ static void memmove_fwd(char *d, const char *s, size_t n)
 		/* subtract leading bytes to be copied */
 		n -= c;
 
-		while (c) {
-
-			d++;
-			s++;
+		while (c--) {
 
 			(*d) = (*s);
 
-			c--;
+			d++;
+			s++;
 		}
 	}
 
@@ -123,27 +121,24 @@ static void memmove_fwd(char *d, const char *s, size_t n)
 
 	c = n / sizeof(int);
 
-	while (c) {
+	while (c--) {
 
 		(*((int *) d)) = (*((int *) s));
 
 		s += sizeof(int);
 		d += sizeof(int);
-
-		c--;
 	}
 
 	/* copy remainder */
 	c = n & (sizeof(int) - 1);
 
-	while (c) {
+	while (c--) {
+
+		(*d) = (*s);
 
 		d++;
 		s++;
 
-		(*d) = (*s);
-
-		c--;
 	}
 }
 
@@ -174,42 +169,36 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 
 		n -= c;
 
-		while (c) {
+		while (c--) {
 
 			d--;
 			s--;
 
 			(*d) = (*s);
-
-			c--;
 		}
 	}
 
 	/* middle section */
 	c = n / sizeof(int);
 
-	while (c) {
+	while (c--) {
 
 		s -= sizeof(int);
 		d -= sizeof(int);
 
 		(*((int *) d)) = (*((int *) s));
-
-		c--;
 	}
 
 
 	/* remainder */
 	c = n & (sizeof(int) - 1);
 
-	while (c) {
+	while (c--) {
 
 		d--;
 		s--;
 
 		(*d) = (*s);
-
-		c--;
 	}
 }
 
