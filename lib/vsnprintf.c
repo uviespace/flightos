@@ -136,7 +136,7 @@ static int _vsn_strtoi(const char *nptr, char **endptr)
 	int res = 0;
 	int neg = 0;
 
-	unsigned int d = -1;
+	unsigned int d = (unsigned int) -1;
 
 	const char *start = nptr;
 
@@ -165,10 +165,10 @@ static int _vsn_strtoi(const char *nptr, char **endptr)
 		res = -res;
 
 	if (endptr) {
-		if (d == -1)
-			(*endptr) = (char *) start;
+		if (d == (unsigned int) -1)
+			(*endptr) = (char *) (uintptr_t) start;
 		else
-			(*endptr) = (char *) nptr;
+			(*endptr) = (char *) (uintptr_t) nptr;
 	}
 
 	return res;
@@ -379,6 +379,8 @@ static void config_specifier(const char *fmt, struct fmt_spec *spec)
 
 	case 'd':
 		spec->flags &= ~(VSN_HASH);
+		/* fall-thru */
+		/* above marker for gcc7+ -Wimplicit-fallthrough= */
 	case 'i':
 		spec->base = 10;
 		break;
@@ -502,7 +504,7 @@ static size_t render_final(char **str, const char *end, bool sign,
 		len++;
 	}
 
-	// append pad spaces up to given width
+	/* append pad spaces up to given width */
 	if (spec->flags & VSN_LEFT) {
 		while (len < spec->width) {
 			_sprintc(' ', (char **) str, end);
@@ -576,6 +578,9 @@ static size_t render_xlong_to_ascii(bool usign, long value, char **str,
  * @return the number of bytes written
  */
 
+__diag_push()
+__diag_ignore(GCC, 7, "-Wlong-long", "we want %ll support")
+
 static size_t render_xlong_long_to_ascii(bool usign, long long val, char **str,
 				    const char *end, struct fmt_spec *spec)
 {
@@ -619,7 +624,7 @@ static size_t render_xlong_long_to_ascii(bool usign, long long val, char **str,
 
 	return render_final(str, end, sign, buf, n, spec);
 }
-
+__diag_pop()
 
 
 /**
@@ -638,14 +643,16 @@ static size_t render_xsigned_integer(bool usign, char **str, const char *end,
 {
 	int  i;
 	long l;
+__diag_push()
+__diag_ignore(GCC, 7, "-Wlong-long", "we want %ll support")
 	long long ll;
-
 
 	/* argument is a long long, will turn into a long long */
 	if (spec->flags & VSN_LONG_LONG) {
 		ll = va_arg((*args), long long);
 		return render_xlong_long_to_ascii(usign, ll, str, end, spec);
 	}
+__diag_pop()
 
 	/* argument is a long, will turn into a long */
 	if (spec->flags & VSN_LONG) {
@@ -1279,7 +1286,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		if (!str) /* to stdout? */
 			render_specifier(NULL, NULL, format, &spec, &ap);
 		else
-			render_specifier(&buf, end, format, &spec, &ap);
+			buf += render_specifier(&buf, end, format, &spec, &ap);
 
 		format++; /* the type is always a single char */
 	}

@@ -39,7 +39,7 @@ static inline unsigned fls_long(unsigned long l)
 /*
  * deal with unrepresentable constant logarithms
  */
-extern __attribute__((const, noreturn))
+extern __attribute__((const))
 int ____ilog2_NaN(void);
 
 /*

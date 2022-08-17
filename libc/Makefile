@@ -22,7 +22,7 @@ CFLAGS		+= -DUSE_OPTIMISATIONS
 
 LDFLAGS		=
 
-INCLUDES	= -Isrc
+INCLUDES	= -Isrc -I../include
 
 SOURCE_DIR	= src
 BUILD_DIR 	= build

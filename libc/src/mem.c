@@ -3,8 +3,8 @@
  */
 
 #include <list.h>
-#include <syscall.h>
 #include <stddef.h>
+#include <syscalls.h>
 
 void *malloc(size_t size);
 void *zalloc(size_t size);
@@ -27,28 +27,6 @@ void free(void *ptr);
 #define WORD_ALIGN(x)		ALIGN((x), sizeof(unsigned long))
 
 
-
-#ifdef CONFIG_MMU
-/* sbrk syscall here */
-static void *sbrk(int x);
-#else
-
-/* mem_alloc syscall for non-mmu systems */
-static void *sys_mem_alloc(size_t size)
-{
-	void *p = NULL;
-
-	SYSCALL2(2, size, &p);
-
-	return p;
-}
-
-static void sys_mem_free(void *p)
-{
-	SYSCALL1(3, p);
-}
-
-#endif /* CONFIG_MMU */
 
 
 #define WORD_ALIGN(x)	ALIGN((x), sizeof(unsigned long))
@@ -243,7 +221,12 @@ void *malloc(size_t size)
 
 	return m_new->data;
 #else
-	return sys_mem_alloc(size);
+	void *p = NULL;
+
+	/* XXX -ENOMEM FDIR */
+	sys_alloc(size, &p);
+
+	return p;
 #endif /* CONFIG_MMU */
 
 }
@@ -421,6 +404,6 @@ void free(void *ptr)
 		list_add_tail(&m->node, &_mem_init->node);
 	}
 #else
-	sys_mem_free(ptr);
+	sys_free(ptr);
 #endif /* CONFIG_MMU */
 }

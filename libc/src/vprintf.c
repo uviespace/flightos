@@ -18,7 +18,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 int vprintf(const char *format, va_list ap)
 {
 __diag_push();
-__diag_ignore(GCC, 7, "-Wformat-truncation", "a NULL destination pointer indended");
+__diag_ignore(GCC, 7, "-Wformat-truncation", "a NULL destination pointer intended");
 	return vsnprintf(NULL, INT_MAX, format, ap);
 __diag_pop();
 }

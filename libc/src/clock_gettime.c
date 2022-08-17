@@ -1,12 +1,4 @@
-#include <sys/types.h>
-#include <syscall.h>
-
-
-static int sys_clock_gettime(struct timespec *tp)
-{
-	return SYSCALL1(4, tp);
-}
-
+#include <syscalls.h>
 
 /**
  * @note at this point, we only get the kernel time (== system uptime)

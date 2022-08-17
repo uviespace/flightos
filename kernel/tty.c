@@ -28,7 +28,7 @@
 /* if 0, unbuffered output is used (useful for crashes and debug message
  * printing
  */
-#define ASYNC_OUTPUT 0
+#define ASYNC_OUTPUT 1
 
 
 

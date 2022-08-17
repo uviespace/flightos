@@ -1,12 +1,4 @@
-#include <sys/types.h>
-#include <syscall.h>
-
-
-static int sys_nanosleep(int flags, const struct timespec *rqtp)
-{
-	return SYSCALL2(5, flags, rqtp);
-}
-
+#include <syscalls.h>
 
 /**
  * @note we ignore all arguments except rqtp and flags
