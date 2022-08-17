@@ -1302,7 +1302,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		if (!str) /* to stdout? */
 			render_specifier(NULL, NULL, format, &spec, &ap);
 		else
-			render_specifier(&buf, end, format, &spec, &ap);
+			buf += render_specifier(&buf, end, format, &spec, &ap);
 
 		format++; /* the type is always a single char */
 	}
