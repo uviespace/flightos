@@ -104,7 +104,6 @@ static int application_load_mem(struct elf_binary *m)
 	if (!m->sec)
 		goto error;
 
-MARK();
 	s = m->sec;
 
 	while (1) {
@@ -139,8 +138,6 @@ MARK();
 
 		pr_info(MSG "section %s index %p max %d\n", s->name, s, m->num_sec);
 
-MARK();
-
 		if (sec->sh_type & SHT_NOBITS) {
 			pr_info(MSG "\tZero segment %10s at %p size %ld\n",
 			       s->name, (char *) sec->sh_addr,
@@ -154,7 +151,7 @@ MARK();
 			       (char *) m->ehdr + sec->sh_offset,
 			       (char *) sec->sh_addr,
 			       sec->sh_size);
-MARK();
+
 			if (sec->sh_size)
 				memmove((void *) sec->sh_addr,
 				       (char *) m->ehdr + sec->sh_offset,
@@ -277,7 +274,6 @@ static int application_relocate(struct elf_binary *m)
 	size_t rel_cnt;
 
 	Elf_Shdr *sec;
-MARK();
 
 #if 0
 	/* no dynamic linkage, so it's either self-contained or bugged, we'll
@@ -294,7 +290,6 @@ MARK();
 
 		char *rel_sec;
 
-MARK();
 		idx = elf_find_sec_idx_by_type(m->ehdr, SHT_RELA, idx + 1);
 
 		if (!idx)
@@ -303,7 +298,6 @@ MARK();
 		sec = elf_get_sec_by_idx(m->ehdr, idx);
 
 
-MARK();
 		pr_info(MSG "\n"
 			MSG "Section Header info: %ld %s\n", sec->sh_info, elf_get_shstrtab_str(m->ehdr, idx));
 

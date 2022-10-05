@@ -15,8 +15,7 @@
 #define __NR_free	3
 #define __NR_gettime	4
 #define __NR_nanosleep  5
-
-
+#define __NR_grspw2	6
 
 
 

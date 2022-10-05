@@ -59,14 +59,7 @@ int oneshotedf_start(void);
 
 
 /* a spacewire core configuration */
-static struct spw_cfg {
-	struct grspw2_core_cfg spw;
-	uint32_t *rx_desc;
-	uint32_t *tx_desc;
-	uint8_t  *rx_data;
-	uint8_t  *tx_data;
-	uint8_t  *tx_hdr;
-} spw_cfg;
+struct spw_user_cfg spw_cfg;
 
 
 /* default dividers for GR712RC eval board: 10 Mbit start, 100 Mbit run */
@@ -78,12 +71,12 @@ static struct spw_cfg {
 #define SPW_CLCKDIV_RUN		1
 #define GR712_IRL2_GRSPW2_0	22
 #define GR712_IRL1_AHBSTAT	1
-#define HDR_SIZE	0x0
+#define HDR_SIZE	0x4
 
 #define ICU_ADDR	0x28	/* PLATO-IWF-PL-TR-0042-d0-1_RDCU_Functional_Test_PT1 */
 
 
-static void spw_alloc(struct spw_cfg *cfg)
+static void spw_alloc(struct spw_user_cfg *cfg)
 {
 	uint32_t mem;
 
@@ -127,7 +120,7 @@ static void spw_alloc(struct spw_cfg *cfg)
  * @brief perform basic initialisation of the spw core
  */
 
-static void spw_init_core(struct spw_cfg *cfg)
+static void spw_init_core(struct spw_user_cfg *cfg)
 {
 	/* select GR712 INCLCK */
 	set_gr712_spw_clock();
@@ -287,7 +280,38 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 #if 0
 	oneshotedf_start();
 #endif
+#if 0
+	while (1) {
 
+		if (grspw2_get_num_pkts_avail(&spw_cfg.spw)) {  
+			int32_t elem;
+			int8_t *buf;
+			int i;
+
+			printk("packet!\n");
+
+			elem = grspw2_get_next_pkt_size(&spw_cfg.spw);
+
+			buf = kmalloc(elem);
+			BUG_ON(!buf);
+
+			elem = grspw2_get_pkt(&spw_cfg.spw, buf);
+			BUG_ON(!elem);
+
+			for (i = 0; i < elem; i++)
+				printk("%02X:", buf[i]);
+
+			printk("\n");
+
+
+			kfree(buf);
+
+
+		}
+	
+		cpu_relax();
+	}
+#endif
 	application_load( (void*) 0x60200000, "mytest", KTHREAD_CPU_AFFINITY_NONE);
 
 	{

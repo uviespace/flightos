@@ -1400,7 +1400,9 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 		return -1;
 	}
 
-	if (hdr_buf != NULL)
+	/* XXX need extra sanity checks somewhere in the interface,
+	 * could be that no headers are alloced! or data size is too small! */
+	if (hdr_buf != NULL) 
 		memcpy((void *) p_elem->desc->hdr_addr,  hdr_buf,  hdr_size);
 
 	if (data_buf != NULL)
@@ -1532,7 +1534,7 @@ void grspw2_tick_in(struct grspw2_core_cfg *cfg)
 	iowrite32be(ctrl, &cfg->regs->ctrl);
 }
 
-#if (__SPW_ROUTING__)
+#ifdef CONFIG_GRSPW2_SPW_ROUTING_
 /**
  * @brief	interrupt handler for packet routing
  * @note	only a single node is supported at the moment
@@ -1784,6 +1786,9 @@ int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 			const void *data, uint32_t data_size)
 {
 	int32_t ret;
+
+
+	printk("GRSPW2: %p %u %p %u core %p\n", hdr, hdr_size, data, data_size, cfg);
 
 	ret = grspw2_tx_desc_add_pkt(cfg, hdr, hdr_size, non_crc_bytes,
 				     data, data_size);

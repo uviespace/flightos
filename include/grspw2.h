@@ -568,4 +568,36 @@ void grspw2_unset_link_error_irq(struct grspw2_core_cfg *cfg);
 void grspw2_spw_hardreset(struct grspw2_regs *regs);
 
 
+
+
+/* XXX have this temporarily for this syscall interface */
+
+#define GRSPW2_OP_ADD_PKT		1
+#define GRSPW2_OP_GET_NUM_PKT_AVAIL	2
+#define GRSPW2_OP_GET_NEXT_PKT_SIZE	3
+#define GRSPW2_OP_DROP_PKT		4
+#define GRSPW2_OP_GET_PKT		5
+
+/* a spacewire core configuration */
+struct spw_user_cfg {
+	struct grspw2_core_cfg spw;
+	uint32_t *rx_desc;
+	uint32_t *tx_desc;
+	uint8_t  *rx_data;
+	uint8_t  *tx_data;
+	uint8_t  *tx_hdr;
+};
+/* XXX to transfer info via syscall; later we should migrate this to the file r/w interface */
+struct grspw2_data {
+	uint8_t op;
+
+	void *hdr;
+	uint32_t hdr_size;
+	uint8_t non_crc_bytes;
+	void *data;
+	uint32_t data_size;
+	uint8_t *pkt;
+};
+
+
 #endif

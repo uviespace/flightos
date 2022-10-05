@@ -514,7 +514,6 @@ int module_load(struct elf_binary *m, void *p)
 	else
 		pr_warn(MOD "_module_exit() not found\n");
 
-exec:
 	pr_debug(MOD "Binary entrypoint is %lx; invoking _module_init() at %p\n",
 		m->ehdr->e_entry, m->init);
 
