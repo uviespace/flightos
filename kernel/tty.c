@@ -38,7 +38,7 @@
  */
 
 /* on init, we don't have kmalloc() */
-#define TTY_BUF_SIZE 1024*20
+#define TTY_BUF_SIZE 1024*4
 static char buf[TTY_BUF_SIZE];
 struct queue the_q = {0, 0, TTY_BUF_SIZE - 1, buf};
 
@@ -161,7 +161,7 @@ static int tty_tx(void *data)
 	return 0;
 }
 
-__attribute__((unused));
+__attribute__((unused))
 static int tty_write_internal(void *buf, size_t nbyte)
 {
 	size_t cnt = 0;

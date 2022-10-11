@@ -18,6 +18,8 @@
 #include <asm-generic/unistd.h>
 
 #include <grspw2.h>
+#include <kernel/kthread.h>
+#include <kernel/sched.h>
 
 
 #undef __SYSCALL
@@ -28,6 +30,35 @@
 #define stdin	0
 #define stdout	1
 #define stderr	2
+
+
+/* XXX the user thread stuff must move somewhere else ... */
+struct sys_sched_attr {
+
+	/* period based scheduling for EDF, RMS, ... */
+	unsigned long		period;           /* wakeup period */
+	unsigned long		wcet;             /* max runtime per period*/
+	unsigned long		deadline_rel;     /* time to deadline from begin of wakeup */
+
+	/* static priority scheduling for RR, FIFO, ... */
+	unsigned long		priority;
+
+	int			on_cpu;						/* cpu number or THREAD_CPU_AFFINITY_NONE */
+	enum sched_policy	policy;
+    };
+
+typedef struct {
+	size_t   size;
+	void	*th;				/* reference to the kernel thread object */
+	int	(*thread_fn)(void *data);
+	void	*data;
+	char	*name;
+	struct sys_sched_attr attr;
+} thread_t;
+
+
+
+
 
 
 
@@ -153,6 +184,62 @@ SYSCALL_DEFINE1(grspw2, struct grspw2_data *, spw)
 	return -EINVAL;
 }
 
+
+SYSCALL_DEFINE1(thread_create, thread_t *, t)
+{
+	char *c;
+	struct task_struct *tsk;
+
+	if (!t)
+		return -EINVAL;
+
+	if (t->size != sizeof(thread_t))
+		return -EINVAL;
+
+
+	/* overwrite any format specifiers, in case the user wants to be funny */
+	c = t->name;
+	while(c) {
+		if ((*c) == '%')
+			(*c) = 'x';
+		c++;
+	}
+
+
+	tsk = kthread_create(t->thread_fn, t->data, t->attr.on_cpu, t->name);
+	if (IS_ERR(tsk))
+		return PTR_ERR(tsk);
+
+	switch (t->attr.policy) {
+	case SCHED_EDF:
+		kthread_set_sched_edf(tsk, t->attr.period, t->attr.deadline_rel, t->attr.wcet);
+		break;
+	case SCHED_RR:
+	case SCHED_OTHER:
+	default:
+		kthread_set_sched_rr(tsk, t->attr.priority);
+		break;
+
+	}
+
+	/**
+	 * XXX exposing this isn't the best idea, but we'll do it like this for now,
+	 * just in case we need it.
+	 * maybe we use some kind of lookup table rather than a memory address
+	 */
+	t->th = (void *) tsk;
+
+	return kthread_wake_up(tsk);
+}
+
+
+SYSCALL_DEFINE0(sched_yield)
+{
+	sched_yield();
+
+	return 0;
+}
+
 /*
  * The sys_call_table array must be 4K aligned to be accessible from
  * kernel/entry.S.
@@ -166,5 +253,7 @@ void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	__SYSCALL(4,   sys_gettime)
 	__SYSCALL(5,   sys_nanosleep)
 	__SYSCALL(6,   sys_grspw2)
+	__SYSCALL(7,   sys_thread_create)
+	__SYSCALL(8,   sys_sched_yield)
 };
 

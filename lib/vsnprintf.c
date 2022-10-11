@@ -1232,6 +1232,12 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 	const char *tmp;
 
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wnonnull-compare", "can't guarantee that this is nonnull");
+
+	if (!format)
+		return 0;
+__diag_pop();
 
 	/* clamp */
 	if (size > INT_MAX)

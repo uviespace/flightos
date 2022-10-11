@@ -50,17 +50,33 @@ static void kthread_unlock(void)
 }
 
 
-void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
+int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			   unsigned long deadline_rel_us, unsigned long wcet_us)
 {
 	struct sched_attr attr;
+
 	sched_get_attr(task, &attr);
-	attr.policy = SCHED_EDF;
+	attr.policy       = SCHED_EDF;
 	attr.period       = us_to_ktime(period_us);
 	attr.deadline_rel = us_to_ktime(deadline_rel_us);
 	attr.wcet         = us_to_ktime(wcet_us);
-	sched_set_attr(task, &attr);
+
+	return sched_set_attr(task, &attr);
 }
+
+
+int kthread_set_sched_rr(struct task_struct *task, unsigned long priority)
+{
+	struct sched_attr attr;
+
+	sched_get_attr(task, &attr);
+	attr.policy	  = SCHED_RR;
+	attr.priority     = priority;
+
+	return sched_set_attr(task, &attr);
+}
+
+
 
 
 
