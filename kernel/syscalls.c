@@ -165,8 +165,11 @@ SYSCALL_DEFINE1(grspw2, struct grspw2_data *, spw)
 
 	case GRSPW2_OP_ADD_PKT:
 		 return grspw2_add_pkt(&spw_cfg.spw, spw->hdr,  spw->hdr_size,
-				       spw->non_crc_bytes, spw->data,
-				       spw->data_size);
+				       spw->data, spw->data_size);
+	case GRSPW2_OP_ADD_RMAP:
+		 return grspw2_add_rmap(&spw_cfg.spw, spw->hdr,  spw->hdr_size,
+					spw->non_crc_bytes, spw->data,
+					spw->data_size);
 	case GRSPW2_OP_GET_NUM_PKT_AVAIL:
 			return grspw2_get_num_pkts_avail(&spw_cfg.spw);
 	case GRSPW2_OP_GET_NEXT_PKT_SIZE:

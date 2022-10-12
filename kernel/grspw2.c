@@ -1363,11 +1363,12 @@ static int32_t grspw2_rx_desc_readd(struct grspw2_core_cfg *cfg,
  */
 
 static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
-			       const void *hdr_buf,
-			       uint32_t hdr_size,
-			       uint8_t non_crc_bytes,
-			       const void *data_buf,
-			       uint32_t data_size)
+				      bool rmap_pkt,
+				      const void *hdr_buf,
+				      uint32_t hdr_size,
+				      uint8_t non_crc_bytes,
+				      const void *data_buf,
+				      uint32_t data_size)
 {
 	struct grspw2_tx_desc_ring_elem *p_elem;
 
@@ -1411,12 +1412,14 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 	p_elem->desc->hdr_size  = hdr_size;
 	p_elem->desc->data_size = data_size;
 
-	if (hdr_size)
-		p_elem->desc->append_header_crc = 1;
-	if (data_size)
-		p_elem->desc->append_data_crc = 1;
-	if (non_crc_bytes)
-		p_elem->desc->non_crc_bytes = non_crc_bytes & 0xF;
+	if (rmap_pkt) {
+		if (hdr_size)
+			p_elem->desc->append_header_crc = 1;
+		if (data_size)
+			p_elem->desc->append_data_crc = 1;
+		if (non_crc_bytes)
+			p_elem->desc->non_crc_bytes = non_crc_bytes & 0xF;
+	}
 
 	grspw2_tx_desc_set_active(p_elem);
 
@@ -1558,6 +1561,7 @@ int32_t grspw2_route(void *userdata)
 
 		/* copy to output if there is a free tx descriptor */
 		ret = grspw2_tx_desc_add_pkt(cfg->route[0],
+					     false,
 					     NULL,
 					     0,
 					     0,
@@ -1782,15 +1786,13 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 
 int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 			const void *hdr,  uint32_t hdr_size,
-			const uint8_t non_crc_bytes,
 			const void *data, uint32_t data_size)
 {
 	int32_t ret;
+	int i;
 
 
-	printk("GRSPW2: %p %u %p %u core %p\n", hdr, hdr_size, data, data_size, cfg);
-
-	ret = grspw2_tx_desc_add_pkt(cfg, hdr, hdr_size, non_crc_bytes,
+	ret = grspw2_tx_desc_add_pkt(cfg, false, hdr, hdr_size, 0,
 				     data, data_size);
 
 	if (unlikely(ret)) {
@@ -1802,6 +1804,34 @@ int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 
 	return 0;
 }
+
+
+/**
+ * @brief add an RMAP packet
+ */
+
+int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
+		        const void *hdr,  uint32_t hdr_size,
+		        const uint8_t non_crc_bytes,
+		        const void *data, uint32_t data_size)
+{
+	int32_t ret;
+
+
+	ret = grspw2_tx_desc_add_pkt(cfg, true, hdr, hdr_size, non_crc_bytes,
+				     data, data_size);
+
+	if (unlikely(ret)) {
+		grspw2_handle_error(LOW);
+		return -1;
+	}
+
+	cfg->tx_bytes += hdr_size + data_size;
+
+	return 0;
+}
+
+
 
 
 /**

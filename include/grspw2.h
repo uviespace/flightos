@@ -537,9 +537,12 @@ void grspw2_set_time_rx(struct grspw2_core_cfg *cfg);
 
 int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 			const void *hdr,  uint32_t hdr_size,
-			uint8_t non_crc_bytes,
 			const void *data, uint32_t data_size);
 
+int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
+			const void *hdr,  uint32_t hdr_size,
+			const uint8_t non_crc_bytes,
+			const void *data, uint32_t data_size);
 
 void grspw2_core_start(struct grspw2_core_cfg *cfg);
 
@@ -573,10 +576,11 @@ void grspw2_spw_hardreset(struct grspw2_regs *regs);
 /* XXX have this temporarily for this syscall interface */
 
 #define GRSPW2_OP_ADD_PKT		1
-#define GRSPW2_OP_GET_NUM_PKT_AVAIL	2
-#define GRSPW2_OP_GET_NEXT_PKT_SIZE	3
-#define GRSPW2_OP_DROP_PKT		4
-#define GRSPW2_OP_GET_PKT		5
+#define GRSPW2_OP_ADD_RMAP		2
+#define GRSPW2_OP_GET_NUM_PKT_AVAIL	3
+#define GRSPW2_OP_GET_NEXT_PKT_SIZE	4
+#define GRSPW2_OP_DROP_PKT		5
+#define GRSPW2_OP_GET_PKT		6
 
 /* a spacewire core configuration */
 struct spw_user_cfg {
