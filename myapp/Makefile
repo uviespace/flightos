@@ -35,8 +35,8 @@ EXT_INC		= $(APP_DIR)/ext
 APP_SRC	= $(shell find $(APP_DIR)/ -type f -name "*.c"| sort | sed /ext/d)
 APP_OBJ	= $(APP_SRC:$(APP_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-INCLUDES 	= -I$(EXT_INC) -I$(APP_INC)
-LIBS		=
+INCLUDES 	= -I$(EXT_INC) -I$(APP_INC) -I../libc/src
+LIBS		= ../libc/build/libc.a
 
 
 $(BUILD_DIR):
@@ -51,7 +51,7 @@ $(APP_OBJ) : $$(patsubst $(BUILD_DIR)/%.o,$(APP_DIR)/%.c,$$@)
 app:  $(BUILD_DIR) $(APP_OBJ)
 	@echo "Building target."
 
-	$(LD) $(LIBS) $(LDFLAGS) -o $(BUILD_DIR)/myapp $(APP_OBJ)
+	$(LD)  $(LDFLAGS) -o $(BUILD_DIR)/myapp $(APP_OBJ) $(LIBS)
 
 	sparc-gaisler-elf-strip --strip-debug  $(BUILD_DIR)/myapp
 
