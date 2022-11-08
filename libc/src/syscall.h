@@ -182,8 +182,8 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 
 #define SYSCALL0(id)						\
 ({								\
-	long _a0 = (long) (a0);					\
 	long _g1 = (id);					\
+	long _o0 = 0;						\
 								\
 	__asm__ __volatile__(					\
 			     "mov       %1, %%g1    \n\t"	\

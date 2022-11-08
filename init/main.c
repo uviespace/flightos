@@ -58,8 +58,8 @@ int oneshotedf_start(void);
 
 
 
-/* a spacewire core configuration */
-struct spw_user_cfg spw_cfg;
+/* a spacewire core configuration (0 = obc,  1 = fee */
+struct spw_user_cfg spw_cfg[2];
 
 
 /* default dividers for GR712RC eval board: 10 Mbit start, 100 Mbit run */
@@ -68,15 +68,154 @@ struct spw_user_cfg spw_cfg;
  * for the RDCU configuring it to 100 Mbit
  */
 #define SPW_CLCKDIV_START	10
-#define SPW_CLCKDIV_RUN		1
+#define SPW_CLCKDIV_RUN		5
 #define GR712_IRL2_GRSPW2_0	22
+#define GR712_IRL2_GRSPW2_1	23
+#define GR712_IRL2_GRSPW2_2	24
+#define GR712_IRL2_GRSPW2_3	25
+#define GR712_IRL2_GRSPW2_4	26
+#define GR712_IRL2_GRSPW2_5	27
 #define GR712_IRL1_AHBSTAT	1
 #define HDR_SIZE	0x4
+#define STRIP_HDR_BYTES	0x4
 
-#define ICU_ADDR	0x28	/* PLATO-IWF-PL-TR-0042-d0-1_RDCU_Functional_Test_PT1 */
+#define SMILE_DPU_ADDR_TO_OBC	0xFE
+
+#define SMILE_DPU_ADDR_TO_FEE    0x50
+
+void smile_set_gr712_spw_clock(void)
+{
+        uint32_t *gpreg = (uint32_t *) 0x80000600;
+
+        (*gpreg) = (ioread32be(gpreg) & (0xFFFFFFF8));
+}
 
 
-static void spw_alloc(struct spw_user_cfg *cfg)
+static void spw_alloc_obc(struct spw_user_cfg *cfg)
+{
+	uint32_t mem;
+
+
+	/*
+	 * malloc a rx and tx descriptor table buffer and align to
+	 * 1024 bytes (GR712UMRC, p. 111)
+	 *
+	 * dynamically allocate memory + 1K for alignment (worst case)
+	 * 1 buffer per dma channel (GR712 cores only implement one channel)
+	 *
+	 * NOTE: we don't care about calling free(), because this is a
+	 * bare-metal demo, so we just discard the original pointer
+	 */
+
+	mem = (uint32_t) kcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
+				+ GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
+
+	cfg->rx_desc = (uint32_t *)
+		       ((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
+			& ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
+
+
+	mem = (uint32_t) kcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
+				+ GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
+
+	cfg->tx_desc = (uint32_t *)
+		       ((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
+			& ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
+
+
+	/* malloc rx and tx data buffers: decriptors * packet size */
+	cfg->rx_data = (uint8_t *) kcalloc(1, GRSPW2_RX_DESCRIPTORS
+					  * GRSPW2_DEFAULT_MTU);
+	cfg->tx_data = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS
+					  * GRSPW2_DEFAULT_MTU);
+
+	cfg->tx_hdr = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
+}
+
+
+#define CLKGATE_GRETH		0x00000001
+#define CLKGATE_GRSPW0		0x00000002
+#define CLKGATE_GRSPW1		0x00000004
+#define CLKGATE_GRSPW2		0x00000008
+#define CLKGATE_GRSPW3		0x00000010
+#define CLKGATE_GRSPW4		0x00000020
+#define CLKGATE_GRSPW5		0x00000040
+#define CLKGATE_CAN		0x00000080
+
+/* bit 8 is proprietary */
+
+#define CLKGATE_CCSDS_TM	0x00000200
+#define CLKGATE_CCSDS_TC	0x00000400
+#define CLKGATE_1553BRM		0x00000800
+
+#define CLKGATE_BASE		0x80000D00
+
+__attribute__((unused))
+static struct gr712_clkgate {
+	uint32_t unlock;
+	uint32_t clk_enable;
+	uint32_t core_reset;
+} *clkgate = (struct gr712_clkgate *) CLKGATE_BASE;
+
+
+static void gr712_clkgate_enable(uint32_t gate)
+{
+	uint32_t flags;
+        flags  = ioread32be(&clkgate->unlock);
+        flags |= gate;
+        iowrite32be(flags, &clkgate->unlock);
+
+        flags  = ioread32be(&clkgate->core_reset);
+        flags |= gate;
+        iowrite32be(flags, &clkgate->core_reset);
+
+        flags  = ioread32be(&clkgate->clk_enable);
+        flags |= gate;
+        iowrite32be(flags, &clkgate->clk_enable);
+
+        flags  = ioread32be(&clkgate->core_reset);
+        flags &= ~gate;
+        iowrite32be(flags, &clkgate->core_reset);
+
+        flags  = ioread32be(&clkgate->unlock);
+        flags &= ~gate;
+        iowrite32be(flags, &clkgate->unlock);
+}
+
+
+
+/**
+ * @brief perform basic initialisation of the spw core
+ */
+
+static void spw_init_core_obc(struct spw_user_cfg *cfg)
+{
+	smile_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW0);
+
+	/* configure for spw core0 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_0,
+			 SMILE_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_RUN,
+			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_0,
+			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
+
+	grspw2_rx_desc_table_init(&cfg->spw,
+				  cfg->rx_desc,
+				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  cfg->rx_data,
+				  GRSPW2_DEFAULT_MTU);
+
+	grspw2_tx_desc_table_init(&cfg->spw,
+				  cfg->tx_desc,
+				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  cfg->tx_hdr, HDR_SIZE,
+				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
+}
+
+
+
+static void spw_alloc_fee(struct spw_user_cfg *cfg)
 {
 	uint32_t mem;
 
@@ -120,16 +259,18 @@ static void spw_alloc(struct spw_user_cfg *cfg)
  * @brief perform basic initialisation of the spw core
  */
 
-static void spw_init_core(struct spw_user_cfg *cfg)
-{
-	/* select GR712 INCLCK */
-	set_gr712_spw_clock();
 
-	/* configure for spw core0 */
-	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_0,
-			 ICU_ADDR, SPW_CLCKDIV_START, SPW_CLCKDIV_RUN,
-			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_0,
-			 GR712_IRL1_AHBSTAT, 0);
+static void spw_init_core_fee(struct spw_user_cfg *cfg)
+{
+	smile_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW1);
+
+	/* configure for spw core1 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
+			 SMILE_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_RUN,
+			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_1,
+			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
@@ -143,6 +284,8 @@ static void spw_init_core(struct spw_user_cfg *cfg)
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
 }
+
+
 
 
 
@@ -245,13 +388,21 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 
 #endif /* CONFIG_EMBED_MODULES_IMAGE */
 
+	/* XXX MEH, just hack this in for EMC test */
+	spw_alloc_obc(&spw_cfg[0]);
+	spw_init_core_obc(&spw_cfg[0]);
 
-	spw_alloc(&spw_cfg);
-	spw_init_core(&spw_cfg);
+	grspw2_core_start(&spw_cfg[0].spw);
+	grspw2_set_time_rx(&spw_cfg[0].spw);
+	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
-	grspw2_core_start(&spw_cfg.spw);
-	grspw2_set_time_rx(&spw_cfg.spw);
-	grspw2_tick_out_interrupt_enable(&spw_cfg.spw);
+	spw_alloc_fee(&spw_cfg[1]);
+	spw_init_core_fee(&spw_cfg[1]);
+	grspw2_core_start(&spw_cfg[1].spw);
+
+
+
+
 
 #ifdef CONFIG_EMBED_APPLICATION
 #if 0
@@ -312,14 +463,25 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		cpu_relax();
 	}
 #endif
-	application_load( (void*) 0x60200000, "mytest", KTHREAD_CPU_AFFINITY_NONE);
+
+
+	/* CrIa */
+	addr = module_read_embedded("CrIa");
+	printk(MSG "test executable address is %p\n", addr);
+#if 0
+	if (addr)
+		application_load( (void*) addr, "CrIa", KTHREAD_CPU_AFFINITY_NONE);
+#endif
 
 	{
 		struct timespec t = get_uptime();
 		printk("entering main idle loop at uptime %u s, %u ms\n", t.tv_sec, t.tv_nsec / 1000000);
+		MARK();
 	}
-	while(1)
+	while(1) {
+		printk("link status is %x and %x\n", grspw2_get_link_status(&spw_cfg[0].spw), grspw2_get_link_status(&spw_cfg[1].spw) );
 		cpu_relax();
+	}
 
 
 	/* never reached */

@@ -154,30 +154,33 @@ SYSCALL_DEFINE2(nanosleep, int, flags, struct timespec *, t)
 	return 0;
 }
 
-/* XXX move all of this to the driver module */
-extern struct spw_user_cfg spw_cfg;
+/* XXX move all of this to the driver module, fix core enumeration */
+extern struct spw_user_cfg spw_cfg[2];
 SYSCALL_DEFINE1(grspw2, struct grspw2_data *, spw)
 {
 	if (!spw)
 		return -EINVAL;
 
+	if (spw->link > 2)
+		return -EINVAL;
+
 	switch (spw->op) {
 
 	case GRSPW2_OP_ADD_PKT:
-		 return grspw2_add_pkt(&spw_cfg.spw, spw->hdr,  spw->hdr_size,
+		 return grspw2_add_pkt(&spw_cfg[spw->link].spw, spw->hdr,  spw->hdr_size,
 				       spw->data, spw->data_size);
 	case GRSPW2_OP_ADD_RMAP:
-		 return grspw2_add_rmap(&spw_cfg.spw, spw->hdr,  spw->hdr_size,
+		 return grspw2_add_rmap(&spw_cfg[spw->link].spw, spw->hdr,  spw->hdr_size,
 					spw->non_crc_bytes, spw->data,
 					spw->data_size);
 	case GRSPW2_OP_GET_NUM_PKT_AVAIL:
-			return grspw2_get_num_pkts_avail(&spw_cfg.spw);
+			return grspw2_get_num_pkts_avail(&spw_cfg[spw->link].spw);
 	case GRSPW2_OP_GET_NEXT_PKT_SIZE:
-			return grspw2_get_next_pkt_size(&spw_cfg.spw);
+			return grspw2_get_next_pkt_size(&spw_cfg[spw->link].spw);
 	case GRSPW2_OP_DROP_PKT:
-			return grspw2_drop_pkt(&spw_cfg.spw);
+			return grspw2_drop_pkt(&spw_cfg[spw->link].spw);
 	case GRSPW2_OP_GET_PKT:
-			return grspw2_get_pkt(&spw_cfg.spw, spw->pkt);
+			return grspw2_get_pkt(&spw_cfg[spw->link].spw, spw->pkt);
 	default:
 			printk("SPW ERROR: unknown OP %d\n", spw->op);
 		return -EINVAL;

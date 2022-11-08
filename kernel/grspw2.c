@@ -1789,7 +1789,6 @@ int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 			const void *data, uint32_t data_size)
 {
 	int32_t ret;
-	int i;
 
 
 	ret = grspw2_tx_desc_add_pkt(cfg, false, hdr, hdr_size, 0,

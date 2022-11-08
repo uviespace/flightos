@@ -595,6 +595,7 @@ struct spw_user_cfg {
 struct grspw2_data {
 	uint8_t op;
 
+	uint8_t link;
 	void *hdr;
 	uint32_t hdr_size;
 	uint8_t non_crc_bytes;

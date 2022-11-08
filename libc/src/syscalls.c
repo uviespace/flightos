@@ -2,6 +2,7 @@
 #include <syscall.h>
 
 #include <syscalls.h>
+#include <grspw2.h>
 
 
 
@@ -44,4 +45,26 @@ __attribute__((noinline))
 int sys_nanosleep(int flags, const struct timespec *rqtp)
 {
 	return SYSCALL2(__NR_nanosleep, flags, rqtp);
+}
+
+
+/* XXX replace once file subsys is available */
+__attribute__((noinline))
+int sys_grspw2(const struct grspw2_data *data)
+{
+	return SYSCALL1(__NR_grspw2, data);
+}
+
+
+__attribute__((noinline))
+int sys_thread_create(const thread_t *t)
+{
+	return SYSCALL1(__NR_thread_create, t);
+}
+
+
+__attribute__((noinline))
+int sys_sched_yield(void)
+{
+	return SYSCALL0(__NR_sched_yield);
 }

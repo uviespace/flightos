@@ -82,17 +82,28 @@ static void mem_init(void)
 #ifdef CONFIG_LEON4
 	sp_banks[0].base_addr = 0x00000000;
 	sp_banks[0].num_bytes = 0x10000000;
-#else /* e.g. GR712 eval */
+#endif
+
+#ifdef CONFIG_LEON3 /* e.g. GR712 eval */
+#if 0
 	sp_banks[0].base_addr = 0x40000000;
 	sp_banks[0].num_bytes = 0x00800000;
-#endif
+#else
+	/* XXX need something like CONFIG_SOC_SMILE_SXI */
+	/* XXX the base address is defined by the requirements,
+	 * however the size is limited for now so this will run on the
+	 * GR712 EVAL board (from SDRAM) as well as the SXI DPU
+	 */
+	sp_banks[0].base_addr = 0x60040000;
+	sp_banks[0].num_bytes = 0x64100000 - 0x60040000;
+#endif /* 0 */
+#endif /* CONFIG_LEON3 */
+
 
 #if (SPARC_PHYS_BANKS > 0)
 	sp_banks[1].base_addr = 0x60100000;
 	sp_banks[1].num_bytes = 0x04000000-0x100000;
 #warning "SPARC PHYS BANK 2 currently reconfigured for start at 0x60100000"
-#else
-#warning "Configuration error: SPARC_PHYS_BANKS size insufficient."
 #endif
 
 }
