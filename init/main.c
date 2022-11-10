@@ -270,7 +270,7 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
 			 SMILE_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_RUN,
 			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_1,
-			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
+			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
@@ -283,6 +283,7 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
+	grspw2_set_promiscuous(&cfg->spw);
 }
 
 
@@ -400,9 +401,23 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	spw_init_core_fee(&spw_cfg[1]);
 	grspw2_core_start(&spw_cfg[1].spw);
 
+#if 1
+	/* empty link in case the mkII brick acts up again,
+	 * note that this does not work unless the power to the FEE psu
+	 * is ON for the SXI DPU, as the LVDS transceivers are not
+	 * powered otherwise; this is a devel workaround anyways
+	 */
+        iowrite32be((1 << 12), (void *) 0x20000420);
+	iowrite32be(0x9A000000, (void *) 0x20000428);
 
+	printk("status is %08x\n", ioread32be((void *) 0x2000042C) );
 
-
+	while (grspw2_get_num_pkts_avail(&spw_cfg[1].spw)) {
+		grspw2_drop_pkt(&spw_cfg[1].spw);
+		printk(".");
+	}
+	printk("\n");
+#endif
 
 #ifdef CONFIG_EMBED_APPLICATION
 #if 0
@@ -468,7 +483,7 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	/* CrIa */
 	addr = module_read_embedded("CrIa");
 	printk(MSG "test executable address is %p\n", addr);
-#if 0
+#if 1
 	if (addr)
 		application_load( (void*) addr, "CrIa", KTHREAD_CPU_AFFINITY_NONE);
 #endif
@@ -479,7 +494,9 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		MARK();
 	}
 	while(1) {
+#if 0
 		printk("link status is %x and %x\n", grspw2_get_link_status(&spw_cfg[0].spw), grspw2_get_link_status(&spw_cfg[1].spw) );
+#endif
 		cpu_relax();
 	}
 
