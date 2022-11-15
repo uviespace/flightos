@@ -30,7 +30,7 @@
 /* XXX should not assume that this is always a valid physical address
  * (see also LEON3FT Cache Controller Power Down erratum
  */
-#define cpu_relax() leon3_powerdown_safe(0x40000000)
+#define cpu_relax() leon3_powerdown_safe(0xFFFFFFF0)
 #endif
 
 #endif /* _SPARC_PROCESSOR_H_ */

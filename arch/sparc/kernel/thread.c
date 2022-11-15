@@ -43,23 +43,16 @@ static void th_starter(void)
 	unsigned long flags;
 	struct task_struct *task = current_set[leon3_cpuid()]->task;
 
-	struct timespec ts;
-
-	double start;
-	double stop;
+	ktime t0, t1;
 
 
-
-	ts = get_uptime();
-
-	start = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
+	t0 = ktime_get();
 
 	task->thread_fn(task->data);
 
-	ts = get_uptime();
-	stop = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
+	t1 = ktime_get();
 
-	printk("thread: %p returned after %gs\n", task->stack, stop-start);
+	pr_info("thread: %p returned after %ld ms\n", task->stack, ktime_ms_delta(t1, t0));
 
 	flags = arch_local_irq_save();
 	task->state = TASK_DEAD;

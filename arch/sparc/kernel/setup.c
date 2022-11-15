@@ -142,6 +142,50 @@ static void boot_cpus(void)
 }
 
 
+/* XXX this is needed for SXI DPU; the boot sw cannot start
+ * in SMP mode, so the second CPU is still at 0x0 initially
+ *
+ * we temporarily do this here to get ready for the EMC test
+ *
+ * we use the LEON3 debug support unit for this
+ */
+#include <leon3_dsu.h>
+static void sxi_dpu_setup_cpu_entry(void)
+{
+	uint32_t tmp;
+
+
+	dsu_set_noforce_debug_mode(1);
+	dsu_set_cpu_break_on_iu_watchpoint(1);
+
+	dsu_set_force_debug_on_watchpoint(1);
+
+	/* set trap base register to be the same as on CPU0 and point
+	 * %pc and %npc there
+	 */
+	tmp = dsu_get_reg_tbr(0) & ~0xfff;
+
+	dsu_set_reg_tbr(1, tmp);
+
+	dsu_set_reg_pc(1, tmp);
+	dsu_set_reg_npc(1, tmp + 0x4);
+
+	dsu_clear_iu_reg_file(1);
+	/* default invalid mask */
+	dsu_set_reg_wim(1, 0x2);
+
+	/* set CWP to 7 */
+	dsu_set_reg_psr(1, 0xf34010e1);
+
+	dsu_clear_cpu_break_on_iu_watchpoint(1);
+	/* resume cpu 1 */
+	dsu_clear_force_debug_on_watchpoint(1);
+}
+
+
+
+
+
 #include <asm/processor.h>
 #include <kernel/kthread.h>
 extern struct task_struct *kernel[];
@@ -152,6 +196,45 @@ void smp_cpu_entry(void)
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
 
 	arch_local_irq_enable();
+
+
+#if 1
+	/**
+	 *
+	 * XXX this was relevant for cheops, but the SXI DPU is basically
+	 * set up identically, we add this for the EMC test just to make sure
+	 *
+	 * Upon startup, the FPU of the second core has random initial values,
+	 * including the FSR. Here we set the CPU 1 FSR such as to disable
+	 * all FPU traps.
+	 *
+	 * 0x0F800000 ... enable all FP exceptions (except NS)
+	 * 0x08000000 ... operand error (NV)
+	 * 0x06000000 ... rounding errors (OF + UF)
+	 * 0x01000000 ... division by zero and invalid * sqrt(0) (DZ)
+	 * 0x00800000 ... inexact result (NX)
+	 * 0x00400000 ... NS bit
+	 */
+
+ {
+         volatile uint32_t initval = 0x00400000;
+
+         /* NOTE: load fsr means write to it */
+         __asm__ __volatile__("ld [%0], %%fsr \n\t"
+			   ::"r"(&initval));
+ }
+#endif
+
+
+
+#if 1 /* CONFIG_LEON3 */
+
+ 	  leon3_flush();
+  leon3_enable_icache();
+  leon3_enable_dcache();
+  leon3_enable_fault_tolerant();
+  leon3_enable_snooping();
+#endif /* CONFIG_LEON3 */
 
 	pr_info("hi i'm cpu %d\n", leon3_cpuid());
 
@@ -183,6 +266,15 @@ void smp_cpu_entry(void)
 
 void setup_arch(void)
 {
+#if 1 /* CONFIG_LEON321 */
+
+	  leon3_flush();
+  leon3_enable_icache();
+  leon3_enable_dcache();
+  leon3_enable_fault_tolerant();
+  leon3_enable_snooping();
+#endif /* CONFIG_LEON3 */
+
 	mem_init();
 
 	paging_init();
@@ -198,6 +290,9 @@ void setup_arch(void)
 	sparc_uptime_init();
 
 	sparc_clockevent_init();
+
+	/* XXX */
+	sxi_dpu_setup_cpu_entry();
 
 	smp_init();
 
