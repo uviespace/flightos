@@ -91,11 +91,7 @@ static inline void __raw_writel(uint32_t l, const volatile void *addr)
 }
 
 #ifndef ioread8
-#define ioread8(X)                      __raw_read8(X)
-#endif
-
-#ifndef iowrite8
-#define iowrite8(X)                     __raw_write8(X)
+#define ioread8(X)                      __raw_readb(X)
 #endif
 
 #ifndef ioread16be
@@ -104,6 +100,10 @@ static inline void __raw_writel(uint32_t l, const volatile void *addr)
 
 #ifndef ioread32be
 #define ioread32be(X)                   __raw_readl(X)
+#endif
+
+#ifndef iowrite8
+#define iowrite8(val,X)                 __raw_writeb(val,X)
 #endif
 
 #ifndef iowrite16be
