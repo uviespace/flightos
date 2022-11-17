@@ -1361,7 +1361,7 @@ static int32_t grspw2_rx_desc_readd(struct grspw2_core_cfg *cfg,
  * @note	USE WITH CARE: does not perform any size checks on the buffers
  *
  */
-
+#include <asm/leon.h>
 static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 				      bool rmap_pkt,
 				      const void *hdr_buf,
@@ -1408,6 +1408,15 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 
 	if (data_buf != NULL)
 		memcpy((void *) p_elem->desc->data_addr, data_buf, data_size);
+
+	/* XXX why is this needed? seems to be an issue with the SXI DPU
+	 * apparently sometimes parts of old packets (longer ones)
+	 * are sent instead of the newer content. Could be that this
+	 * is a caching issue. The spw core will immediately start to
+	 * transmit the packet once new_avail() is called, so we'll flush
+	 * here for now and investigate this later
+	 */
+	leon3_flush_dcache();
 
 	p_elem->desc->hdr_size  = hdr_size;
 	p_elem->desc->data_size = data_size;
