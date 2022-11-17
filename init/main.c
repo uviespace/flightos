@@ -401,7 +401,7 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	spw_init_core_fee(&spw_cfg[1]);
 	grspw2_core_start(&spw_cfg[1].spw);
 
-#if 1
+#if 0
 	/* empty link in case the mkII brick acts up again,
 	 * note that this does not work unless the power to the FEE psu
 	 * is ON for the SXI DPU, as the LVDS transceivers are not
