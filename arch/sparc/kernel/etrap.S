@@ -134,6 +134,7 @@ do_syscall:
         st      %o0, [%sp + STACKFRAME_SZ + PT_I0]	/* store retval to stack */
 
 ret_sys_call:
+	wr	%t_psr, 0x0, %psr			! delay cycles are covered in store block
        	ld     [%sp + STACKFRAME_SZ + PT_NPC], %l1	/* pc = npc */
         add     %l1, 0x4, %l2                   	/* npc = npc+4 */
         st      %l1, [%sp + STACKFRAME_SZ + PT_PC]
