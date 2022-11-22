@@ -544,7 +544,7 @@ int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
 			const uint8_t non_crc_bytes,
 			const void *data, uint32_t data_size);
 
-void grspw2_core_start(struct grspw2_core_cfg *cfg);
+void grspw2_core_start(struct grspw2_core_cfg *cfg, int link_start, int auto_start);
 
 
 int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,

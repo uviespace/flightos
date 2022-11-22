@@ -393,13 +393,13 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	spw_alloc_obc(&spw_cfg[0]);
 	spw_init_core_obc(&spw_cfg[0]);
 
-	grspw2_core_start(&spw_cfg[0].spw);
+	grspw2_core_start(&spw_cfg[0].spw, 0, 1);
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
 	spw_alloc_fee(&spw_cfg[1]);
 	spw_init_core_fee(&spw_cfg[1]);
-	grspw2_core_start(&spw_cfg[1].spw);
+	grspw2_core_start(&spw_cfg[1].spw, 1, 1);
 
 #if 0
 	/* empty link in case the mkII brick acts up again,

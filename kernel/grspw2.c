@@ -1844,14 +1844,22 @@ int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
 
 /**
   * @brief start core operation
+  * @param link_start	0: do not set link start bit, otherwise set
+  * @param auto_start	0: do not set auto start bit, otherwise set
  */
 
-void grspw2_core_start(struct grspw2_core_cfg *cfg)
+void grspw2_core_start(struct grspw2_core_cfg *cfg, int link_start, int auto_start)
 {
 	grswp2_rx_desc_add_all(cfg);
 	grspw2_clear_status(cfg);
-	grspw2_set_linkstart(cfg);
-	grspw2_set_autostart(cfg);
+
+	grspw2_unset_linkstart(cfg);
+	grspw2_unset_autostart(cfg);
+
+	if (link_start)
+		grspw2_set_linkstart(cfg);
+	if (auto_start)
+		grspw2_set_autostart(cfg);
 }
 
 
