@@ -20,6 +20,7 @@
 #include <grspw2.h>
 #include <kernel/kthread.h>
 #include <kernel/sched.h>
+#include <kernel/watchdog.h>
 
 
 #undef __SYSCALL
@@ -246,6 +247,29 @@ SYSCALL_DEFINE0(sched_yield)
 	return 0;
 }
 
+
+/* XXX move */
+/**
+ * if timeout == 0, enable is considered, otherwise ignored */
+SYSCALL_DEFINE2(watchdog, unsigned long, timeout_ns, int, enable)
+{
+	if (timeout_ns)
+		return watchdog_feed(timeout_ns);
+
+	if (enable)
+		return watchdog_set_mode(WATCHDOG_UNLEASH);
+
+	return watchdog_set_mode(WATCHDOG_LEASH);
+}
+
+
+
+
+
+
+
+
+
 /*
  * The sys_call_table array must be 4K aligned to be accessible from
  * kernel/entry.S.
@@ -261,5 +285,6 @@ void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	__SYSCALL(6,   sys_grspw2)
 	__SYSCALL(7,   sys_thread_create)
 	__SYSCALL(8,   sys_sched_yield)
+	__SYSCALL(9,   sys_watchdog)
 };
 

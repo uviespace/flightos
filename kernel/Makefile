@@ -10,6 +10,7 @@ obj-y += kthread.o
 obj-y += time.o
 obj-y += clockevent.o
 obj-y += tick.o
+obj-y += watchdog.o
 obj-y += syscalls.o
 obj-y += tty.o
 obj-y += application.o

@@ -15,6 +15,7 @@
 #include <kernel/clockevent.h>
 #include <kernel/export.h>
 #include <kernel/tick.h>
+#include <kernel/watchdog.h>
 #include <kernel/sched.h>
 #include <errno.h>
 
@@ -91,6 +92,21 @@ bool clockevents_feature_oneshot(struct clock_event_device *dev)
 
 
 /**
+ * @brief check if a device is watchdog-capable
+ *
+ * @returns true if the feature is supported
+ */
+
+bool clockevents_feature_watchdog(struct clock_event_device *dev)
+{
+	if (dev->features & CLOCK_EVT_FEAT_WATCHDOG)
+		return true;
+
+	return false;
+}
+
+
+/**
  * @brief check if a device supports a given state
  *
  * @returns true if a feature is supported
@@ -107,6 +123,8 @@ bool clockevents_state_supported(struct clock_event_device *dev,
 		return clockevents_feature_periodic(dev);
 	case CLOCK_EVT_STATE_ONESHOT:
 		return clockevents_feature_oneshot(dev);
+	case CLOCK_EVT_STATE_WATCHDOG:
+		return clockevents_feature_watchdog(dev);
 	default:
 		break;
 
@@ -143,8 +161,6 @@ void clockevents_set_state(struct clock_event_device *dev,
 
 
 	if (dev->state != state) {
-
-
 		dev->set_state(state, dev);
 		dev->state = state;
 	}
@@ -251,6 +267,14 @@ void clockevents_register_device(struct clock_event_device *dev)
 	 */
 
 	sched_disable();
+
+	/* offer it to the watchdog first, not all timers are capable */
+	watchdog_check_device(dev);
+
+	/* if the watchdog did not want it, the ticker might */
+	if (dev->state == CLOCK_EVT_STATE_UNUSED)
+		tick_check_device(dev);
+
 	tick_check_device(dev);
 	sched_enable();
 
@@ -282,7 +306,14 @@ int clockevents_offer_device(void)
 		 */
 
 		sched_disable();
-		tick_check_device(dev);
+
+		/* offer it to the watchdog first, not all timers are capable */
+		watchdog_check_device(dev);
+
+		/* if the watchdog did not want it, the ticker might */
+		if (dev->state == CLOCK_EVT_STATE_UNUSED)
+			tick_check_device(dev);
+
 		sched_enable();
 
 		return 0;

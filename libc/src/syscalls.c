@@ -68,3 +68,9 @@ int sys_sched_yield(void)
 {
 	return SYSCALL0(__NR_sched_yield);
 }
+
+__attribute__((noinline))
+int sys_watchdog(unsigned long timeout_ns, int enable)
+{
+	return SYSCALL2(__NR_watchdog, timeout_ns, enable);
+}

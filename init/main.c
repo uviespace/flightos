@@ -20,6 +20,7 @@
 #include <kernel/kernel.h>
 #include <kernel/kthread.h>
 #include <kernel/time.h>
+#include <kernel/watchdog.h>
 #include <kernel/err.h>
 #include <kernel/sysctl.h>
 #include <modules-image.h>
@@ -287,6 +288,10 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 }
 
 
+void watchdog_handler(void *userdata)
+{
+	/* XXX stacktrace CrIa ?*/
+}
 
 
 
@@ -493,6 +498,10 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		printk("entering main idle loop at uptime %u s, %u ms\n", t.tv_sec, t.tv_nsec / 1000000);
 		MARK();
 	}
+
+	/* XXX handler for EMC, set stacktrace for CrIa later  */
+	watchdog_set_handler(watchdog_handler, NULL);
+
 	while(1) {
 #if 0
 		printk("link status is %x and %x\n", grspw2_get_link_status(&spw_cfg[0].spw), grspw2_get_link_status(&spw_cfg[1].spw) );

@@ -110,6 +110,14 @@ static void gp_clk_dev_set_state(enum clock_event_state state,
 		case CLOCK_EVT_STATE_SHUTDOWN:
 			gp_clk_dev_suspend(ce);
 			break;
+		case CLOCK_EVT_STATE_WATCHDOG:
+			/* a LEON GPTIMER just needs to be in oneshot setting
+			 * when in WD mode, we don't need more than one IRQ
+			 * when it underflows
+			 */
+			gptimer_clear_restart(_gp_clk_ev.gptu, timer);
+			gp_clk_dev_resume(ce);
+			break;
 		case CLOCK_EVT_STATE_UNUSED:
 			gp_clk_dev_suspend(ce);
 			break;
@@ -141,6 +149,9 @@ static int gp_clk_dev_set_next_event(unsigned long evt,
 			gptimer_start_cyclical(_gp_clk_ev.gptu, timer, evt);
 			break;
 		case CLOCK_EVT_STATE_ONESHOT:
+			gptimer_start(_gp_clk_ev.gptu, timer, evt);
+			break;
+		case CLOCK_EVT_STATE_WATCHDOG:
 			gptimer_start(_gp_clk_ev.gptu, timer, evt);
 			break;
 		default:
@@ -254,6 +265,14 @@ static void leon_setup_clockdevs(void)
 		ce->features = (CLOCK_EVT_FEAT_PERIODIC |
 				CLOCK_EVT_FEAT_ONESHOT  |
 				CLOCK_EVT_FEAT_KTIME);
+
+#ifdef CONFIG_LEON3
+		/* in the GR712, timer 4 asserts the external WDOGN signal
+		 * on underflow
+		 */
+		if (i == 3)
+			ce->features |= CLOCK_EVT_FEAT_WATCHDOG;
+#endif /* CONFIG_LEON3 */
 
 
 		ce->irq  = GPTIMER_0_IRQ + i;

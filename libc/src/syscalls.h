@@ -16,6 +16,7 @@ int sys_nanosleep(int flags, const struct timespec *rqtp);
 int sys_grspw2(const struct grspw2_data *data);
 int sys_thread_create(const thread_t *t);
 int sys_sched_yield(void);
+int sys_watchdog(unsigned long timeout_ns, int enable);
 
 #if 0
 void *sbrk(intptr_t incremen);
