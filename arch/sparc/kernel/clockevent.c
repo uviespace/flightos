@@ -116,7 +116,7 @@ static void gp_clk_dev_set_state(enum clock_event_state state,
 			 * when it underflows
 			 */
 			gptimer_clear_restart(_gp_clk_ev.gptu, timer);
-			gp_clk_dev_resume(ce);
+			gp_clk_dev_suspend(ce);
 			break;
 		case CLOCK_EVT_STATE_UNUSED:
 			gp_clk_dev_suspend(ce);
