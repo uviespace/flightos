@@ -69,7 +69,8 @@ struct spw_user_cfg spw_cfg[2];
  * for the RDCU configuring it to 100 Mbit
  */
 #define SPW_CLCKDIV_START	10
-#define SPW_CLCKDIV_RUN		5
+#define SPW_CLCKDIV_PLM_RUN	10
+#define SPW_CLCKDIV_FEE_RUN	2
 #define GR712_IRL2_GRSPW2_0	22
 #define GR712_IRL2_GRSPW2_1	23
 #define GR712_IRL2_GRSPW2_2	24
@@ -197,7 +198,7 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_0,
-			 SMILE_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_RUN,
+			 SMILE_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
 			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_0,
 			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
 
@@ -269,7 +270,7 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 
 	/* configure for spw core1 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
-			 SMILE_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_RUN,
+			 SMILE_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_FEE_RUN,
 			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_1,
 			 GR712_IRL1_AHBSTAT, 0);
 
