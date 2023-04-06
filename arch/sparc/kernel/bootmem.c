@@ -26,6 +26,7 @@
 
 #include <string.h>
 
+#include <kernel/err.h>
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
 #include <asm/irqflags.h>
@@ -333,9 +334,10 @@ void bootmem_init(void)
 				   sp_banks[i].base_addr + sp_banks[i].num_bytes,
 				   PAGE_SIZE);
 
-		if (ret) {
+		if (ret == -ENOMEM) {	/* we ignore -EINVAL */
 			pr_emerg("BOOTMEM: cannot add page map node\n");
 			BUG();
 		}
+
 	}
 }

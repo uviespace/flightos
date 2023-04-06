@@ -95,7 +95,7 @@ static void mem_init(void)
 	 * GR712 EVAL board (from SDRAM) as well as the SXI DPU
 	 */
 	sp_banks[0].base_addr = 0x60040000;
-	sp_banks[0].num_bytes = 0x64100000 - 0x60040000;
+	sp_banks[0].num_bytes = 0x69000000 - 0x60040000;
 #endif /* 0 */
 #endif /* CONFIG_LEON3 */
 

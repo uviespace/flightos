@@ -99,6 +99,15 @@ int page_map_add(unsigned long start, unsigned long end,
 		if (!(*pg)->pool->max_order)
 			break;
 
+		/* check for overlapping configurations */
+		if ((*pg)->mem_start <= start)
+			if ((*pg)->mem_end >= start)
+				goto overlap;
+
+		if ((*pg)->mem_end >= end)
+			if ((*pg)->mem_start <= end)
+				goto overlap;
+
 	} while ((*(++pg)));
 
 
@@ -109,12 +118,19 @@ int page_map_add(unsigned long start, unsigned long end,
 	if (mm_init((*pg)->pool, (void *) start, mem_size, page_size))
 		goto error;
 
+	(*pg)->mem_start = start;
+	(*pg)->mem_end = end;
+
 	list_add_tail(&(*pg)->node, &page_map_list_full);
 
 	return 0;
 
 error:
 	return -ENOMEM;
+overlap:
+	printk("PAGE MEM: overlapping memory range found for request "
+	       "0x%08x 0x%08x, cannot add map\n");
+	return -EINVAL;
 }
 
 
@@ -154,6 +170,8 @@ int page_map_init(struct page_map_node **pg_map,
 	if (mm_init(pg->pool, (void *) start, mem_size, page_size))
 		goto error;
 
+	pg->mem_start = start;
+	pg->mem_end = end;
 
 	page_map_set_map(pg_map);
 

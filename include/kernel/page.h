@@ -12,6 +12,8 @@
 
 struct page_map_node {
 	struct mm_pool *pool;
+	unsigned long mem_start;
+	unsigned long mem_end;
 	struct list_head node;
 };
 
