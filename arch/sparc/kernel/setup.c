@@ -95,14 +95,14 @@ static void mem_init(void)
 	 * GR712 EVAL board (from SDRAM) as well as the SXI DPU
 	 */
 	sp_banks[0].base_addr = 0x60040000;
-	sp_banks[0].num_bytes = 0x69000000 - 0x60040000;
+	sp_banks[0].num_bytes = 0x6FF00000 - 0x60040000;
 #endif /* 0 */
 #endif /* CONFIG_LEON3 */
 
 
 #if (SPARC_PHYS_BANKS > 0)
-	sp_banks[1].base_addr = 0x60100000;
-	sp_banks[1].num_bytes = 0x04000000-0x100000;
+	sp_banks[1].base_addr = 0x60300000;
+	sp_banks[1].num_bytes = 0x69000000 - 0x60300000;
 #warning "SPARC PHYS BANK 2 currently reconfigured for start at 0x60100000"
 #endif
 

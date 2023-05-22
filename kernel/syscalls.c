@@ -98,7 +98,7 @@ long sys_ni_syscall(int a, char *s)
 
 SYSCALL_DEFINE2(alloc, size_t, size, void **, p)
 {
-	(*p) = kmalloc(size);
+	(*p) = kzalloc(size);
 
 	if (!(*p))
 		return -ENOMEM;
