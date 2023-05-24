@@ -216,7 +216,10 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 }
 
 
-
+/* the SMILE FEE does not always honour the packet size settings,
+ * so we increase the RX size
+ */
+#define GRSPW2_FEE_RX_MTU	0x4004
 static void spw_alloc_fee(struct spw_user_cfg *cfg)
 {
 	uint32_t mem;
@@ -251,7 +254,7 @@ static void spw_alloc_fee(struct spw_user_cfg *cfg)
 
 	/* malloc rx and tx data buffers: decriptors * packet size */
 	cfg->rx_data = (uint8_t *) kcalloc(1, GRSPW2_RX_DESCRIPTORS
-					  * GRSPW2_DEFAULT_MTU);
+					  * GRSPW2_FEE_RX_MTU);
 	cfg->tx_data = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS
 					  * GRSPW2_DEFAULT_MTU);
 
@@ -271,14 +274,14 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 	/* configure for spw core1 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
 			 SMILE_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_FEE_RUN,
-			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_1,
+			 GRSPW2_FEE_RX_MTU, GR712_IRL2_GRSPW2_1,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->rx_data,
-				  GRSPW2_DEFAULT_MTU);
+				  GRSPW2_FEE_RX_MTU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
