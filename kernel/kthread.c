@@ -238,6 +238,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	task->state  = TASK_NEW;
 
 	arch_init_task(task, thread_fn, data);
+	printk("task at %p, stack %08x - %08x name %s\n", task, task->stack_bottom, task->stack_top, task->name);
 
 	return task;
 }

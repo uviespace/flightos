@@ -106,7 +106,7 @@ trap_setup_kernel_win_oflow:
 	.text
 
 
-#define NR_syscalls 10
+#define NR_syscalls 11
         .align  4
         .globl  syscall_trap
 syscall_trap:

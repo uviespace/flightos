@@ -518,7 +518,7 @@ int module_load(struct elf_binary *m, void *p)
 		m->ehdr->e_entry, m->init);
 
 	if (m->init) {
-		if (m->init()) {
+		if (m->init(0, NULL)) {
 			pr_err(MOD "Module initialisation failed.\n");
 			goto cleanup;
 		}

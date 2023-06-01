@@ -494,7 +494,7 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	printk(MSG "test executable address is %p\n", addr);
 #if 1
 	if (addr)
-		application_load( (void*) addr, "CrIa", KTHREAD_CPU_AFFINITY_NONE);
+		application_load( (void*) addr, "CrIa", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
 #endif
 
 	{

@@ -33,6 +33,11 @@ static struct {
 } _kmod;
 
 
+struct application_startup {
+	struct elf_binary *binary;
+	int argc;
+	char **argv;
+};
 
 
 /**
@@ -455,17 +460,23 @@ static int application_relocate(struct elf_binary *m)
  *
  */
 
-static void application_unload(struct elf_binary *app)
+static void application_unload(struct application_startup *app)
 {
 	int i;
 
-	if (app->sec) {
-		for (i = 0; i < app->num_sec; i++)
-			kfree(app->sec[i].name);
+
+	if (!app->binary)
+		goto exit;
+
+	if (app->binary->sec) {
+		for (i = 0; i < app->binary->num_sec; i++)
+			kfree(app->binary->sec[i].name);
 	}
 
-	kfree(app->sec);
-	kfree(app->base);
+	kfree(app->binary->sec);
+	kfree(app->binary->base);
+	kfree(app->binary);
+exit:
 	kfree(app);
 }
 
@@ -474,12 +485,12 @@ static int application_run_process(void *data)
 {
 	int ret;
 
-	struct elf_binary *app;
+	struct application_startup *app;
 
 
-	app = (struct elf_binary *) data;
+	app = (struct application_startup *) data;
 
-	ret = app->init();
+	ret = app->binary->init(app->argc, app->argv);
 
 	pr_notice(MSG "application exited with code %d\n", ret);
 
@@ -490,7 +501,7 @@ static int application_run_process(void *data)
 
 
 
-static int application_create_process(struct elf_binary *app,
+static int application_create_process(struct application_startup *app,
 				      const char *namefmt,
 				      int cpu)
 {
@@ -515,39 +526,48 @@ static int application_create_process(struct elf_binary *app,
  * @param p the address where the application ELF file is located
  * @param namefmt a application name format string
  * @param cpu the cpu affinity, any number or KTHREAD_CPU_AFFINITY_NONE
+ * @param argc the number of arguments in the argument vector
+ * @param argv the argument vector
  *
  * @return 0 on success, -1 on error
  */
 
-int application_load(void *p, const char *namefmt, int cpu)
+int application_load(void *p, const char *namefmt, int cpu, int argc, char **argv)
 {
-	struct elf_binary *app;
+	struct application_startup *app;
 
 	unsigned long symval;
 
 
 
-	app = (struct elf_binary *) kmalloc(sizeof(struct elf_binary));
+	app = (struct application_startup *) kzalloc(sizeof(struct application_startup));
 	if (!app)
 		goto error;
 
+	app->binary = (struct elf_binary *) kmalloc(sizeof(struct elf_binary));
+	if (!app->binary)
+		goto cleanup;
+
+	app->argc = argc;
+	app->argv = argv;
+
 	/* the ELF binary starts with the ELF header */
-	app->ehdr = (Elf_Ehdr *) p;
+	app->binary->ehdr = (Elf_Ehdr *) p;
 
 	pr_debug(MSG "Checking ELF header\n");
 
-	if (elf_header_check(app->ehdr))
+	if (elf_header_check(app->binary->ehdr))
 		goto error;
 
 	pr_debug(MSG "Setting up application configuration\n");
 
-	if (setup_elf_binary(app))
+	if (setup_elf_binary(app->binary))
 		goto error;
 
-	if (application_load_mem(app))
+	if (application_load_mem(app->binary))
 		goto cleanup;
 
-	if (application_relocate(app))
+	if (application_relocate(app->binary))
 		goto cleanup;
 
 	/* resize array -> XXX function */
@@ -560,19 +580,20 @@ int application_load(void *p, const char *namefmt, int cpu)
 		_kmod.sz += APP_REALLOC;
 	}
 
-	_kmod.m[_kmod.cnt++] = app;
+	_kmod.m[_kmod.cnt++] = app->binary;
 
 
-	if (elf_get_symbol_value(app->ehdr, "_start", &symval)) {
-		app->init = (void *) (symval);
+	if (elf_get_symbol_value(app->binary->ehdr, "_start", &symval)) {
+		app->binary->init = (void *) (symval);
 
 		pr_info(MSG "Binary entrypoint is %lx; invoking _application_init() at %p\n",
-		app->ehdr->e_entry, app->init);
+		app->binary->ehdr->e_entry, app->binary->init);
 	}
 	else {
 		pr_warn(MSG "symbol _start not found\n");
 		goto cleanup;
 	}
+
 
 	if (application_create_process(app, namefmt, cpu)) {
 		pr_err(MSG "Failed to create process\n");

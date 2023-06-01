@@ -21,6 +21,7 @@
 #include <kernel/kthread.h>
 #include <kernel/sched.h>
 #include <kernel/watchdog.h>
+#include <kernel/application.h>
 
 
 #undef __SYSCALL
@@ -263,16 +264,25 @@ SYSCALL_DEFINE2(watchdog, unsigned long, timeout_ns, int, enable)
 }
 
 
+SYSCALL_DEFINE3(sched_prog_seg, void *, addr, int, argc, char **, argv)
+{
+	char *name = NULL;
 
+	if (!addr)
+		return -EINVAL;
 
+	if (argv)
+		name = argv[0];
 
-
-
+	return application_load((void *) addr, name, KTHREAD_CPU_AFFINITY_NONE,
+				argc, argv);
+}
 
 
 /*
  * The sys_call_table array must be 4K aligned to be accessible from
  * kernel/entry.S.
+ * XXX TODO make sure the etrap.S define for NR_syscalls matches
  */
 void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	[0 ... __NR_syscalls - 1] = sys_ni_syscall,
@@ -286,5 +296,6 @@ void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	__SYSCALL(7,   sys_thread_create)
 	__SYSCALL(8,   sys_sched_yield)
 	__SYSCALL(9,   sys_watchdog)
+	__SYSCALL(10,  sys_sched_prog_seg)
 };
 

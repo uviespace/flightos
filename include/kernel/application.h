@@ -30,7 +30,8 @@
 #endif /* APPLICATION */
 
 
-int application_load(void *p, const char *namefmt, int cpu);
+int application_load(void *p, const char *namefmt, int cpu,
+		     int argc, char *argv[]);
 
 void applications_list_loaded(void);
 

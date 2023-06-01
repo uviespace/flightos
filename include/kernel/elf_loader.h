@@ -29,7 +29,7 @@ struct elf_binary {
 	/* the main base memory block reference for relocatible binaries */
 	void *base;
 
-	int (*init)(void);
+	int (*init)(int argc, char **argv);
 	int (*exit)(void);
 
 	int refcnt;

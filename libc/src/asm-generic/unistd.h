@@ -19,5 +19,6 @@
 #define __NR_thread_create	7
 #define __NR_sched_yield	8
 #define __NR_watchdog		9
+#define __NR_sched_prog_seg	10
 
 #endif /* _ASM_GENERIC_UNISTD_H */

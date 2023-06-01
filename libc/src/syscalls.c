@@ -74,3 +74,9 @@ int sys_watchdog(unsigned long timeout_ns, int enable)
 {
 	return SYSCALL2(__NR_watchdog, timeout_ns, enable);
 }
+
+__attribute__((noinline))
+int sys_sched_prog_seg(void *addr, int argc, char *argv[])
+{
+	return SYSCALL3(__NR_sched_prog_seg, addr, argc, argv);
+}
