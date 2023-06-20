@@ -22,18 +22,16 @@ void fpe_trap(void)
 
 	double d;
 
-	/* this must be volatile, or the optimiser will produce nonsense */
-	volatile float fzero = 0.0f;
-	volatile unsigned int value = 0;
 
 	/* for convenience */
 #define CURE_F_REG(num) do {						\
+	volatile unsigned int value = 0;				\
 		__asm__ __volatile__("st %%f" #num ", [%0] \n\t"	\
 			     "nop; nop \n\t"				\
 			     ::"r"(&value));				\
 	if ((value & 0x7fffffff) & ((value & 0x7F800000) == 0)) {	\
-		__asm__ __volatile__("ld [%0], %%f" #num " \n\t"	\
-				     ::"r"(&fzero));			\
+		__asm__ __volatile__("ld [%%g0], %%f" #num " \n\t"	\
+				     :::);				\
 	}								\
 } while(0);
 
@@ -59,6 +57,8 @@ void fpe_trap(void)
 
 	/* cure all denormalized numbers in the 32 f-registers by checking
 	 * if (for nonzero numbers) the exponent is all 0, then setting to 0.0
+	 * we don't check the instruction that caused this and simply treat
+	 * everything as 4-byte floats
 	 */
 
 	CURE_F_REG(0);
