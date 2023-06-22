@@ -9,6 +9,7 @@
 
 #include <asm/ttable.h>
 #include <stack.h>
+#include <asm-generic/unistd.h>
 
 
 #ifndef CONFIG_SPARC_CPU_REG_WINDOWS
@@ -106,11 +107,10 @@ trap_setup_kernel_win_oflow:
 	.text
 
 
-#define NR_syscalls 11
         .align  4
         .globl  syscall_trap
 syscall_trap:
-        cmp     %g1, NR_syscalls	! syscall id is in %g1
+        cmp     %g1, __NR_syscalls	! syscall id is in %g1
 	bgeu	4f
 /*        bgeu    sys_ni_syscall_ni	! non-implemented syscall number*/
          sll    %g1, 2, %l4		! compute entry offset

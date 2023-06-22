@@ -20,6 +20,7 @@
 #include <grspw2.h>
 #include <kernel/kthread.h>
 #include <kernel/sched.h>
+#include <kernel/sysctl.h>
 #include <kernel/watchdog.h>
 #include <kernel/application.h>
 
@@ -279,6 +280,39 @@ SYSCALL_DEFINE3(sched_prog_seg, void *, addr, int, argc, char **, argv)
 }
 
 
+SYSCALL_DEFINE3(sysctl_show_attr, const char *, path, const char *, name, char *, buf)
+{
+	struct sysobj *obj;
+
+
+	obj = sysset_find_obj(sysctl_root(), path);
+	if (!obj)
+		return -ENOENT;
+
+
+	sysobj_show_attr(obj, name, buf);
+
+	return 0;
+}
+
+
+SYSCALL_DEFINE4(sysctl_store_attr, const char *, path, const char *, name, const char *, buf, size_t, len)
+{
+	struct sysobj *obj;
+
+
+	obj = sysset_find_obj(sysctl_root(), path);
+	if (!obj)
+		return -ENOENT;
+
+
+	sysobj_store_attr(obj, name, buf, len);
+
+	return 0;
+}
+
+
+
 /*
  * The sys_call_table array must be 4K aligned to be accessible from
  * kernel/entry.S.
@@ -286,16 +320,18 @@ SYSCALL_DEFINE3(sched_prog_seg, void *, addr, int, argc, char **, argv)
  */
 void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	[0 ... __NR_syscalls - 1] = sys_ni_syscall,
-	__SYSCALL(0,   sys_read)
-	__SYSCALL(1,   sys_write)
-	__SYSCALL(2,   sys_alloc)
-	__SYSCALL(3,   sys_free)
-	__SYSCALL(4,   sys_gettime)
-	__SYSCALL(5,   sys_nanosleep)
-	__SYSCALL(6,   sys_grspw2)
-	__SYSCALL(7,   sys_thread_create)
-	__SYSCALL(8,   sys_sched_yield)
-	__SYSCALL(9,   sys_watchdog)
-	__SYSCALL(10,  sys_sched_prog_seg)
+	__SYSCALL(__NR_read,			sys_read)
+	__SYSCALL(__NR_write,			sys_write)
+	__SYSCALL(__NR_alloc,			sys_alloc)
+	__SYSCALL(__NR_free,			sys_free)
+	__SYSCALL(__NR_gettime,			sys_gettime)
+	__SYSCALL(__NR_nanosleep,		sys_nanosleep)
+	__SYSCALL(__NR_grspw2,			sys_grspw2)
+	__SYSCALL(__NR_thread_create,		sys_thread_create)
+	__SYSCALL(__NR_sched_yield,		sys_sched_yield)
+	__SYSCALL(__NR_watchdog,		sys_watchdog)
+	__SYSCALL(__NR_sched_prog_seg,		sys_sched_prog_seg)
+	__SYSCALL(__NR_sysctl_show_attr,	sys_sysctl_show_attr)
+	__SYSCALL(__NR_sysctl_store_attr,	sys_sysctl_store_attr)
 };
 

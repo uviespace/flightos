@@ -69,14 +69,30 @@ int sys_sched_yield(void)
 	return SYSCALL0(__NR_sched_yield);
 }
 
+
 __attribute__((noinline))
 int sys_watchdog(unsigned long timeout_ns, int enable)
 {
 	return SYSCALL2(__NR_watchdog, timeout_ns, enable);
 }
 
+
 __attribute__((noinline))
 int sys_sched_prog_seg(void *addr, int argc, char *argv[])
 {
 	return SYSCALL3(__NR_sched_prog_seg, addr, argc, argv);
+}
+
+
+__attribute__((noinline))
+int sys_sysctl_show_attr(const char *path, const char *name, char *buf)
+{
+	return SYSCALL3(__NR_sysctl_show_attr, path, name, buf);
+}
+
+
+__attribute__((noinline))
+int sysctl_store_attr(const char *path, const char *name, const char *buf, size_t len)
+{
+	return SYSCALL4(__NR_sysctl_store_attr, path, name, buf, len);
 }

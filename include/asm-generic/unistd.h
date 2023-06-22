@@ -20,5 +20,7 @@
 #define __NR_sched_yield	8
 #define __NR_watchdog		9
 #define __NR_sched_prog_seg	10
+#define __NR_sysctl_show_attr	11
+#define __NR_sysctl_store_attr	12
 
 #endif /* _ASM_GENERIC_UNISTD_H */

@@ -19,6 +19,9 @@ int sys_sched_yield(void);
 int sys_watchdog(unsigned long timeout_ns, int enable);
 int sys_sched_prog_seg(void *addr, int argc, char *argv[]);
 
+int sys_sysctl_show_attr(const char *path, const char *name, char *buf);
+int sys_sysctl_store_attr(const char *path, const char *name, const char *buf, size_t len);
+
 #if 0
 void *sbrk(intptr_t incremen);
 #endif

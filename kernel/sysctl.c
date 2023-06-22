@@ -302,6 +302,11 @@ void sysobj_show_attr(struct sysobj *sobj, const char *name, char *buf)
 	if (!sobj->sattr)
 		return;
 
+	/* not technically needed, but we don't want the contents to
+	 * end up on stdout
+	 */
+	if (!buf)
+		return;
 
 	sattr = sobj->sattr;
 
@@ -330,6 +335,7 @@ void sysobj_store_attr(struct sysobj *sobj, const char *name, const char *buf, s
 {
 	struct sobj_attribute **sattr;
 
+
 	if (!name)
 		return;
 
@@ -337,6 +343,10 @@ void sysobj_store_attr(struct sysobj *sobj, const char *name, const char *buf, s
 		return;
 
 	if (!sobj->sattr)
+		return;
+
+	/* as in sysobj_show_attr() */
+	if (!buf)
 		return;
 
 
