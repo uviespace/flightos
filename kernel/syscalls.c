@@ -285,10 +285,9 @@ SYSCALL_DEFINE3(sysctl_show_attr, const char *, path, const char *, name, char *
 	struct sysobj *obj;
 
 
-	obj = sysset_find_obj(sysctl_root(), path);
+	obj = sysset_find_obj(NULL, path);
 	if (!obj)
 		return -ENOENT;
-
 
 	sysobj_show_attr(obj, name, buf);
 
@@ -301,10 +300,9 @@ SYSCALL_DEFINE4(sysctl_store_attr, const char *, path, const char *, name, const
 	struct sysobj *obj;
 
 
-	obj = sysset_find_obj(sysctl_root(), path);
+	obj = sysset_find_obj(NULL, path);
 	if (!obj)
 		return -ENOENT;
-
 
 	sysobj_store_attr(obj, name, buf, len);
 

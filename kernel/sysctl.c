@@ -484,12 +484,14 @@ EXPORT_SYMBOL(sysset_create_and_add);
  * @param sysset a struct sysset
  * @param path a string describing a path
  * @return a reference to the sysobj found
+ *
+ * @note if sysset is NULL, the default sysctl root is used for the search
  */
 
 __extension__
 struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 {
-	char str[256]; /* XXX */
+	char str[SYSCTL_MAX_PATH_LEN]; /* XXX */
 	char *token;
 	const char *root;
 
@@ -498,7 +500,7 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 
 
 	if (!sysset)
-		return ret;
+		sysset = sysctl_root();
 
 	if (!path)
 		return ret;
@@ -536,6 +538,12 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 			if (!s->child)
 				return s;
 
+			/* we have an exact match and no more delimiters,
+			 * so maybe we were looking for a sysset (directory)
+			 */
+			if (!memchr(token, '/', SYSCTL_MAX_PATH_LEN))
+				return s;
+
 			sysset = container_of(s->child, struct sysset, sobj);
 
 			break;
@@ -545,6 +553,35 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
         return ret;
 }
 EXPORT_SYMBOL(sysset_find_obj);
+
+
+/**
+ * @brief determines the sysset which contains the sysobject
+ * @param sobj a struct sysobj
+ * @return a reference to the syssset found
+ */
+
+struct sysset *sysset_of_obj(struct sysobj *sobj)
+{
+	return to_sysset(sobj);
+}
+EXPORT_SYMBOL(sysset_of_obj);
+
+
+/**
+ * @brief determines the sysset which contains the sysobject by its path
+ * @param sysset a struct sysset
+ * @param sobj a struct sysobj
+ * @return a reference to the syssset found
+ *
+ * @note if sysset is NULL, the default sysctl root is used for the search
+ */
+
+struct sysset *sysset_from_path(struct sysset *sysset, const char *path)
+{
+	return sysset_of_obj(sysset_find_obj(sysset, path));
+}
+EXPORT_SYMBOL(sysset_from_path);
 
 
 /**
@@ -561,6 +598,9 @@ void sysset_show_tree(struct sysset *sysset)
 
         struct sysobj *k;
 
+
+	if (!sysset)
+		sysset = sysctl_root();
 
 	rec++;
 

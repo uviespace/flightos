@@ -88,7 +88,7 @@ struct fmt_spec {
 static void _sprintc(int c, char **str, const char *end)
 {
 	if (end) {
-		if ((char *) str > end)
+		if ((*str) > end)
 			return;
 	}
 
@@ -1312,7 +1312,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 	if (size) {
 		if (str) {
 			if (buf < end)
-				buf[0] = '\0';
+				buf[-1] = '\0';
 			else
 				end[-1] = '\0';
 		}

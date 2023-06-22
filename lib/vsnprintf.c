@@ -72,7 +72,7 @@ struct fmt_spec {
 static void _sprintc(int c, char **str, const char *end)
 {
 	if (end) {
-		if ((char *) str > end)
+		if ((*str) > end)
 			return;
 	}
 
@@ -1301,8 +1301,9 @@ __diag_pop();
 	/* place termination char if we rendered to a buffer */
 	if (size) {
 		if (str) {
+			buf[0] = '\0';
 			if (buf < end)
-				buf[0] = '\0';
+				buf[-1] = '\0';
 			else
 				end[-1] = '\0';
 		}

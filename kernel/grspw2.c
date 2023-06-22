@@ -181,7 +181,7 @@ static ssize_t rxtx_show(__attribute__((unused)) struct sysobj *sobj,
 	struct grspw2_core_cfg *cfg;
 
 
-	cfg = container_of((struct sysobj **) &sobj, struct grspw2_core_cfg, sobj);
+	cfg = container_of(sobj, struct grspw2_core_cfg, sobj);
 
 	if (!strcmp(sattr->name, "rx_bytes"))
 		return sprintf(buf, UINT32_T_FORMAT, cfg->rx_bytes);
@@ -201,7 +201,7 @@ static ssize_t rxtx_store(__attribute__((unused)) struct sysobj *sobj,
 	struct grspw2_core_cfg *cfg;
 
 
-	cfg = container_of((struct sysobj **) &sobj, struct grspw2_core_cfg, sobj);
+	cfg = container_of(sobj, struct grspw2_core_cfg, sobj);
 
 	if (!strcmp(sattr->name, "rx_bytes")) {
 		cfg->rx_bytes = 0;
@@ -328,7 +328,7 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 		printk("abs:: %lld ns;\n", drift);
 	}
 exit:
-	
+
 	if (status & GRSPW2_STATUS_IA) {
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_INVALID_ADDR_ERROR;
@@ -1916,8 +1916,12 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 	/* as sysctl does not provide a _remove() function, make
 	 * sure that we do not re-add the same object to the sysctl tree
 	 */
-	if (cfg->sobj)
+	if (cfg->sobj.sattr)
 		goto exit;
+
+	sysobj_init(&cfg->sobj);
+
+	cfg->sobj.sattr = grspw2_attributes;
 
 	/* derive the spw link number from the interrupt number */
 	buf = (char *) kzalloc(SYSCTL_STRING_SIZE * sizeof(char));
@@ -1925,15 +1929,7 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 	snprintf(buf, SYSCTL_STRING_SIZE * sizeof(char), SYSCTL_NAME_FORMAT,
 		 core_irq - GRSPW2_IRQ_CORE0);
 
-	cfg->sobj = sysobj_create_and_add(buf,
-				sysset_find_obj(sysctl_root(), "/sys/driver"));
-	if (!cfg->sobj) {
-		/* XXX kalarm() */
-		goto exit;
-	}
-
-	cfg->sobj->sattr = grspw2_attributes;
-
+	sysobj_add(&cfg->sobj, NULL, sysset_from_path(NULL, "/sys/driver"), buf);
 
 exit:
 	return 0;

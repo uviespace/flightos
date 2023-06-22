@@ -147,6 +147,87 @@ EXPORT_SYMBOL(strsep);
 
 
 /**
+ * @brief get length of a prefix substring
+ *
+ * @param s       the string to be searched
+ * @param accept  the string segment to search for
+ */
+
+size_t strspn(const char *s, const char *accept)
+{
+	const char *c;
+	const char *a;
+
+	size_t cnt = 0;
+
+
+	for (c = s; (*c); c++) {
+
+		for (a = accept; (*a); a++) {
+
+			if ((*c) == (*a))
+				break;
+		}
+
+		if (!(*a))
+			break;
+
+		cnt++;
+	}
+
+	return cnt;
+}
+EXPORT_SYMBOL(strspn);
+
+
+/**
+ * @brief split a string into tokens
+ *
+ * @param stringp the string to be searched
+ * @param delim   the characters to search for
+ *
+ * @note stringp is updated to point past the token
+ *
+ * @returns the original location of stringp
+ */
+
+
+char *strtok(char *s, const char *delim)
+{
+	static char *s_prev;
+
+	char *token;
+
+
+	if (!s)
+		s = s_prev;
+
+
+	s += strspn(s, delim);
+
+	if (!(*s)) {
+		s_prev = s;
+		return NULL;
+	}
+
+	token = s;
+	s = strpbrk(token, delim);
+
+	if (s) {
+		*s = '\0';
+		s_prev = s + 1;
+	} else {
+		s_prev = memchr(token, '\0', -1);
+	}
+
+	return token;
+
+}
+EXPORT_SYMBOL(strtok);
+
+
+
+/**
  * @brief return a pointer to a new string which is a duplicate of string s
  *
  * @parm s the string to duplicate
@@ -377,6 +458,35 @@ void *memmove(void *dest, const void *src, size_t n)
 	return dest;
 }
 EXPORT_SYMBOL(memmove);
+
+
+/**
+ * @brief	scan memory for a character
+ * @param s	the memory area
+ * @param c	the byte to search
+ * @param n	The size of the area
+ *
+ * @returns	the address of the first occurrence of c or NULL if not found
+ */
+
+void *memchr(const void *s, int c, size_t n)
+{
+        const unsigned char *p = s;
+
+
+        while (n--) {
+
+                if ((unsigned char)c == *p++)
+                        return (void *)(p - 1);
+        }
+
+        return NULL;
+}
+EXPORT_SYMBOL(memchr);
+
+
+
+
 
 
 /**

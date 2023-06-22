@@ -71,12 +71,6 @@ struct spw_user_cfg spw_cfg[2];
 #define SPW_CLCKDIV_START	10
 #define SPW_CLCKDIV_PLM_RUN	10
 #define SPW_CLCKDIV_FEE_RUN	2
-#define GR712_IRL2_GRSPW2_0	22
-#define GR712_IRL2_GRSPW2_1	23
-#define GR712_IRL2_GRSPW2_2	24
-#define GR712_IRL2_GRSPW2_3	25
-#define GR712_IRL2_GRSPW2_4	26
-#define GR712_IRL2_GRSPW2_5	27
 #define GR712_IRL1_AHBSTAT	1
 #define HDR_SIZE	0x4
 #define STRIP_HDR_BYTES	0x4
@@ -199,7 +193,7 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_0,
 			 SMILE_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
-			 GRSPW2_DEFAULT_MTU, GR712_IRL2_GRSPW2_0,
+			 GRSPW2_DEFAULT_MTU, GRSPW2_IRQ_CORE0,
 			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -274,7 +268,7 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 	/* configure for spw core1 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
 			 SMILE_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_FEE_RUN,
-			 GRSPW2_FEE_RX_MTU, GR712_IRL2_GRSPW2_1,
+			 GRSPW2_FEE_RX_MTU, GRSPW2_IRQ_CORE1,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
