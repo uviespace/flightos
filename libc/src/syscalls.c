@@ -92,7 +92,7 @@ int sys_sysctl_show_attr(const char *path, const char *name, char *buf)
 
 
 __attribute__((noinline))
-int sysctl_store_attr(const char *path, const char *name, const char *buf, size_t len)
+int sys_sysctl_store_attr(const char *path, const char *name, const char *buf, size_t len)
 {
 	return SYSCALL4(__NR_sysctl_store_attr, path, name, buf, len);
 }
