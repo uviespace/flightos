@@ -465,7 +465,7 @@ struct grspw2_core_cfg {
 	uint32_t rx_bytes;
 	uint32_t tx_bytes;
 
-	struct sysobj sobj;
+	struct sysobj *sobj;
 
 	/* routing node, we currently support only one device and only
 	 * blind routing (i.e. address bytes are ignored */

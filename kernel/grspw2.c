@@ -160,10 +160,7 @@
 
 #include <kernel/irq.h>
 #include <kernel/sysctl.h>
-
-#if 0
-#include <stdio.h>
-#endif
+#include <kernel/kmem.h>
 
 #include <kernel/time.h>
 #include <kernel/string.h>
@@ -176,7 +173,6 @@
 #define UINT32_T_FORMAT		"%u"
 #endif
 
-#if 0 /* XXX */
 __extension__
 static ssize_t rxtx_show(__attribute__((unused)) struct sysobj *sobj,
 			 __attribute__((unused)) struct sobj_attribute *sattr,
@@ -185,7 +181,7 @@ static ssize_t rxtx_show(__attribute__((unused)) struct sysobj *sobj,
 	struct grspw2_core_cfg *cfg;
 
 
-	cfg = container_of(sobj, struct grspw2_core_cfg,  sobj);
+	cfg = container_of((struct sysobj **) &sobj, struct grspw2_core_cfg, sobj);
 
 	if (!strcmp(sattr->name, "rx_bytes"))
 		return sprintf(buf, UINT32_T_FORMAT, cfg->rx_bytes);
@@ -205,7 +201,7 @@ static ssize_t rxtx_store(__attribute__((unused)) struct sysobj *sobj,
 	struct grspw2_core_cfg *cfg;
 
 
-	cfg = container_of(sobj, struct grspw2_core_cfg,  sobj);
+	cfg = container_of((struct sysobj **) &sobj, struct grspw2_core_cfg, sobj);
 
 	if (!strcmp(sattr->name, "rx_bytes")) {
 		cfg->rx_bytes = 0;
@@ -233,7 +229,6 @@ __extension__
 static struct sobj_attribute *grspw2_attributes[] = {&rx_bytes_attr,
 						    &tx_bytes_attr,
 						    NULL};
-#endif
 
 /**
  * @brief central error handling
@@ -1882,9 +1877,8 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 			 uint32_t strip_hdr_bytes)
 {
 	int32_t ret;
-#if 0
 	char *buf;
-#endif
+
 
 	cfg->regs = (struct grspw2_regs *) core_addr;
 	cfg->core_irq = core_irq;
@@ -1903,7 +1897,7 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 
 	ret = grspw2_set_clockdivs(cfg->regs, link_start, link_run);
 	if (ret)
-		return -1;
+		goto error;
 
 	grspw2_set_mtu(cfg, mtu);
 	grspw2_configure_dma(cfg);
@@ -1919,28 +1913,32 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 	cfg->rx_bytes = 0;
 	cfg->tx_bytes = 0;
 
-#if 0	/* XXX sysctl */
 	/* as sysctl does not provide a _remove() function, make
 	 * sure that we do not re-add the same object to the sysctl tree
 	 */
-	if (cfg->sobj.sattr)
-		return 0;
-
-	sysobj_init(&cfg->sobj);
-
-	cfg->sobj.sattr = grspw2_attributes;
+	if (cfg->sobj)
+		goto exit;
 
 	/* derive the spw link number from the interrupt number */
-	buf = (char *) malloc(SYSCTL_STRING_SIZE * sizeof(char));
+	buf = (char *) kzalloc(SYSCTL_STRING_SIZE * sizeof(char));
 
 	snprintf(buf, SYSCTL_STRING_SIZE * sizeof(char), SYSCTL_NAME_FORMAT,
-		 core_irq - GR712_IRL2_GRSPW2_0);
+		 core_irq - GRSPW2_IRQ_CORE0);
+
+	cfg->sobj = sysobj_create_and_add(buf,
+				sysset_find_obj(sysctl_root(), "/sys/driver"));
+	if (!cfg->sobj) {
+		/* XXX kalarm() */
+		goto exit;
+	}
+
+	cfg->sobj->sattr = grspw2_attributes;
 
 
-	sysobj_add(&cfg->sobj, NULL, driver_set, buf);
-#endif
-
+exit:
 	return 0;
+error:
+	return -EINVAL;
 
 	/* NOTE: here CLANG scan-view reports a false positive
 	 *  about buf being a memory leak
