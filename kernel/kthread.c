@@ -31,6 +31,30 @@ struct thread_info *current_set[CONFIG_SMP_CPUS_MAX]; /* XXX */
 
 
 /**
+ * @brief get the total runtime of the current thread
+ *
+ * @note this is done on a best-effort basis without ensuring atomicity
+ */
+
+ktime kthread_get_total_runtime(void)
+{
+	return current_set[smp_cpu_id()]->task->total;
+}
+
+
+/**
+ * @brief clear the total runtime of the current thread
+ *
+ * @note this is done on a best-effort basis without ensuring atomicity
+ */
+
+void kthread_clear_total_runtime(void)
+{
+	current_set[smp_cpu_id()]->task->total = 0;
+}
+
+
+/**
  * @brief lock critical kthread section
  */
 

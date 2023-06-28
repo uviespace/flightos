@@ -14,6 +14,8 @@
 #include <asm/irq.h>
 #include <asm/time.h>
 #include <asm/clockevent.h>
+#include <asm/processor.h>
+
 #include <kernel/clockevent.h>
 #include <compiler.h>
 
@@ -21,6 +23,8 @@
 #include <stack.h>
 #include <kernel/kmem.h>
 
+#include <kernel/time.h>
+#include <kernel/kthread.h>
 #include <kernel/sched.h>
 
 #include <kernel/smp.h>
@@ -183,7 +187,43 @@ static void sxi_dpu_setup_cpu_entry(void)
 }
 
 
+/**
+ * @brief update the cpu load
+ */
 
+static void cpu_load_update(void)
+{
+	int cpu;
+	uint8_t load;
+
+	ktime now;
+	static ktime last[CONFIG_SMP_CPUS_MAX];
+
+
+	cpu = smp_cpu_id();
+
+	now = ktime_get();
+	if (ktime_ms_delta(now, last[cpu]) > 1000) {
+		load = (uint8_t) (100 - (kthread_get_total_runtime() * 100) / ktime_delta(now, last[cpu]));
+		sched_set_cpu_load(cpu, load);
+		kthread_clear_total_runtime();
+		last[cpu] = now;
+	}
+}
+
+
+/**
+ * @brief per-cpu main kernel loop
+ */
+
+void main_kernel_loop(void)
+{
+	while(1) {
+		cpu_load_update();
+		cpu_relax();
+	}
+	BUG();	/* never reached */
+}
 
 
 #include <asm/processor.h>
@@ -229,11 +269,11 @@ void smp_cpu_entry(void)
 
 #if 1 /* CONFIG_LEON3 */
 
- 	  leon3_flush();
-  leon3_enable_icache();
-  leon3_enable_dcache();
-  leon3_enable_fault_tolerant();
-  leon3_enable_snooping();
+	leon3_flush();
+	leon3_enable_icache();
+	leon3_enable_dcache();
+	leon3_enable_fault_tolerant();
+	leon3_enable_snooping();
 #endif /* CONFIG_LEON3 */
 
 	pr_info("hi i'm cpu %d\n", leon3_cpuid());
@@ -252,12 +292,8 @@ void smp_cpu_entry(void)
 
 	sched_enable();
 
-	while(1)
-		cpu_relax();
+	 main_kernel_loop();
 }
-
-
-
 
 
 /**
@@ -268,11 +304,11 @@ void setup_arch(void)
 {
 #if 1 /* CONFIG_LEON321 */
 
-	  leon3_flush();
-  leon3_enable_icache();
-  leon3_enable_dcache();
-  leon3_enable_fault_tolerant();
-  leon3_enable_snooping();
+	leon3_flush();
+	leon3_enable_icache();
+	leon3_enable_dcache();
+	leon3_enable_fault_tolerant();
+	leon3_enable_snooping();
 #endif /* CONFIG_LEON3 */
 
 	mem_init();

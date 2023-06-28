@@ -167,6 +167,8 @@
 #include <kernel/printk.h>
 
 
+#ifdef CONFIG_SYSCTL
+
 #if (__sparc__)
 #define UINT32_T_FORMAT		"%lu"
 #else
@@ -229,6 +231,7 @@ __extension__
 static struct sobj_attribute *grspw2_attributes[] = {&rx_bytes_attr,
 						    &tx_bytes_attr,
 						    NULL};
+#endif /* CONFIG_SYSCTL */
 
 /**
  * @brief central error handling
@@ -1913,6 +1916,7 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 	cfg->rx_bytes = 0;
 	cfg->tx_bytes = 0;
 
+#ifdef CONFIG_SYSCTL
 	/* as sysctl does not provide a _remove() function, make
 	 * sure that we do not re-add the same object to the sysctl tree
 	 */
@@ -1930,6 +1934,7 @@ int32_t grspw2_core_init(struct grspw2_core_cfg *cfg, uint32_t core_addr,
 		 core_irq - GRSPW2_IRQ_CORE0);
 
 	sysobj_add(&cfg->sobj, NULL, sysset_from_path(NULL, "/sys/driver"), buf);
+#endif /* CONFIG_SYSCTL */
 
 exit:
 	return 0;

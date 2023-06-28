@@ -12,22 +12,83 @@
 #include <kernel/init.h>
 #include <kernel/tick.h>
 #include <kernel/smp.h>
+#include <kernel/sysctl.h>
+#include <kernel/kmem.h>
+
 #include <asm-generic/irqflags.h>
 #include <asm-generic/spinlock.h>
 #include <asm/switch_to.h>
 
-#include <string.h>
+
+#include <kernel/string.h>
 
 
 #define MSG "SCHEDULER: "
 
 
-static LIST_HEAD(kernel_schedulers);
-static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
-
-
 /* XXX: per-cpu... */
 extern struct thread_info *current_set[];
+
+static LIST_HEAD(kernel_schedulers);
+static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
+static uint8_t cpu_load[CONFIG_SMP_CPUS_MAX];
+
+
+#ifdef CONFIG_CPU_STATS_COLLECT
+
+/* we'll bomb if there are more than 99 CPUs in the system ;) */
+#define CPU_MAX_CHARS_PER_NAME	2
+static char cpu_load_names[CONFIG_SMP_CPUS_MAX * CPU_MAX_CHARS_PER_NAME];
+static struct sobj_attribute  cpu_load_attr[CONFIG_SMP_CPUS_MAX];
+static struct sobj_attribute *cpu_load_attributes[CONFIG_SMP_CPUS_MAX + 1];
+
+static ssize_t cpu_load_show(__attribute__((unused)) struct sysobj *sobj,
+			__attribute__((unused)) struct sobj_attribute *sattr,
+			char *buf)
+{
+	int cpu;
+
+
+	cpu = strtol(sattr->name, NULL, 10);
+
+	if (cpu > CONFIG_SMP_CPUS_MAX)
+		return 0;
+
+	return sprintf(buf, "%u", sched_get_cpu_load(cpu));
+}
+
+
+static void sched_init_sysctl(void)
+{
+	size_t i;
+	struct sysobj *sobj;
+
+	sobj = sysobj_create();
+
+	if (!sobj)
+		return;
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+
+		snprintf(&cpu_load_names[i * 2], CPU_MAX_CHARS_PER_NAME,"%u", i);
+		cpu_load_attr[i].name  = &cpu_load_names[i * 2];
+		cpu_load_attr[i].show  = cpu_load_show;
+		cpu_load_attr[i].store = NULL;
+
+		cpu_load_attributes[i] = &cpu_load_attr[i];
+	}
+
+	/* be explicit; last item in attribute pointer list is always NULL */
+	cpu_load_attributes[CONFIG_SMP_CPUS_MAX] = NULL;
+
+
+	sobj->sattr = cpu_load_attributes;
+	sysobj_add(sobj, NULL, sysctl_root(), "cpu_load");
+}
+
+
+
+#endif /* CONFIG_CPU_STATS_COLLECT */
 
 
 /**
@@ -126,6 +187,38 @@ static ktime sched_find_next_task(struct task_struct **task, int cpu, ktime now)
 	(*task) = next;
 
 	return slice;
+}
+
+
+/**
+ * @brief set the load percentage of a cpu for an arbitrary time interval
+ *
+ * @note this is a mechanism to centrally manage the cpu loads; how loads
+ *	 are updated is left to the implementation of the particular platform;
+ *	 this is done on a best-effort basis for informative purposes only
+ */
+
+void sched_set_cpu_load(int cpu, uint8_t load_percent)
+{
+	if (cpu >= CONFIG_SMP_CPUS_MAX)
+		return;
+
+	cpu_load[cpu] = load_percent;
+}
+
+
+/**
+ * @brief get the last known load percentage of a cpu
+ *
+ * @note this is provided on a best-effort basis for informative purposes only
+ */
+
+uint8_t sched_get_cpu_load(int cpu)
+{
+	if (cpu >= CONFIG_SMP_CPUS_MAX)
+		return 0;
+
+	return cpu_load[cpu];
 }
 
 
@@ -434,7 +527,7 @@ void sched_enable(void)
 }
 
 
-/*
+/**
  * @brief disable scheduling on the current cpu
  */
 void sched_disable(void)
@@ -452,6 +545,10 @@ void sched_disable(void)
 static int sched_init(void)
 {
 	tick_set_mode(TICK_MODE_ONESHOT);
+
+#ifdef CONFIG_CPU_STATS_COLLECT
+	sched_init_sysctl();
+#endif /* CONFIG_CPU_STATS_COLLECT */
 
 	return 0;
 }

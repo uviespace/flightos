@@ -23,6 +23,7 @@
 #include <kernel/watchdog.h>
 #include <kernel/err.h>
 #include <kernel/sysctl.h>
+#include <kernel/smp.h>
 #include <modules-image.h>
 
 #include <kernel/string.h>
@@ -500,18 +501,10 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	/* XXX handler for EMC, set stacktrace for CrIa later  */
 	watchdog_set_handler(watchdog_handler, NULL);
 
-	while(1) {
-#if 0
-		printk("link status is %x and %x\n", grspw2_get_link_status(&spw_cfg[0].spw), grspw2_get_link_status(&spw_cfg[1].spw) );
-#endif
-		cpu_relax();
-	}
+	/* main loop of boot cpu */
+	main_kernel_loop();
 
-
-	/* never reached */
-	BUG();
-
-	return 0;
+	return 0;	/* never reached */
 }
 
 #ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
@@ -521,13 +514,13 @@ extern initcall_t __initcall_end;
 
 static void do_initcalls(void)
 {
-    initcall_t *p = &__initcall_start;
+	initcall_t *p = &__initcall_start;
 
-    while(p < &__initcall_end) {
-        if (*p)
-            (*p)();
-	p++;
-    }
+	while(p < &__initcall_end) {
+		if (*p)
+			(*p)();
+		p++;
+	}
 
 }
 

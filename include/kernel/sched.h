@@ -128,4 +128,8 @@ int sched_register(struct scheduler *sched);
 void sched_enable(void);
 void sched_disable(void);
 
+void sched_set_cpu_load(int cpu, uint8_t load_percent);
+uint8_t sched_get_cpu_load(int cpu);
+
+
 #endif /* _KERNEL_SCHED_H_ */

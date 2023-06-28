@@ -237,6 +237,14 @@ static struct sobj_attribute *irl_attributes[] = {
 	&irl_attr[12], &irl_attr[13], &irl_attr[14], &irl_attr[15],
 	&irl_attr[16], NULL};
 
+
+/**
+ * in case of leon2, the eirq runs from 0 - 31
+ * in leon 3/4 the EIRQ has the same range, but extended ID register
+ * maps the EIRQs only in the 16 to 31 range to maintain the numerical
+ * sequence
+ */
+
 __extension__
 static struct sobj_attribute eirl_attr[] = {
 	__ATTR(eirl,  eirl_show, eirl_store),
@@ -264,15 +272,11 @@ static struct sobj_attribute *eirl_attributes[] = {
 	&eirl_attr[4],  &eirl_attr[5],  &eirl_attr[6],  &eirl_attr[7],
 	&eirl_attr[8],  &eirl_attr[9],  &eirl_attr[10], &eirl_attr[11],
 	&eirl_attr[12], &eirl_attr[13], &eirl_attr[14], &eirl_attr[15],
-	&eirl_attr[16],
-
-#ifdef CONFIG_LEON2
-	&eirl_attr[17], &eirl_attr[18], &eirl_attr[19], &eirl_attr[20],
-	&eirl_attr[21], &eirl_attr[22], &eirl_attr[23], &eirl_attr[24],
-	&eirl_attr[25], &eirl_attr[26], &eirl_attr[27], &eirl_attr[28],
-	&eirl_attr[29], &eirl_attr[30], &eirl_attr[31], &eirl_attr[32],
-#endif /* CONFIG_LEON2 */
-	NULL};
+	&eirl_attr[16],	&eirl_attr[17], &eirl_attr[18], &eirl_attr[19],
+	&eirl_attr[20],	&eirl_attr[21], &eirl_attr[22], &eirl_attr[23],
+	&eirl_attr[24],	&eirl_attr[25], &eirl_attr[26], &eirl_attr[27],
+	&eirl_attr[28],	&eirl_attr[29], &eirl_attr[30], &eirl_attr[31],
+	&eirl_attr[32],	NULL};
 
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 

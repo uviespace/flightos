@@ -118,4 +118,8 @@ int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 
 int kthread_set_sched_rr(struct task_struct *task, unsigned long priority);
 
+ktime kthread_get_total_runtime(void);
+void kthread_clear_total_runtime(void);
+
+
 #endif /* _KERNEL_KTHREAD_H_ */
