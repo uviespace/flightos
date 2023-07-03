@@ -479,6 +479,10 @@ struct grspw2_core_cfg {
 	struct grspw2_rx_desc_ring_elem	rx_desc_ring[GRSPW2_RX_DESCRIPTORS];
 	struct grspw2_tx_desc_ring_elem	tx_desc_ring[GRSPW2_TX_DESCRIPTORS];
 
+	/* number of rx/tx descriptors configured */
+	uint32_t rx_n_desc;
+	uint32_t tx_n_desc;
+
 	/**
 	 * we use two list heads for each descriptor type to manage active and
 	 * inactive descriptors
@@ -523,6 +527,7 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 
 uint32_t grspw2_get_num_pkts_avail(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_num_free_tx_desc_avail(struct grspw2_core_cfg *cfg);
+uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg);
 
 uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt);
 uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg);

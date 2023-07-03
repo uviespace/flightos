@@ -1302,7 +1302,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		if (!str) /* to stdout? */
 			render_specifier(NULL, NULL, format, &spec, &ap);
 		else
-			buf += render_specifier(&buf, end, format, &spec, &ap);
+			render_specifier(&buf, end, format, &spec, &ap);
 
 		format++; /* the type is always a single char */
 	}
@@ -1312,9 +1312,9 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap)
 	if (size) {
 		if (str) {
 			if (buf < end)
-				buf[-1] = '\0';
+				buf[0] = '\0';
 			else
-				end[-1] = '\0';
+				end[0] = '\0';
 		}
 	}
 

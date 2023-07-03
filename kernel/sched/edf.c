@@ -701,8 +701,10 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 
 	edf_unlock();
 
-	if (first->state == TASK_RUN)
+	if (first->state == TASK_RUN) {
+		first->state = TASK_BUSY;
 		return first;
+	}
 
 	return NULL;
 }

@@ -191,6 +191,21 @@ static ssize_t rxtx_show(__attribute__((unused)) struct sysobj *sobj,
 	if (!strcmp(sattr->name, "tx_bytes"))
 		return sprintf(buf, UINT32_T_FORMAT, cfg->tx_bytes);
 
+	if (!strcmp(sattr->name, "rx_desc"))
+		return sprintf(buf, UINT32_T_FORMAT, cfg->rx_n_desc);
+
+	if (!strcmp(sattr->name, "tx_desc"))
+		return sprintf(buf, UINT32_T_FORMAT, cfg->tx_n_desc);
+
+	if (!strcmp(sattr->name, "rx_desc_avail"))
+		return sprintf(buf, UINT32_T_FORMAT,
+			       grspw2_get_num_free_rx_desc_avail(cfg));
+
+	if (!strcmp(sattr->name, "tx_desc_avail"))
+		return sprintf(buf, UINT32_T_FORMAT,
+			       grspw2_get_num_free_tx_desc_avail(cfg));
+
+
 	return 0;
 }
 
@@ -925,7 +940,6 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 	size_t i;
 
 	uint32_t idx;
-	uint32_t num_desc;
 
 
 	if (!pkt_buf) {
@@ -941,12 +955,12 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->rx_desc_ring_used);
 	INIT_LIST_HEAD(&cfg->rx_desc_ring_free);
 
-	num_desc = tbl_size / GRSPW2_RX_DESC_SIZE;
+	cfg->rx_n_desc = tbl_size / GRSPW2_RX_DESC_SIZE;
 
-	if (num_desc > GRSPW2_RX_DESCRIPTORS)
-		num_desc = GRSPW2_RX_DESCRIPTORS;
+	if (cfg->rx_n_desc > GRSPW2_RX_DESCRIPTORS)
+		cfg->rx_n_desc = GRSPW2_RX_DESCRIPTORS;
 
-	for (i = 0; i < num_desc; i++) {
+	for (i = 0; i < cfg->rx_n_desc; i++) {
 
 		idx = i * GRSPW2_RX_DESC_SIZE / sizeof(uint32_t);
 		cfg->rx_desc_ring[i].desc = (struct grspw2_rx_desc *) &mem[idx];
@@ -976,7 +990,6 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 {
 	uint32_t i;
 	uint32_t idx;
-	uint32_t num_desc;
 
 
 	if (!data_buf) {
@@ -999,12 +1012,12 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->tx_desc_ring_used);
 	INIT_LIST_HEAD(&cfg->tx_desc_ring_free);
 
-	num_desc = tbl_size / GRSPW2_TX_DESC_SIZE;
+	cfg->tx_n_desc = tbl_size / GRSPW2_TX_DESC_SIZE;
 
-	if (num_desc > GRSPW2_TX_DESCRIPTORS)
-		num_desc = GRSPW2_TX_DESCRIPTORS;
+	if (cfg->tx_n_desc > GRSPW2_TX_DESCRIPTORS)
+		cfg->tx_n_desc = GRSPW2_TX_DESCRIPTORS;
 
-	for (i = 0; i < num_desc; i++) {
+	for (i = 0; i < cfg->tx_n_desc; i++) {
 
 		idx = i * GRSPW2_TX_DESC_SIZE / sizeof(uint32_t);
 		cfg->tx_desc_ring[i].desc = (struct grspw2_tx_desc *) &mem[idx];
@@ -1686,6 +1699,25 @@ uint32_t grspw2_get_num_free_tx_desc_avail(struct grspw2_core_cfg *cfg)
 	struct grspw2_tx_desc_ring_elem *p_tmp;
 
 	list_for_each_entry_safe(p_elem, p_tmp, &cfg->tx_desc_ring_free, node) {
+		i++;
+	}
+
+	return i;
+}
+
+
+/**
+ * @brief get number of available rx descriptors
+ */
+
+uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg)
+{
+	uint32_t i = 0;
+
+	struct grspw2_rx_desc_ring_elem *p_elem;
+	struct grspw2_rx_desc_ring_elem *p_tmp;
+
+	list_for_each_entry_safe(p_elem, p_tmp, &cfg->rx_desc_ring_free, node) {
 		i++;
 	}
 

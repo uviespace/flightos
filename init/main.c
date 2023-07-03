@@ -309,6 +309,13 @@ static int kernel_init(void)
 }
 arch_initcall(kernel_init);
 
+static inline unsigned long leon_swap(volatile unsigned long *ptr, unsigned long val)
+{
+        __asm__ __volatile__("swap [%1], %0\n\t" :
+                             "=&r" (val), "=&r" (ptr) :
+                             "0" (val), "1" (ptr));
+        return val;
+}
 
 /**
  * @brief kernel main functionputchar( *((char *) data) );
@@ -478,10 +485,18 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 
 
 		}
-	
+
 		cpu_relax();
 	}
 #endif
+
+	printk("SWAPPING!!!!\n");
+       	{
+		int val = ioread32be((void *) 0x61000000);
+
+		printk("val is %x\n", val);
+		leon_swap((void *) 0x61000000, val);
+	}
 
 
 	/* CrIa */
@@ -489,7 +504,7 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 	printk(MSG "test executable address is %p\n", addr);
 #if 1
 	if (addr)
-		application_load( (void*) addr, "CrIa", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
+		application_load( (void*) addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
 #endif
 
 	{

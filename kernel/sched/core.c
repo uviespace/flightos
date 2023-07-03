@@ -58,6 +58,95 @@ static ssize_t cpu_load_show(__attribute__((unused)) struct sysobj *sobj,
 }
 
 
+static ssize_t proc_stats_show(__attribute__((unused)) struct sysobj *sobj,
+			       __attribute__((unused)) struct sobj_attribute *sattr,
+			       char *buf)
+{
+	struct scheduler *sched;
+
+	struct task_struct *tsk;
+
+
+	/* XXX we currently abuse "buf" to locate the particular thread
+	 *
+	 * TODO: - add sysobj_remove()
+	 *	 - add a flag which controls whether a thread/process receives
+	 *	   an entry in the sysctl tree (for speed reasons with
+	 *	   one-shot thread)
+	 *	 - when a dead task is removed, also remove its entry in sysctl
+	 *	 - make sure to handle the (de-) allocation of name strings
+	 *	 - ???
+	 *	 - profit!
+	 */
+
+	/* we return the stats for the first thread of a given name in any
+	 * scheduler's regular active task queue we can find; we don't care
+	 * about newly added or dead tasks, these typically only exist
+	 * for very brief moments
+	 *
+	 * note: anything value returned can only ever be considered best-effort
+	 *
+	 */
+	list_for_each_entry(sched, &kernel_schedulers, node) {
+
+		int i;
+
+		struct task_struct *tmp;
+
+		for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+
+			list_for_each_entry_safe(tsk, tmp, &sched->tq->run, node) {
+
+				if (!strncmp(tsk->name, buf, TASK_NAME_LEN)) {
+					goto entry_found;
+				}
+			}
+		}
+	}
+
+	return 0;
+
+entry_found:
+	if (!strcmp(sattr->name, "cpu_affinity"))
+		return sprintf(buf, "%d", tsk->on_cpu);
+
+	if (!strcmp(sattr->name, "runtime_ns"))
+		return sprintf(buf, "%lld", tsk->total);
+
+	if (!strcmp(sattr->name, "state"))
+		return sprintf(buf, "0x%lx", tsk->state);
+
+	if (!strcmp(sattr->name, "sched_policy"))
+		return sprintf(buf, "%d", tsk->attr.policy);
+
+	if (!strcmp(sattr->name, "stack_top"))
+		return sprintf(buf, "0x%p", tsk->stack_top);
+
+	if (!strcmp(sattr->name, "stack_bottom"))
+		return sprintf(buf, "0x%p", tsk->stack_bottom);
+
+	return 0;
+}
+
+__extension__
+static struct sobj_attribute proc_stats_attr[] = {
+       	__ATTR(cpu_affinity,  proc_stats_show, NULL),
+       	__ATTR(runtime_ns,    proc_stats_show, NULL),
+       	__ATTR(state,         proc_stats_show, NULL),
+       	__ATTR(sched_policy,  proc_stats_show, NULL),
+       	__ATTR(stack_top,     proc_stats_show, NULL),
+       	__ATTR(stack_bottom,  proc_stats_show, NULL),
+};
+
+__extension__
+static struct sobj_attribute *proc_stats_attributes[] = {
+	&proc_stats_attr[0], &proc_stats_attr[1], &proc_stats_attr[2],
+	&proc_stats_attr[3], &proc_stats_attr[4], &proc_stats_attr[5],
+	NULL
+};
+
+
+
 static void sched_init_sysctl(void)
 {
 	size_t i;
@@ -84,6 +173,21 @@ static void sched_init_sysctl(void)
 
 	sobj->sattr = cpu_load_attributes;
 	sysobj_add(sobj, NULL, sysctl_root(), "cpu_load");
+
+
+
+	/* XXX we currently export stats via a single entry and
+	 * abuse the write-back buffer to transport the selection of the
+	 * task name string. At some point we only want to create
+	 * a new sysset entry /sys/proc here where we can pack the per-process stats
+	 * when we create them
+	 */
+        sobj = sysobj_create();
+        if (!sobj)
+                return;
+
+        sobj->sattr = proc_stats_attributes;
+        sysobj_add(sobj, NULL, sysctl_root(), "proc");
 }
 
 

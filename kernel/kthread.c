@@ -23,8 +23,6 @@
 
 #define MSG "KTHREAD: "
 
-#define TASK_NAME_LEN	64
-
 static struct spinlock kthread_spinlock;
 
 struct thread_info *current_set[CONFIG_SMP_CPUS_MAX]; /* XXX */
@@ -246,7 +244,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	task->stack_top    = (void *) ((uint8_t *) task->stack
 						   + CONFIG_STACK_SIZE);
 
-	task->name = kmalloc(TASK_NAME_LEN);
+	task->name = kmalloc(TASK_NAME_LEN + 1);
 	vsnprintf(task->name, TASK_NAME_LEN, namefmt, args);
 
 	if (sched_set_policy_default(task)) {

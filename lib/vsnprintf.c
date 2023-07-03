@@ -1292,7 +1292,7 @@ __diag_pop();
 		if (!str) /* to stdout? */
 			render_specifier(NULL, NULL, format, &spec, &ap);
 		else
-			buf += render_specifier(&buf, end, format, &spec, &ap);
+			render_specifier(&buf, end, format, &spec, &ap);
 
 		format++; /* the type is always a single char */
 	}
@@ -1301,11 +1301,10 @@ __diag_pop();
 	/* place termination char if we rendered to a buffer */
 	if (size) {
 		if (str) {
-			buf[0] = '\0';
 			if (buf < end)
-				buf[-1] = '\0';
+				buf[0] = '\0';
 			else
-				end[-1] = '\0';
+				end[0] = '\0';
 		}
 	}
 

@@ -19,8 +19,8 @@
 compile_time_assert(!(CONFIG_STACK_SIZE & STACK_ALIGN), STACK_SIZE_UNALIGNED);
 
 
-#define KTHREAD_CPU_AFFINITY_NONE	(-1)
 
+#define KTHREAD_CPU_AFFINITY_NONE	(-1)
 
 
 /* task states */
@@ -36,9 +36,11 @@ compile_time_assert(!(CONFIG_STACK_SIZE & STACK_ALIGN), STACK_SIZE_UNALIGNED);
 #define TASK_NO_CLEAN	(1 << 30)	/* user takes care of cleanup */
 #define TASK_NO_CHECK	(1 << 31)	/* skip any validation checks */
 
+/* maximum length of task name string */
+#define TASK_NAME_LEN	64
 
 
-//extern volatile int sched_edf;
+
 struct task_struct {
 
 	struct thread_info thread_info;
