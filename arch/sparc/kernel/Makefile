@@ -32,5 +32,6 @@ obj-y += irq.o
 obj-y += smp.o
 obj-y += time.o
 obj-y += clockevent.o
+obj-y += edac.o
 
 

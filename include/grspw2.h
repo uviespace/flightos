@@ -20,9 +20,9 @@
 #define GRSPW2_H
 
 
-#include <stdint.h>
 #include <list.h>
 #include <compiler.h>
+#include <kernel/types.h>
 #include <kernel/sysctl.h>
 
 /**

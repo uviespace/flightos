@@ -14,6 +14,7 @@ obj-y += watchdog.o
 obj-y += syscalls.o
 obj-y += tty.o
 obj-y += application.o
+obj-y += edac.o
 
 obj-y += grspw2.o
 

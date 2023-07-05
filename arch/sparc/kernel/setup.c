@@ -12,6 +12,7 @@
 #include <init.h>
 #include <mm.h>
 #include <asm/irq.h>
+#include <asm/edac.h>
 #include <asm/time.h>
 #include <asm/clockevent.h>
 #include <asm/processor.h>
@@ -322,6 +323,8 @@ void setup_arch(void)
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
 
 	leon_irq_init();
+
+	leon_edac_init();
 
 	sparc_uptime_init();
 

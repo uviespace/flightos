@@ -1,0 +1,43 @@
+/**
+ * @file    include/kernel/edac.h
+ * @author  Armin Luntzer (armin.luntzer@univie.ac.at)
+ *
+ * @ingroup edac
+ *
+ * @copyright GPLv2
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+#ifndef _KERNEL_EDAC_H_
+#define _KERNEL_EDAC_H_
+
+#include <kernel/types.h>
+
+
+
+struct edac_dev {
+        void  (*enable)             (void);
+        void  (*disable)            (void);
+        int   (*crit_seg_add)       (void *begin, void *end);
+        int   (*crit_seg_rem)	    (void *begin, void *end);
+        void  (*inject_fault)       (void *addr, uint32_t mem_value, uint32_t edac_value);
+	void  (*set_reset_handler)  (void (*handler)(void *), void *data);
+};
+
+
+
+void edac_enable(void);
+void edac_disable(void);
+
+void edac_init(struct edac_dev *dev);
+
+#endif /* _KERNEL_EDAC_H_ */
