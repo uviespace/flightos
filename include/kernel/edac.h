@@ -34,6 +34,11 @@ struct edac_dev {
 };
 
 
+void edac_inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value);
+
+void edac_set_reset_callback(void (*handler)(void *), void *userdata);
+int edac_critical_segment_add(void *begin, void *end);
+int edac_critical_segment_rem(void *begin, void *end);
 
 void edac_enable(void);
 void edac_disable(void);

@@ -62,6 +62,7 @@
 #include <ahb.h>
 #include <traps.h>
 #include <errno.h>
+#include <asm/io.h>
 
 #include <leon3_memcfg.h>
 #include <kernel/edac.h>
@@ -70,6 +71,7 @@
 #include <kernel/sysctl.h>
 #include <kernel/irq.h>
 #include <kernel/kmem.h>
+#include <kernel/init.h>
 
 /* XXX meh... need central definition of these */
 #define GR712_IRL1_AHBSTAT	1
@@ -305,6 +307,8 @@ static uint32_t edac_error(void)
 		if (edac_error_in_critical_section((void *)addr))
 			if (do_reset)
 				do_reset(reset_data);
+		/* otherwise overwrite with all bits set */
+		iowrite32be(-1, (void *) addr);
 		break;
 	}
 
@@ -367,9 +371,12 @@ static void set_reset_handler(void (*handler)(void *data),
  * @brief initialise the sysctl entries for the edac module
  *
  * @return -1 on error, 0 otherwise
+ *
+ * @note we set this up as a late initcall since we need sysctl to be
+ *	 configured first
  */
 
-static int32_t edac_init_sysctl(void)
+static int edac_init_sysctl(void)
 {
 	struct sysobj *sobj;
 
@@ -385,6 +392,7 @@ static int32_t edac_init_sysctl(void)
 
 	return 0;
 }
+late_initcall(edac_init_sysctl);
 
 
 static int crit_seg_add(void *begin, void *end)
@@ -484,7 +492,6 @@ void leon_edac_init(void)
 
 
 	edac_init(&leon_edac);
-	edac_init_sysctl();
 
 	/* EDAC double faults, could need extra handler in
 	 * arch/sparc/kernel/data_access_exception.c

@@ -28,6 +28,7 @@
 
 #include <kernel/string.h>
 #include <kernel/kmem.h>
+#include <kernel/edac.h>
 
 #include <asm/processor.h>
 
@@ -311,11 +312,20 @@ arch_initcall(kernel_init);
 
 static inline unsigned long leon_swap(volatile unsigned long *ptr, unsigned long val)
 {
+	/** TODO: add manual CAS check here */
         __asm__ __volatile__("swap [%1], %0\n\t" :
                              "=&r" (val), "=&r" (ptr) :
                              "0" (val), "1" (ptr));
         return val;
 }
+
+void edac_reset(void *data)
+{
+	printk("RESET!!!\n");
+	/* overwrite dbit error */
+	iowrite32be(0, (void *) 0x61000000);
+}
+
 
 /**
  * @brief kernel main functionputchar( *((char *) data) );
@@ -489,15 +499,42 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		cpu_relax();
 	}
 #endif
+#if 0
+	edac_set_reset_callback(edac_reset, NULL);
 
-	printk("SWAPPING!!!!\n");
-       	{
-		int val = ioread32be((void *) 0x61000000);
+	sysset_show_tree(NULL);
 
-		printk("val is %x\n", val);
-		leon_swap((void *) 0x61000000, val);
+	edac_critical_segment_add((void *) 0x61000000, (void *) 0x61000004);
+	edac_inject_fault((void *) 0x61000000, 0x0, 0x1);
+
+
+	{
+		char buf[256];
+		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "singlefaults", buf);
+		printk("single: %s\n", buf);
+		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "lastsingleaddr", buf);
+		printk("last: %s\n", buf);
 	}
 
+
+	printk("I read %d\n", ioread32be((void *) 0x61000000));
+	{
+		char buf[256];
+		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "singlefaults", buf);
+		printk("single: %s\n", buf);
+		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "lastsingleaddr", buf);
+		printk("last: %s\n", buf);
+	}
+
+
+	edac_inject_fault((void *) 0x61000000, 0x0, 0x3);
+	printk("I read %d\n", ioread32be((void *) 0x61000000));
+	{
+		char buf[256];
+		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "doublefaults", buf);
+		printk("single: %s\n", buf);
+	}
+#endif
 
 	/* CrIa */
 	addr = module_read_embedded("CrIa");
