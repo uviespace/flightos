@@ -268,12 +268,12 @@ static inline struct mmu_ctx *mmu_find_ctx(unsigned int ctx_num)
 		return NULL;
 
 	list_for_each_entry(p_elem, &ctx_used, node) {
-		if (p_elem->ctx_num == ctx_num);
+		if (p_elem->ctx_num == ctx_num)
 			return p_elem;
 	}
 
 	list_for_each_entry(p_elem, &ctx_free, node) {
-		if (p_elem->ctx_num == ctx_num);
+		if (p_elem->ctx_num == ctx_num)
 			return p_elem;
 	}
 
@@ -1159,13 +1159,22 @@ void srmmu_enable_mmu(void)
  *	 to function
  */
 
+	unsigned long *ctp;
+void srmmu_init_per_cpu(void)
+{
+	mmu_set_ctp(ctp);
+	mmu_set_current_ctx(0);
+	srmmu_select_ctx(0);
+	srmmu_enable_mmu();
+}
+
+
 int srmmu_init(void *(*alloc)(size_t size), void  (*free)(void *addr))
 {
 	int ret;
 
 	unsigned int i;
 
-	unsigned long *ctp;
 
 	struct mmu_ctx *ctx;
 

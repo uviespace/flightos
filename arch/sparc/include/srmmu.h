@@ -135,8 +135,8 @@ struct srmmu_ptde {
 	union {
 #if defined(__BIG_ENDIAN_BITFIELD)
 		struct {
-			unsigned long page_table_pointer:30;
-			unsigned long entry_type : 2;	
+			unsigned long page_table_pointer	:30;
+			unsigned long page_table_entry_type	: 2;
 		};
 
 		struct {

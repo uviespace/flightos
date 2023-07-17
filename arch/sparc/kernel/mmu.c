@@ -316,8 +316,8 @@ void mm_mmu_trap(void)
 					pr_crit("MM: MMU error mapping pa %lx to va %lx\n", (int) alloc, addr);
 			} else {
 				pr_crit("Access violation: system break "
-					"in call from %p\n",
-					__builtin_return_address(1));
+					"in call from %p for address 0x%lx\n",
+					__builtin_return_address(1), addr);
 				BUG();
 			}
 		}

@@ -227,11 +227,16 @@ void main_kernel_loop(void)
 }
 
 
+/* XXX */
 #include <asm/processor.h>
 #include <kernel/kthread.h>
+void srmmu_init_per_cpu(void);
 extern struct task_struct *kernel[];
 void smp_cpu_entry(void)
 {
+
+	/* XXX */
+	srmmu_init_per_cpu();
 
 	reserve_kernel_stack();
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));

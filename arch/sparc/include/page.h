@@ -47,7 +47,7 @@
  *	    from some location.
  */
 
-#define HIGHMEM_START	0x40000000
+#define HIGHMEM_START	0x20000000 /* XXX need iommu or lowmem area.. (for SXI, FPGA ADDR. */
 #define LOWMEM_RESERVED 0x01000000
 
 #define VMALLOC_START	(LOWMEM_RESERVED)
