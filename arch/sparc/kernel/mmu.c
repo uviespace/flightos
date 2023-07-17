@@ -2,7 +2,7 @@
  * @file arch/sparc/kernel/mmu.c
  *
  * @ingroup sparc
- * 
+ *
  * @brief SPARC MMU initialisation, context, trap handling and sbrk()
  *
  */
@@ -270,9 +270,12 @@ void mm_mmu_trap(void)
 			addr = srmmu_get_mmu_fault_address();
 
 			if (!addr) {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("NULL pointer violation "
 					"in call from %p\n",
 					__builtin_return_address(1));
+__diag_pop();
 				BUG();
 			}
 
@@ -285,10 +288,13 @@ void mm_mmu_trap(void)
 
 			if (addr < mm_proc_mem[ctx].addr_lo) {
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("Access violation: RESERVED (0x%08lx) "
 					"in call from %p\n",
 					addr,
 					__caller(1));
+__diag_pop();
 				BUG();
 			}
 
@@ -315,9 +321,12 @@ void mm_mmu_trap(void)
 				if(srmmu_do_small_mapping(ctx, addr, alloc, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2)))
 					pr_crit("MM: MMU error mapping pa %lx to va %lx\n", (int) alloc, addr);
 			} else {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("Access violation: system break "
 					"in call from %p for address 0x%lx\n",
 					__builtin_return_address(1), addr);
+__diag_pop();
 				BUG();
 			}
 		}
