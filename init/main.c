@@ -105,7 +105,7 @@ static void spw_alloc_obc(struct spw_user_cfg *cfg)
 	 * bare-metal demo, so we just discard the original pointer
 	 */
 
-	mem = (uint32_t) kcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
+	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
 				+ GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
 
 	cfg->rx_desc = (uint32_t *)
@@ -113,7 +113,7 @@ static void spw_alloc_obc(struct spw_user_cfg *cfg)
 			& ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
 
 
-	mem = (uint32_t) kcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
+	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
 				+ GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
 
 	cfg->tx_desc = (uint32_t *)
@@ -122,12 +122,12 @@ static void spw_alloc_obc(struct spw_user_cfg *cfg)
 
 
 	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kcalloc(1, GRSPW2_RX_DESCRIPTORS
+	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS
 					  * GRSPW2_DEFAULT_MTU);
-	cfg->tx_data = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS
+	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS
 					  * GRSPW2_DEFAULT_MTU);
 
-	cfg->tx_hdr = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
+	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
 }
 
 
@@ -232,7 +232,7 @@ static void spw_alloc_fee(struct spw_user_cfg *cfg)
 	 * bare-metal demo, so we just discard the original pointer
 	 */
 
-	mem = (uint32_t) kcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
+	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
 				+ GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
 
 	cfg->rx_desc = (uint32_t *)
@@ -240,7 +240,7 @@ static void spw_alloc_fee(struct spw_user_cfg *cfg)
 			& ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
 
 
-	mem = (uint32_t) kcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
+	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
 				+ GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
 
 	cfg->tx_desc = (uint32_t *)
@@ -249,12 +249,12 @@ static void spw_alloc_fee(struct spw_user_cfg *cfg)
 
 
 	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kcalloc(1, GRSPW2_RX_DESCRIPTORS
+	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS
 					  * GRSPW2_FEE_RX_MTU);
-	cfg->tx_data = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS
+	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS
 					  * GRSPW2_DEFAULT_MTU);
 
-	cfg->tx_hdr = (uint8_t *) kcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
+	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
 }
 /**
  * @brief perform basic initialisation of the spw core

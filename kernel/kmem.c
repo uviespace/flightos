@@ -19,6 +19,7 @@
 #include <kernel/kmem.h>
 #include <kernel/kernel.h>
 #include <kernel/printk.h>
+#include <page.h>
 
 #ifdef CONFIG_MMU
 #include <kernel/sbrk.h>
@@ -262,9 +263,6 @@ void *kcalloc(size_t nmemb, size_t size)
  * @param size the number of bytes to allocate
  *
  * @returns a pointer or NULL on error or size == 0
- *
- * @note this should be preferred over kcalloc(n, 1), as it saves the extra
- *	 argument and hence produces less code
  */
 
 void *kzalloc(size_t size)
@@ -368,13 +366,21 @@ void *krealloc(void *ptr, size_t size)
 
 void kfree(void *ptr)
 {
-#ifdef CONFIG_MMU
-	struct kmem *k;
+	struct kmem *k __attribute__((unused));
 
 
 	if (!ptr)
 		return;
 
+	/* all physical memory is in HIGHMEM which is 1:1 mapped by the
+	 * MMU if in use
+	 */
+	if (ptr >= (void *) HIGHMEM_START) {
+		bootmem_free(ptr);
+		return;
+	}
+
+#ifdef CONFIG_MMU
 	if (ptr < kmem_init()) {
 		pr_warning("KMEM: invalid kfree() of addr %p below lower bound "
 			   "of trackable memory in call from %p\n",
@@ -416,7 +422,80 @@ void kfree(void *ptr)
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);
 	}
-#else
-	bootmem_free(ptr);
 #endif /* CONFIG_MMU */
+}
+
+
+/**
+ * @brief allocates size bytes of physically contiguous memory and returns a pointer
+ *	  to that memory
+ *
+ * @param size the number of bytes to allocate
+ *
+ * @note - the returned memory address is guaranteed to be a direct mapping
+ *         between the physical and virtual address
+ *       - use for HW interfaces only
+ *	 - deallocate using kfree()
+ *
+ * @returns a pointer or NULL on error or size == 0
+ */
+
+void *kpalloc(size_t size)
+{
+	return bootmem_alloc(size);
+}
+
+
+/**
+ * @brief allocates physically contiguous memory for an array of nmemb elements of
+ *	  size bytes each and returns a pointer to the allocated memory.
+ *	  The memory is set to zero.
+ *
+ * @param nmemb the number of elements
+ * @param size the number of bytes per element
+ *
+ * @note - the returned memory address is guaranteed to be a direct mapping
+ *         between the physical and virtual address
+ *       - use for HW interfaces only
+ *	 - deallocate using kfree()
+ *
+ * @returns a pointer or NULL on error or nmemb/size == 0
+ */
+
+void *kpcalloc(size_t nmemb, size_t size)
+{
+	size_t i;
+	size_t len;
+
+	char *dst;
+	void *ptr;
+
+
+	len = nmemb * size;
+
+	ptr = kpalloc(len);
+
+	if (ptr) {
+		dst = ptr;
+		for (i = 0; i < len; i++)
+			dst[i] = 0;
+	}
+
+	return ptr;
+}
+
+
+/**
+ * @brief allocates size bytes of physically contiguous memory and returns a
+ *	  pointer to the allocated memory, suitably aligned for any built-in
+ *	  type. The memory is set to zero.
+ *
+ * @param size the number of bytes to allocate
+ *
+ * @returns a pointer or NULL on error or size == 0
+ */
+
+void *kpzalloc(size_t size)
+{
+	return kpcalloc(size, 1);
 }
