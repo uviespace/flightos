@@ -58,6 +58,46 @@ EXPORT_SYMBOL(edac_critical_segment_rem);
 
 
 /**
+ * @brief check if an EDAC error flag has been raised
+ */
+
+int edac_error_detected(void)
+{
+	if (edac->error_detected)
+		return edac->error_detected();
+
+	return 0;
+}
+EXPORT_SYMBOL(edac_error_detected);
+
+
+/**
+ * @brief get the address of the last detected error
+ */
+
+unsigned long edac_get_error_addr(void)
+{
+	if (edac->get_error_addr)
+		return edac->get_error_addr();
+
+	return 0;
+}
+EXPORT_SYMBOL(edac_get_error_addr);
+
+
+/**
+ * @brief clear the last EDAC error flag
+ */
+
+void edac_error_clear(void)
+{
+	if (edac->error_clear)
+		edac->error_clear();
+}
+EXPORT_SYMBOL(edac_error_clear);
+
+
+/**
  * @brief disable the EDAC system
  */
 

@@ -431,6 +431,7 @@ static int crit_seg_rem(void *begin, void *end)
 
 	_crit.sec[i].begin = NULL;
 	_crit.sec[i].end   = NULL;
+	_crit.cnt--;
 
 	/* we found an entry to delete, now move everything
 	 * after back by one field if possible
@@ -443,6 +444,20 @@ static int crit_seg_rem(void *begin, void *end)
 	return 0;
 }
 
+static int error_detected(void)
+{
+	return ahbstat_new_error();
+}
+
+static unsigned long get_error_addr(void)
+{
+	return ahbstat_get_failing_addr();
+}
+
+static void error_clear(void)
+{
+	ahbstat_clear_new_error();
+}
 
 static void enable_edac(void)
 {
@@ -477,6 +492,9 @@ static struct edac_dev leon_edac = {
 	.disable	   = disable_edac,
         .crit_seg_add	   = crit_seg_add,
         .crit_seg_rem	   = crit_seg_rem,
+	.error_detected	   = error_detected,
+	.get_error_addr	   = get_error_addr,
+	.error_clear	   = error_clear,
 	.inject_fault	   = inject_fault,
         .set_reset_handler = set_reset_handler,
 };

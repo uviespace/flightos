@@ -235,8 +235,9 @@ extern struct task_struct *kernel[];
 void smp_cpu_entry(void)
 {
 
-	/* XXX */
+#ifdef CONFIG_MMU 
 	srmmu_init_per_cpu();
+#endif /* CONFIG_MMU */
 
 	reserve_kernel_stack();
 	BUG_ON(stack_migrate(NULL, _kernel_stack_top));
