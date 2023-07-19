@@ -253,7 +253,7 @@ static unsigned long memscrub(unsigned long addr, size_t n)
 
 	edac_error_clear();
 
-	for ( ; addr < stop; addr++) {
+	for ( ; addr < stop; addr += sizeof(unsigned long)) {
 		ioread32be((void *)addr);	/* XXX not portable */
 		memscrub_inspect_edac_status(addr);
 	}
@@ -276,7 +276,7 @@ static int mem_do_scrub(void *data)
 
 	while (1) {
 
-		for (i= 0; i < _scrub.sz; i++) {
+		for (i= 0; i < _scrub.cnt; i++) {
 
 			begin = _scrub.sec[i].begin;
 			end   = _scrub.sec[i].end;
