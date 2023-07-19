@@ -299,8 +299,14 @@ __diag_pop();
 			}
 
 			if (addr > HIGHMEM_START) {
-				pr_debug("Access violation: HIGHMEM\n");
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
+				pr_crit("Access violation: HIGHMEM (0x%08lx) "
+					"in call from %p\n",
+					addr,
+					__caller(1));
 				BUG();
+__diag_pop();
 			}
 
 
