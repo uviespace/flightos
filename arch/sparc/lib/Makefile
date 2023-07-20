@@ -7,6 +7,7 @@ lib-y += grtimer_longcount.o
 lib-y += leon3_dsu.o
 lib-y += leon3_memcfg.o
 lib-y += ahb.o
+lib-y += reboot.o
 
 lib-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += clz_tab.o
 lib-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += divdi3.o

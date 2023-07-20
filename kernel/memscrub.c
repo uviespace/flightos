@@ -14,64 +14,6 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @defgroup memscrub Memory Scrubbing
- * @brief Implements memory scrubbing and repair of single-bit errors
- *
- * ## Overview
- *
- * This module provides functionality for memory scrubbing cycles, correctable
- * error logging and memory repair.
- * Note that only correctable errors are recorded and repaired, uncorrectable
- * errors are reported via the @ref edac module
- *
- * ## Mode of Operation
- *
- * During each activation, starting from a specified address, a number of memory
- * locations are read by forced data cache bypass in CPU-word size
- * increments. After each read, the EDC status is checked for single
- * bit errors. If an error was raised and the registered failing address
- * corresponds to the read address, it is logged for deferred memory repair.
- *
- * @startuml {memory_scrubbing.svg} "Memory Scrubbing process" width = 10
- *
- * start
- *
- * repeat
- *	: read memory;
- *	: inspect AHB status;
- *	if (SBIT error) then (yes)
- *		if (address matches) then (yes)
- *			: log error;
- *		endif
- *	endif
- * repeat while (done?)
- *
- * : mask interrrupts;
- *
- * while (logged error)
- *	: read memory;
- *	: write memory;
- * endwhile
- *
- * : unmask interrrupts;
- *
- * stop
- *
- * @enduml
- *
- *
- * ## Error Handling
- *
- * None
- *
- *
- * ## Notes
- *
- * - There is no internal discrimination regarding repair of memory locations.
- *   Basically, a re-write is attempted for every single bit error detected.
- *
- * - If the memory error log is at capacity, no new errors will be added.
- *
  * XXX TODO sysctl IF to set scrub sections
  */
 
@@ -80,7 +22,6 @@
 #include <list.h>
 #include <compiler.h>
 #include <asm-generic/io.h>
-#include <asm-generic/memrepair.h>
 
 #include <kernel/init.h>
 #include <kernel/edac.h>
@@ -90,20 +31,6 @@
 #include <kernel/sysctl.h>
 #include <kernel/export.h>
 #include <kernel/kthread.h>
-
-#define MEMSCRUB_LOG_ENTRIES	10
-
-struct memscrub_log_entry {
-	uint32_t fail_addr;
-	struct list_head node;
-};
-
-static struct memscrub_log_entry memscrub_log_entries[MEMSCRUB_LOG_ENTRIES];
-
-static struct list_head	memscrub_log_used;
-static struct list_head memscrub_log_free;
-
-
 
 /* if we need more space, this is how many entries we will add */
 #define SCRUB_REALLOC 10
@@ -123,122 +50,7 @@ static struct {
 
 
 /**
- * @brief add an entry to the error log
- *
- * @param fail_addr the address of the single-bit error
- *
- * @note If no more free slots are available, the request will be ignored and
- *       the address will not be registered until another pass is made
- */
-
-static void memscrub_add_log_entry(uint32_t fail_addr)
-{
-	struct memscrub_log_entry *p_elem;
-
-
-	if (list_filled(&memscrub_log_free)) {
-
-		p_elem = list_entry((&memscrub_log_free)->next,
-				    struct memscrub_log_entry, node);
-
-		list_move_tail(&p_elem->node, &memscrub_log_used);
-		p_elem->fail_addr = fail_addr;
-	}
-}
-
-
-/**
- * @brief check the EDAC for new single bit errors
- *
- * @return  0 if no error,
- *	    1 if error,
- *	   -1 if error address does not match reference
- */
-
-static int32_t memscrub_inspect_edac_status(uint32_t addr)
-{
-	uint32_t fail_addr;
-
-
-	if (edac_error_detected()) {
-
-		fail_addr = edac_get_error_addr();
-
-		edac_error_clear();
-
-		if (addr == fail_addr)
-			memscrub_add_log_entry(fail_addr);
-
-		else
-			return -1;
-
-		return 1;
-	}
-
-	return 0;
-}
-
-
-/**
- * @brief retrieve number of entries in the edac error log
- *
- * @return number of registered single-bit errors in the log
- *
- * XXX TODO sysctl stats
- */
-__attribute__((unused))
-static uint32_t memscrub_get_num_log_entries(void)
-{
-	uint32_t entries = 0;
-
-	struct memscrub_log_entry *p_elem;
-	struct memscrub_log_entry *p_tmp;
-
-	list_for_each_entry_safe(p_elem, p_tmp, &memscrub_log_used, node)
-		entries++;
-
-	return entries;
-}
-
-
-/**
- * @brief retrieve number of entries in the edac error log
- *
- * @return number of addresses repaired
- */
-
-static uint32_t memscrub_repair(void)
-{
-
-	uint32_t corr = 0;
-
-	struct memscrub_log_entry *p_elem;
-	struct memscrub_log_entry *p_tmp;
-
-
-	list_for_each_entry_safe(p_elem, p_tmp, &memscrub_log_used, node) {
-
-		mem_repair((void *) p_elem->fail_addr);
-
-		/* repairs of error will trigger and error */
-		edac_error_clear();
-
-		/* XXX kalarm() -> EDAC, LOW, p_elem->fail_addr */
-		list_move_tail(&p_elem->node, &memscrub_log_free);
-
-		corr++;
-	}
-
-
-	return corr;
-}
-
-
-
-/**
  * @brief memory scrubbing of a range addr[0] ... addr[n] at a time
- *
- * Identified single-bit errors are stored in log for repair at a later time.
  *
  * @param addr the address pointer to start scrubbing from
  * @param n    the number of data words to scrub on top of starting address
@@ -248,22 +60,20 @@ static uint32_t memscrub_repair(void)
 
 static unsigned long memscrub(unsigned long addr, size_t n)
 {
-	unsigned long stop = addr + n;
+	unsigned long stop = addr + n * sizeof(unsigned long);
 
 
-	edac_error_clear();
 
-	for ( ; addr < stop; addr += sizeof(unsigned long)) {
-		ioread32be((void *)addr);	/* XXX not portable */
-		memscrub_inspect_edac_status(addr);
-	}
-
-	memscrub_repair();
+	for ( ; addr < stop; addr += sizeof(unsigned long))
+		ioread32be((void *)addr);
 
 	return stop;
 }
 
 
+/**
+ * @brief scrubbing thread function
+ */
 
 static int mem_do_scrub(void *data)
 {
@@ -277,7 +87,6 @@ static int mem_do_scrub(void *data)
 	while (1) {
 
 		for (i= 0; i < _scrub.cnt; i++) {
-
 			begin = _scrub.sec[i].begin;
 			end   = _scrub.sec[i].end;
 			pos   = _scrub.sec[i].pos;
@@ -295,6 +104,7 @@ static int mem_do_scrub(void *data)
 			}
 
 			_scrub.sec[i].pos = memscrub(pos, n);
+
 		}
 
 		sched_yield();
@@ -334,9 +144,9 @@ int memscrub_seg_add(unsigned long begin, unsigned long end, uint16_t wpc)
 	/* resize array if needed */
 	if (_scrub.cnt == _scrub.sz) {
 		_scrub.sec = krealloc(_scrub.sec, (_scrub.sz + SCRUB_REALLOC) *
-				      sizeof(struct edac_scrub_sec *));
+				      sizeof(struct memscrub_sec));
 
-		bzero(&_scrub.sec[_scrub.sz], sizeof(struct edac_scrub_sec *) * SCRUB_REALLOC);
+		bzero(&_scrub.sec[_scrub.sz], sizeof(struct memscrub_sec) * SCRUB_REALLOC);
 		_scrub.sz += SCRUB_REALLOC;
 	}
 
@@ -345,7 +155,6 @@ int memscrub_seg_add(unsigned long begin, unsigned long end, uint16_t wpc)
 	_scrub.sec[_scrub.cnt].pos   = begin;
 	_scrub.sec[_scrub.cnt].wpc   = wpc;
 	_scrub.cnt++;
-
 
 	return 0;
 error:
@@ -404,29 +213,15 @@ EXPORT_SYMBOL(memscrub_seg_rem);
 
 int memscrub_init(void)
 {
-	uint32_t i;
 	struct task_struct *t;
-
-
-	INIT_LIST_HEAD(&memscrub_log_used);
-	INIT_LIST_HEAD(&memscrub_log_free);
-
-	for (i = 0; i < ARRAY_SIZE(memscrub_log_entries); i++)
-		list_add_tail(&memscrub_log_entries[i].node,
-			      &memscrub_log_free);
-
-
 
 	t = kthread_create(mem_do_scrub, NULL, 0, "SCRUB");
 	BUG_ON(!t);
 
 	/* run for at most 500 µs every 125 ms (~0.4 % CPU) */
-	kthread_set_sched_edf(t, 125 * 1000, 2000, 500);
+	kthread_set_sched_edf(t, 125 * 1000, 120*1000, 500);
 
 	BUG_ON(kthread_wake_up(t) < 0);
-
-
-
 
 	return 0;
 }

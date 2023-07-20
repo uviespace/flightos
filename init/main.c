@@ -29,6 +29,7 @@
 #include <kernel/string.h>
 #include <kernel/kmem.h>
 #include <kernel/edac.h>
+#include <kernel/memscrub.h>
 
 #include <asm/processor.h>
 
@@ -499,6 +500,7 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		cpu_relax();
 	}
 #endif
+
 #if 0
 	edac_set_reset_callback(edac_reset, NULL);
 
@@ -534,6 +536,8 @@ printk("waiting for cpu %d, flag at %d\n", i, cpu_ready[i]);
 		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "doublefaults", buf);
 		printk("single: %s\n", buf);
 	}
+
+	memscrub_seg_add(0x60000000, 0x62000000, 256);
 #endif
 
 	/* CrIa */

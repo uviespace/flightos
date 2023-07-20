@@ -7,7 +7,7 @@
 #ifndef _ASM_GENERIC_MEMREPAIR_H_
 #define _ASM_GENERIC_MEMREPAIR_H_
 
-#include <asm/spinlock.h>
+#include <asm/memrepair.h>
 
 #ifndef __mem_repair
 #define __mem_repair __mem_repair

@@ -5,8 +5,8 @@
 #ifndef _ARCH_SPARC_ASM_MEMREPAIR_H_
 #define _ARCH_SPARC_ASM_MEMREPAIR_H_
 
-#include <io.h>
-#include <spinlock.h>
+#include <asm/io.h>
+#include <asm/spinlock.h>
 
 
 /*
@@ -34,10 +34,9 @@ static void mem_repair(void *addr)
 	uint32_t tmp;
 
 	psr = spin_lock_save_irq();
-	tmp = ioread32be((void *) p_elem->fail_addr);
-	iowrite32be(tmp, (void *) p_elem->fail_addr);
+	tmp = ioread32be(addr);
+	iowrite32be(tmp, addr);
 	spin_lock_restore_irq(psr);
 }
-#endif
 
 #endif	/* _ARCH_SPARC_ASM_MEMREPAIR_H_ */

@@ -63,6 +63,7 @@
 #include <traps.h>
 #include <errno.h>
 #include <asm/io.h>
+#include <asm/memrepair.h>
 
 #include <leon3_memcfg.h>
 #include <kernel/edac.h>
@@ -272,8 +273,7 @@ static uint32_t edac_error_in_critical_section(void *addr)
  *
  * @note turns out the AHB irq is raised on single bit errors after all;
  *       sections 5.10.3 and 7 in the GR712-UM docs are a bit ambiguous
- *       regarding that; since we should not correct errors while the other
- *       CPU is running, we'll continue to use the scrubbing mechanism as before
+ *       regarding that;
  */
 
 static uint32_t edac_error(void)
@@ -294,6 +294,13 @@ static uint32_t edac_error(void)
 	if (ahbstat_correctable_error()) {
 		edacstat.edac_single++;
 		edacstat.edac_last_single_addr = addr;
+
+		/* XXX kalarm() -> EDAC, LOW, addr */
+		mem_repair((void *) addr);
+
+		/* clear edac error triggered by repair */
+		ahbstat_clear_new_error();
+
 		return 0;
 	}
 
@@ -314,29 +321,6 @@ static uint32_t edac_error(void)
 
 
 	return 1;
-}
-
-/**
- * set up:
- *
- *	trap_handler_install(0x9, data_access_exception_trap);
- *	register edac trap to ahb irq
- *
- *	for testing with grmon:
- *	dsu_clear_cpu_break_on_trap(0);
- *	dsu_clear_cpu_break_on_error_trap(0);
- *
- * @note this is not triggered for single faults in RAM (needs manual checking)
- *       but still raised by the FPGA if the FLASH error is correctable
- *
- *       XXX this is old cheops stuff; I'm unsure if this can occur in
- *	situations where double faults are encountered TODO: test
- *
- */
-__attribute__((unused))
-static void edac_trap(void)
-{
-	edac_error();
 }
 
 
@@ -400,9 +384,9 @@ static int crit_seg_add(void *begin, void *end)
 	/* resize array if needed */
 	if (_crit.cnt == _crit.sz) {
 		_crit.sec = krealloc(_crit.sec, (_crit.sz + CRIT_REALLOC) *
-				     sizeof(struct edac_crit_sec *));
+				     sizeof(struct edac_crit_sec));
 
-		bzero(&_crit.sec[_crit.sz], sizeof(struct edac_crit_sec *) * CRIT_REALLOC);
+		bzero(&_crit.sec[_crit.sz], sizeof(struct edac_crit_sec) * CRIT_REALLOC);
 		_crit.sz += CRIT_REALLOC;
 	}
 
