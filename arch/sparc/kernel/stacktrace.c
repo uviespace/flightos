@@ -80,7 +80,7 @@ void save_stack_trace(struct stack_trace *trace, uint32_t sp, uint32_t pc)
 
 void die(void)
 {
-	BUG();
+	machine_halt();
 }
 
 
