@@ -59,8 +59,12 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 		return NULL;
 
 	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node) {
-		if (!p_elem->free)
-			BUG();
+
+		/* remove stale entry */
+		if (!p_elem->free) {
+			list_del(&p_elem->node);
+			continue;
+		}
 
 		if (p_elem->size >= size) {
 			(*prev) = p_elem->prev;
@@ -417,8 +421,21 @@ void kfree(void *ptr)
 		k->prev->next = NULL;
 		_kmem_last = k->prev;
 
+		k->free = 0;
+		k->size = 0;
+		k->prev = NULL;
+
 		/* release back */
-		kernel_sbrk(-(k->size + sizeof(struct kmem)));
+		if ((intptr_t) k > (intptr_t) kernel_sbrk(0))
+			kernel_sbrk(- ((intptr_t) k - (intptr_t) kernel_sbrk(0)));
+
+		/* note: we don't attempt to remove the item from the nodes list
+		 * at this point, because it may not be on the list since this
+		 * was its first alloc-free cycle;
+		 * we rather do it in kmem_find_free_chunk() for all elements
+		 * marked !free
+		 */
+
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);
 	}
