@@ -95,21 +95,56 @@ static void mem_init(void)
 	sp_banks[0].num_bytes = 0x00800000;
 #else
 	/* XXX need something like CONFIG_SOC_SMILE_SXI */
-	/* XXX the base address is defined by the requirements,
-	 * however the size is limited for now so this will run on the
-	 * GR712 EVAL board (from SDRAM) as well as the SXI DPU
+	/* XXX the base address is defined by the requirements
+	 * (DBS RAM + exchange area).
+	 * We also need some space at the end to run the ASW starting from
+	 * addr 0x6FF00000, so we'll use several power-of-two partitions for now
+	 * NOTE: this will work properly only when MMU support is enabled
 	 */
 	sp_banks[0].base_addr = 0x60040000;
-	sp_banks[0].num_bytes = 0x6FF00000 - 0x60040000;
+	sp_banks[0].num_bytes = 0x08000000;	/* first 128 MiB */
+
+#if (SPARC_PHYS_BANKS > 0)
+	sp_banks[1].base_addr = 0x68040000;
+	sp_banks[1].num_bytes = 0x04000000;	/* next 64 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 1)
+	sp_banks[2].base_addr = 0x6C040000;
+	sp_banks[2].num_bytes = 0x02000000;	/* next 32 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 2)
+	sp_banks[3].base_addr = 0x6E040000;
+	sp_banks[3].num_bytes = 0x01000000;	/* next 16 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 3)
+	sp_banks[4].base_addr = 0x6F040000;
+	sp_banks[4].num_bytes = 0x00800000;	/* next 8 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 4)
+	sp_banks[5].base_addr = 0x6F840000;
+	sp_banks[5].num_bytes = 0x00400000;	/* next 4 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 5)
+	sp_banks[6].base_addr = 0x6FC40000;
+	sp_banks[6].num_bytes = 0x00200000;	/* next 2 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 6)
+	sp_banks[7].base_addr = 0x6FE40000;
+	sp_banks[7].num_bytes = 0x00100000;	/* next 1 MiB */
+#endif
+	/* ignore the remaing unused space */
+
+
 #endif /* 0 */
 #endif /* CONFIG_LEON3 */
 
 
-#if (SPARC_PHYS_BANKS > 0)
-	sp_banks[1].base_addr = 0x60300000;
-	sp_banks[1].num_bytes = 0x69000000 - 0x60300000;
-#warning "SPARC PHYS BANK 2 currently reconfigured for start at 0x60100000"
-#endif
 
 }
 
