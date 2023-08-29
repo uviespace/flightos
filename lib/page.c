@@ -101,11 +101,11 @@ int page_map_add(unsigned long start, unsigned long end,
 
 		/* check for overlapping configurations */
 		if ((*pg)->mem_start <= start)
-			if ((*pg)->mem_end >= start)
+			if ((*pg)->mem_end > start)
 				goto overlap;
 
 		if ((*pg)->mem_end >= end)
-			if ((*pg)->mem_start <= end)
+			if ((*pg)->mem_start < end)
 				goto overlap;
 
 	} while ((*(++pg)));
@@ -128,8 +128,8 @@ int page_map_add(unsigned long start, unsigned long end,
 error:
 	return -ENOMEM;
 overlap:
-	printk("PAGE MEM: overlapping memory range found for request "
-	       "0x%08x 0x%08x, cannot add map\n");
+	printk("PAGE MEM: overlapping existing memory range 0x%08x 0x%08x found for request "
+	       "0x%08x 0x%08x cannot add map\n", (*pg)->mem_start, (*pg)->mem_end, start, end);
 	return -EINVAL;
 }
 

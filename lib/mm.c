@@ -33,7 +33,7 @@
  * tampering with the memory) include an arbitrary section of memory other
  * than from the base of the managed segment. Since we start to hand out memory
  * blocks from the base, this wouldn't make much sense anyway and complicate
- * things a log. If you need to remap some arbitrary range, reserve the whole
+ * things a lot. If you need to remap some arbitrary range, reserve the whole
  * chunk from the base and manage it on your own.
  *
  * @todo not atomic
@@ -310,7 +310,10 @@ static void mm_upmerge_blks(struct mm_pool *mp, struct mm_blk_lnk *blk)
 
 	mm_mark_free(mp, blk);
 	mm_blk_set_alloc_order(mp, blk, order);
-	list_add(&blk->link, &mp->block_order[order]);
+
+	/* never link the initial block */
+	if ((unsigned long) blk != mp->base)
+		list_add(&blk->link, &mp->block_order[order]);
 }
 
 
@@ -431,24 +434,34 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	 *      ___________ ______
 	 * [1] |xx|xx|__|__|__|__| (order [1] growth ->)
 	 *
+	 * note: if the number of blocks allocate is zero, we start splitting
+	 * blocks from our memory block base and the maximum block order
 	 */
 
-	for (i = order; i <= mp->max_order; i++) {
-		list = &mp->block_order[i];
+	if (likely(mp->alloc_blks)) {
 
-		if (!list_empty(list))
-			break;
+		for (i = order; i <= mp->max_order; i++) {
+			list = &mp->block_order[i];
+
+			if (!list_empty(list))
+				break;
+		}
+
+		if(list_empty(list)) {
+			pr_debug("MM: pool %p out of blocks for order %lu\n",
+				 mp, order);
+			goto exit;
+		}
+
+		blk = list_entry(list->next, struct mm_blk_lnk, link);
+
+		list_del(&blk->link);
+
+	} else {
+
+		blk = (struct mm_blk_lnk *) mp->base;
+		i = mp->max_order;
 	}
-
-	if(list_empty(list)) {
-		pr_debug("MM: pool %p out of blocks for order %lu\n",
-			 mp, order);
-		goto exit;
-	}
-
-	blk = list_entry(list->next, struct mm_blk_lnk, link);
-
-	list_del(&blk->link);
 
 	mm_mark_alloc(mp, blk);
 	mm_blk_set_alloc_order(mp, blk, order);

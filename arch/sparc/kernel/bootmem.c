@@ -273,7 +273,7 @@ void bootmem_init(void)
 	BUG_ON(mem_size  > (1UL << MM_BLOCK_ORDER_MAX));
 	BUG_ON(PAGE_SIZE < (1UL << MM_BLOCK_ORDER_MIN));
 
-	BUG_ON(page_map_init(mm_init_page_map, start_pfn, end_pfn, PAGE_SIZE));
+	BUG_ON(page_map_init(mm_init_page_map, base_pfn, end_pfn, PAGE_SIZE));
 
 
 	/* reserve all space up to the end of the image, so mapping starts
