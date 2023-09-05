@@ -729,7 +729,6 @@ int srmmu_new_ctx(void *(*alloc)(size_t size), void  (*free)(void *addr))
 	return ctx->ctx_num;
 }
 
-
 /**
  * @brief release lvl3 pages
  *
@@ -745,24 +744,24 @@ static int srmmu_release_lvl3_pages(struct mmu_ctx *ctx,
 	struct srmmu_ptde *lvl3;
 
 
-
 	lvl3 = mmu_find_tbl_lvl3(ctx, va);
-
 	if (!lvl3)
 		return 0;
 
-	if ((va + SRMMU_SIZE_TBL_LVL_3 * SRMMU_SMALL_PAGE_SIZE ) < va_end)
-		va_end = va + SRMMU_SIZE_TBL_LVL_3 * SRMMU_SMALL_PAGE_SIZE;
+	/* limit to single lvl3 table */
+	if (va_end > ALIGN(va + 1, SRMMU_MEDIUM_PAGE_SIZE))
+		va_end = ALIGN(va + 1, SRMMU_MEDIUM_PAGE_SIZE);
 
 	for ( ; va < va_end; va += SRMMU_SMALL_PAGE_SIZE) {
+
 
 		page = SRMMU_LVL3_GET_TBL_OFFSET(va);
 
 		/* it is quite possible that this is not mapped */
 		if (lvl3[page].pte == SRMMU_ENTRY_TYPE_INVALID) {
-			pr_debug("SRMMU: tried to release address 0x%08x, but "
+			pr_debug("SRMMU: tried to release address 0x%08x (%lx), but "
 				 "lvl3 page was marked invalid, ignoring.\n",
-				 va);
+				 va, SRMMU_PTE_TO_ADDR(lvl3[page].pte));
 			continue;
 		}
 
@@ -770,8 +769,11 @@ static int srmmu_release_lvl3_pages(struct mmu_ctx *ctx,
 
 			free_page((void *) SRMMU_PTE_TO_ADDR(lvl3[page].pte));
 
-			pr_debug("SRMMU: freed physical page %lx\n",
-				 SRMMU_PTE_TO_ADDR(lvl3[page].pte));
+			pr_debug("SRMMU: freed physical page %lx (va %lx) [%d][%d][%d]\n",
+				 SRMMU_PTE_TO_ADDR(lvl3[page].pte),
+				 va, SRMMU_LVL1_GET_TBL_OFFSET(va),
+				 SRMMU_LVL2_GET_TBL_OFFSET(va),
+				 SRMMU_LVL3_GET_TBL_OFFSET(va));
 
 			lvl3[page].pte = SRMMU_ENTRY_TYPE_INVALID;
 
@@ -810,8 +812,9 @@ static int srmmu_release_lvl2_pages(struct mmu_ctx *ctx,
 	if (!lvl2)
 		return 0;
 
-	if ((va + SRMMU_SIZE_TBL_LVL_2 * SRMMU_MEDIUM_PAGE_SIZE ) < va_end)
-		va_end = va + SRMMU_SIZE_TBL_LVL_2 * SRMMU_MEDIUM_PAGE_SIZE;
+	/* limit to single lvl2 table */
+	if (va_end > ALIGN(va + 1, SRMMU_LARGE_PAGE_SIZE))
+		va_end = ALIGN(va + 1, SRMMU_LARGE_PAGE_SIZE);
 
 	for ( ; va < va_end; va += SRMMU_MEDIUM_PAGE_SIZE) {
 
@@ -841,6 +844,12 @@ static int srmmu_release_lvl2_pages(struct mmu_ctx *ctx,
 				return 0;
 			}
 		}
+
+		/* make sure this is aligned to the next boundary, this
+		 * is needed for the first section in particular
+		 */
+		va = ALIGN(va - SRMMU_MEDIUM_PAGE_SIZE + 1, SRMMU_MEDIUM_PAGE_SIZE);
+
 	}
 
 	return 1;
@@ -885,7 +894,14 @@ static void srmmu_release_lvl1_pages(struct mmu_ctx *ctx,
 			lvl1[page].pte = SRMMU_ENTRY_TYPE_INVALID;
 			pr_debug("SRMMU: lvl2 table unreferenced\n");
 		}
+
+		/* make sure this is aligned to the next boundary, this
+		 * is needed for the first section in particular
+		 */
+		va = ALIGN(va - SRMMU_LARGE_PAGE_SIZE + 1, SRMMU_LARGE_PAGE_SIZE);
 	}
+
+	leon_flush_tlb_all();
 }
 
 
@@ -1107,6 +1123,29 @@ int srmmu_do_small_mapping_range(unsigned long ctx_num,
 
 	return 0;
 }
+
+
+/**
+ * @brief get the physical address of the page mapped to a virtual address
+ */
+
+unsigned long srmmu_get_pa_page(unsigned long ctx, unsigned long va)
+{
+	unsigned long page;
+
+	struct srmmu_ptde *lvl3;
+
+
+	lvl3 = mmu_find_tbl_lvl3(mmu_find_ctx(ctx), va);
+	if (!lvl3)
+		return 0;
+
+	page = SRMMU_LVL3_GET_TBL_OFFSET(va);
+
+	return SRMMU_PTE_TO_ADDR(lvl3[page].pte);
+}
+
+
 
 
 /**

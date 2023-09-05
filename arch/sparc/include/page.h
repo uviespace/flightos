@@ -12,6 +12,7 @@
 #include <kernel/mm.h>
 
 #include <mm.h>
+#include <mmu.h>
 
 /* the page size in the SRMMU is 4kib */
 #define PAGE_SHIFT   12
@@ -54,14 +55,12 @@
 #define VMALLOC_END	(HIGHMEM_START - 1)
 
 
-#define PAGE_OFFSET	HIGHMEM_START
-
 extern unsigned long phys_base;
 extern unsigned long pfn_base;
 
-#if defined(CONFIG_PAGE_OFFSET)
-#define __pa(x)		((unsigned long)(x) - PAGE_OFFSET + phys_base)
-#define __va(x)		((void *)((unsigned long) (x) - phys_base + PAGE_OFFSET))
+#if defined(CONFIG_MMU)
+#define __pa(x)		(mm_get_physical_addr(x))
+#define __va(x)		(0)	/* not implemented */
 #else
 #define __pa(x)		(x)
 #define __va(x)		(x)

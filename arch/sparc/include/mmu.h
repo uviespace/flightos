@@ -13,5 +13,7 @@ void mm_mmu_trap(void);
 int mm_set_mmu_ctx(unsigned long ctx);
 unsigned long mm_get_mmu_ctx(void);
 
+unsigned long mm_get_physical_addr(unsigned long va);
+
 
 #endif /* _SPARC_MMU_H_ */

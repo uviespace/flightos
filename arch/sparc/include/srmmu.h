@@ -240,4 +240,6 @@ void srmmu_release_pages(unsigned long ctx_num,
 			 unsigned long va, unsigned long va_end,
 			 void  (*free_page)(void *addr));
 
+unsigned long srmmu_get_pa_page(unsigned long ctx, unsigned long va);
+
 #endif /*_SPARC_SRMMU_H_ */

@@ -21,6 +21,7 @@
 
 #include <kernel/types.h>
 #include <uapi/asi.h>
+#include <page.h>
 
 /*
  * convention/calls same as in linux kernel (see arch/sparc/include/asm/io_32.h)
@@ -112,6 +113,10 @@ static inline void __raw_writel(uint32_t l, const volatile void *addr)
 
 #ifndef iowrite32be
 #define iowrite32be(val,X)              __raw_writel(val,X)
+#endif
+
+#ifndef virt_to_phys
+#define virt_to_phys(x)		__pa(x)
 #endif
 
 #endif /* _ARCH_SPARC_ASM_IO_H_ */

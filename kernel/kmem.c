@@ -212,7 +212,10 @@ void *kmalloc(size_t size)
 	k_new->prev = k_prev;
 	k_prev->next = k_new;
 
-	k_new->size = len - sizeof(struct kmem);
+	/* the actual size is defined by sbrk(), we get a guranteed minimum,
+	 * but the resulting size may be larger
+	 */
+	k_new->size = (size_t) kernel_sbrk(0) - (size_t) k_new - sizeof(struct kmem);
 
 	/* data section follows just after */
 	k_new->data = k_new + 1;
@@ -418,16 +421,16 @@ void kfree(void *ptr)
 	}
 
 	if (!k->next) {
+
 		k->prev->next = NULL;
 		_kmem_last = k->prev;
+
+		/* release back */
+		kernel_sbrk(-(k->size + sizeof(struct kmem)));
 
 		k->free = 0;
 		k->size = 0;
 		k->prev = NULL;
-
-		/* release back */
-		if ((intptr_t) k > (intptr_t) kernel_sbrk(0))
-			kernel_sbrk(- ((intptr_t) k - (intptr_t) kernel_sbrk(0)));
 
 		/* note: we don't attempt to remove the item from the nodes list
 		 * at this point, because it may not be on the list since this

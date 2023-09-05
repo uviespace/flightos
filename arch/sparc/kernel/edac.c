@@ -498,7 +498,7 @@ void leon_edac_init(void)
 	/* EDAC double faults, could need extra handler in
 	 * arch/sparc/kernel/data_access_exception.c
 	*/
-	trap_handler_install(0x9, data_access_exception_trap);
+//	trap_handler_install(0x9, data_access_exception_trap);
 #if 0
 	/* XXX this is old cheops stuff, keeping it here to check later */
 	trap_handler_install(0x2, reset_trap);
