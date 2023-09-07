@@ -239,13 +239,13 @@ void bootmem_init(void)
 	 * for now, we will run the code from the 1:1 mapping of our physical
 	 * base and move everything else into high memory.
 	 */
-
-	start_pfn = (unsigned long) __pa(start_pfn);
+#if 0
+	//start_pfn = (unsigned long) __pa(start_pfn);
 	//start_pfn = PHYS_PFN(start_pfn);
 
-	end_pfn = (unsigned long) __pa(end_pfn);
+	//end_pfn = (unsigned long) __pa(end_pfn);
 	//end_pfn = PHYS_PFN(end_pfn);
-
+#endif
 	pr_info("BOOTMEM: start page frame at 0x%lx\n"
 		"BOOTMEM:   end page frame at 0x%lx\n",
 	       start_pfn, end_pfn);

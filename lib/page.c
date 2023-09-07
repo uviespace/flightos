@@ -391,4 +391,14 @@ void page_free(void *page)
 	}
 }
 
+void page_print_mm_alloc(void)
+{
+#ifdef CONFIG_MM_DEBUG_DUMP
+	struct page_map_node **pg = page_mem;
 
+	do {
+		mm_dump_stats((*pg)->pool);
+
+	} while ((*(++pg)));
+#endif /* CONFIG_MM_DEBUG_DUMP */
+}

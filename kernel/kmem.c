@@ -53,6 +53,7 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 	struct kmem *p_tmp;
 	struct kmem *p_elem;
 
+
 	(*prev) = _kmem_last;
 
 	if (list_empty(&_kmem_init->node))
@@ -60,18 +61,17 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 
 	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node) {
 
-		/* remove stale entry */
-		if (!p_elem->free) {
-			list_del(&p_elem->node);
+		if (p_elem->size < size)
 			continue;
-		}
 
-		if (p_elem->size >= size) {
+		/* last item in memory */
+		if (!p_elem->next)
 			(*prev) = p_elem->prev;
-			return p_elem;
-		}
-	}
 
+		list_del(&p_elem->node);
+
+		return p_elem;
+	}
 
 	return NULL;
 }
@@ -86,23 +86,32 @@ static void kmem_split(struct kmem *k, size_t size)
 	struct kmem *split;
 
 
+	/* align first */
 	split = (struct kmem *)((size_t) k + size);
+	split = ALIGN_PTR(split, sizeof(void *));
 
-
-	split->free = 1;
 	split->data = split + 1;
 
+	split->size = k->size - ((uintptr_t) split->data - (uintptr_t) k->data);
+
+	/* now check if we still fit the required size */
+	if (split->size < size)
+		return;
+
+	/* we're good, finalise the split */
+	split->free = 1;
 	split->prev = k;
 	split->next = k->next;
 
-	split->size = k->size - size;
-
-	k->size = size - sizeof(struct kmem);
+	k->size = ((uintptr_t) split - (uintptr_t) k->data);
 
 	if (k->next)
 		k->next->prev = split;
 
 	k->next = split;
+
+	if (!split->next)
+		_kmem_last = split;
 
 	list_add_tail(&split->node, &_kmem_init->node);
 }
@@ -414,30 +423,26 @@ void kfree(void *ptr)
 	k->free = 1;
 
 	if (k->next && k->next->free) {
+		/* this one would be on the free list, remove */
+		list_del(&k->next->node);
 		kmem_merge(k);
-	} else if (k->prev->free) {
+	}
+
+	if (k->prev->free) {
+
+		list_del(&k->prev->node);
+
 		k = k->prev;
 		kmem_merge(k);
 	}
 
 	if (!k->next) {
-
+		/* last item in heap memory, return to system */
 		k->prev->next = NULL;
 		_kmem_last = k->prev;
 
 		/* release back */
 		kernel_sbrk(-(k->size + sizeof(struct kmem)));
-
-		k->free = 0;
-		k->size = 0;
-		k->prev = NULL;
-
-		/* note: we don't attempt to remove the item from the nodes list
-		 * at this point, because it may not be on the list since this
-		 * was its first alloc-free cycle;
-		 * we rather do it in kmem_find_free_chunk() for all elements
-		 * marked !free
-		 */
 
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);

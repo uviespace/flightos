@@ -25,6 +25,21 @@ struct page_map_node {
 #endif
 
 unsigned long page_map_get_chunk_size(void *addr);
+void page_print_mm_alloc(void);
+
+int page_map_init(struct page_map_node **pg,
+		  unsigned long start, unsigned long end,
+		  unsigned long page_size);
+
+void page_map_set_map(struct page_map_node **pg);
+
+int page_map_add(unsigned long start, unsigned long end,
+		 unsigned long page_size);
+
+void *page_map_reserve_chunk(size_t size);
+
+void *page_alloc(void);
+void page_free(void *page);
 
 
 #endif /* _KERNEL_PAGE_H_ */
