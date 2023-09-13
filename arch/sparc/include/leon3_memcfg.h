@@ -94,4 +94,17 @@ uint32_t leon3_memcfg_bypass_read(void *addr, uint8_t *tcb);
 void leon3_memcfg_bypass_write(void *addr, uint32_t value, uint8_t tcb);
 
 void leon3_memcfg_configure_sram_flash_access(void);
+
+
+void leon3_memcfg_set_ram_bank_size(uint32_t bank_size);
+void leon3_memcfg_set_ram_width(uint32_t ram_width);
+
+void leon3_memcfg_set_ram_read_waitstates(uint32_t wait_states);
+void leon3_memcfg_set_ram_write_waitstates(uint32_t wait_states);
+void leon3_memcfg_set_ram_width(uint32_t ram_width);
+void leon3_memcfg_set_read_modify_write(void);
+
+void leon3_memcfg_clear_sram_disable(void);
+
+
 #endif /* LEON3_MEMCFG_H */

@@ -1,0 +1,15 @@
+config PROJECTS
+	bool "Enable project-specific configurations"
+	default n
+
+choice
+	prompt "Select project"
+	default n
+
+config PROJECT_SMILE
+	bool "SMILE DPU"
+	depends on LEON3
+	help
+	 Configure DPU-specific setup for SMILE
+
+endchoice
