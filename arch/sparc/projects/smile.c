@@ -22,7 +22,7 @@
 
 #define EXCHANGE_AREA_BASE_ADDR		0x6003F000
 
-#define WD_TIMER_IRL	8
+#define WD_TIMER_IRL	11
 
 
 struct cpu_reginfo {
@@ -81,6 +81,7 @@ static irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 
 	/* we start at trap number and leave everything else to the DBS */
 
+	exchange->reset_type = 545;
 
 	exchange->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
 	exchange->trapnum_core1 = (dsu_get_reg_tbr(1) >> 4) & 0xff;
