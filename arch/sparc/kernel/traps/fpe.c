@@ -5,11 +5,76 @@
  */
 
 
+
+#include <kernel/sysctl.h>
+#include <kernel/string.h>
+#include <kernel/init.h>
+
+
+#if (__sparc__)
+#define UINT32_T_FORMAT		"%lu"
+#else
+#define UINT32_T_FORMAT		"%u"
+#endif
+
+
+static unsigned long fpe_trap_last_pc_addr;
+
+static ssize_t fpe_trap_show(__attribute__((unused)) struct sysobj *sobj,
+			     __attribute__((unused)) struct sobj_attribute *sattr,
+			     char *buf)
+{
+	if (!strcmp(sattr->name, "pc"))
+		return sprintf(buf, UINT32_T_FORMAT, fpe_trap_last_pc_addr);
+
+	return 0;
+}
+
+
+__extension__
+static struct sobj_attribute last_trap_pc_attr = __ATTR(pc,
+							fpe_trap_show,
+							NULL);
+__extension__
+static struct sobj_attribute *fpe_trap_attributes[] = {&last_trap_pc_attr,
+						       NULL};
+
+
+
+/**
+ * @brief initialise the sysctl entries for the fpe_trap
+ *
+ * @return -1 on error, 0 otherwise
+ *
+ * @note we set this up as a late initcall since we need sysctl to be
+ *	 configured first
+ */
+
+static int fpe_trap_init_sysctl(void)
+{
+	struct sysobj *sobj;
+
+
+	sobj = sysobj_create();
+
+	if (!sobj)
+		return -1;
+
+	sobj->sattr = fpe_trap_attributes;
+
+	sysobj_add(sobj, NULL, sysctl_root(), "fpe_trap");
+
+	return 0;
+}
+late_initcall(fpe_trap_init_sysctl);
+
+
+
 /* depth of the FP queue
  * XXX this is implementation specific, fixup for supported platforms
  */
-#define MAX_FQ 8
 
+#define MAX_FQ 8
 
 /*
  * @brief high level floating point exception trap handler.
@@ -35,6 +100,12 @@ void fpe_trap(void)
 	}								\
 } while(0);
 
+
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
+	/* update offending %pc */
+	fpe_trap_last_pc_addr = (unsigned long) __caller(1);
+__diag_pop()
 
 	/* the FQ must be emptied until the FSR says empty */
 	for (i = 0; i < MAX_FQ; i++) {
