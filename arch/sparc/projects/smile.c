@@ -159,14 +159,14 @@ static void smile_write_reset_info_trap(void)
 
 static int smile_cfg_reset_traps(void)
 {
+#if 0
 	/* called by machine_halt */
 	trap_handler_install(0x82, smile_write_reset_info_trap);
-
+#endif
 	/* watchdog timer */
 	irq_request(WD_TIMER_IRL, ISR_PRIORITY_NOW, smile_write_reset_info, NULL);
 
 	/* SpW and 1553 don't need to be stopped explicitly */
-
 }
 late_initcall(smile_cfg_reset_traps)
 
