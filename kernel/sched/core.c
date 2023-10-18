@@ -656,4 +656,4 @@ static int sched_init(void)
 
 	return 0;
 }
-late_initcall(sched_init);
+subsys_initcall(sched_init);

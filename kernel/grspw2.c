@@ -350,41 +350,36 @@ exit:
 	if (status & GRSPW2_STATUS_IA) {
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_INVALID_ADDR_ERROR;
-#endif
 		grspw2_handle_error(MEDIUM);
-		status &= GRSPW2_STATUS_IA;
+#endif
 	}
 
 	if (status & GRSPW2_STATUS_PE) {
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_PARITY_ERROR;
-#endif
 		grspw2_handle_error(MEDIUM);
-		status &= GRSPW2_STATUS_PE;
+#endif
 	}
 
 	if (status & GRSPW2_STATUS_DE) {
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_DISCONNECT_ERROR;
-#endif
 		grspw2_handle_error(MEDIUM);
-		status &= GRSPW2_STATUS_DE;
+#endif
 	}
 
 	if (status & GRSPW2_STATUS_ER) {
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_ESCAPE_ERROR;
-#endif
 		grspw2_handle_error(MEDIUM);
-		status &= GRSPW2_STATUS_ER;
+#endif
 	}
 
 	if (status & GRSPW2_STATUS_CE) {
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_CREDIT_ERROR;
-#endif
 		grspw2_handle_error(MEDIUM);
-		status &= GRSPW2_STATUS_CE;
+#endif
 	}
 
 	iowrite32be(status, &cfg->regs->status);

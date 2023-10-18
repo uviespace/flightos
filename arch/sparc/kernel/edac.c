@@ -290,6 +290,10 @@ static uint32_t edac_error(void)
 
 	ahbstat_clear_new_error();
 
+	/* appearently not memory-related, ignore */
+	if (!addr)
+		return 0;
+
 	/* ignore correctable errors, but update statistics */
 	if (ahbstat_correctable_error()) {
 		edacstat.edac_single++;
@@ -308,15 +312,12 @@ static uint32_t edac_error(void)
 	edacstat.edac_double++;
 	edacstat.edac_last_double_addr = addr;
 
-	switch (addr) {
-	default:
-		/* XXX kalarm() */
-		if (edac_error_in_critical_section((void *)addr))
-			if (do_reset)
-				do_reset(reset_data);
+	/* XXX kalarm() */
+	if (edac_error_in_critical_section((void *)addr)) {
+		if (do_reset)
+			do_reset(reset_data);
 		/* otherwise overwrite with all bits set */
 		iowrite32be(-1, (void *) addr);
-		break;
 	}
 
 
