@@ -23,9 +23,11 @@ static int copytask(void *data)
 	ktime cnt = 0;
 	ktime start, stop;
 	ktime total = 0;
-
-//	static uint32_t *common[CONFIG_SMP_CPUS_MAX];
-	static uint32_t *cpu_buf[CONFIG_SMP_CPUS_MAX];
+#if 1	/* Athena offset+noise map test */
+	static uint16_t *cpu_buf[CONFIG_SMP_CPUS_MAX];
+#else
+	static uint32_t *common[CONFIG_SMP_CPUS_MAX];
+#endif
 
 
 
@@ -49,7 +51,13 @@ static int copytask(void *data)
 		start = ktime_get();
 
 		for (i = 0 ; i < BUFLEN; i++) {
+#if 1	/* Athena offset+noise map test */
+			uint16_t a =  cpu_buf[CONFIG_SMP_CPUS_MAX - cpu - 1][i];
+			cpu_buf[cpu][3] += a;
+			cpu_buf[cpu][2] += a*a;
+#else
 			cpu_buf[cpu][i] = cpu_buf[CONFIG_SMP_CPUS_MAX - cpu - 1][i];
+#endif
 		}
 
 		stop = ktime_get();
@@ -58,6 +66,7 @@ static int copytask(void *data)
 
 		cnt++;
 
+		printk("done in %ll\n", stop-start);
 		per_loop_avg[cpu] = ( ((double) total / (double) cnt) / (double) (BUFLEN));
 
 	}
@@ -118,8 +127,16 @@ int copybench_start(void)
 
 	printk("Creating tasks, please stand by\n");
 
+#if 1	/* Athena offset+noise map test */
+	for (i = 0; i < 1; i++) {
+
+#else
+#ifndef REVERSE
 	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
-//	for (i = CONFIG_SMP_CPUS_MAX - 1; i >= 0; i--) {
+#else
+	for (i = CONFIG_SMP_CPUS_MAX - 1; i >= 0; i--) {
+#endif /* REVERSE */
+#endif
 
 		go = 0;
 

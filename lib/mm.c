@@ -33,7 +33,7 @@
  * tampering with the memory) include an arbitrary section of memory other
  * than from the base of the managed segment. Since we start to hand out memory
  * blocks from the base, this wouldn't make much sense anyway and complicate
- * things a log. If you need to remap some arbitrary range, reserve the whole
+ * things a lot. If you need to remap some arbitrary range, reserve the whole
  * chunk from the base and manage it on your own.
  *
  * @todo not atomic
@@ -49,7 +49,80 @@
 #include <kernel/printk.h>
 #include <kernel/bitmap.h>
 #include <kernel/log2.h>
+#include <kernel/sysctl.h>
+#include <kernel/string.h>
+#include <kernel/init.h>
 
+static struct {
+	unsigned long total_blocks;
+	unsigned long used_blocks;
+	unsigned long alloc_fail;
+} __mm_stat;
+
+#ifdef CONFIG_SYSCTL
+#if (__sparc__)
+#define UINT32_T_FORMAT		"%lu"
+#else
+#define UINT32_T_FORMAT		"%u"
+#endif
+
+static ssize_t mm_show(__attribute__((unused)) struct sysobj *sobj,
+			 __attribute__((unused)) struct sobj_attribute *sattr,
+			 char *buf)
+{
+	/* note: the minimum block size is always be identical to the
+	 * page size, as the page map mananger uses this component to
+	 * track the blocks
+	 */
+	if (!strcmp(sattr->name, "total_blocks"))
+		return sprintf(buf, UINT32_T_FORMAT, __mm_stat.total_blocks);
+
+	if (!strcmp(sattr->name, "used_blocks"))
+		return sprintf(buf, UINT32_T_FORMAT, __mm_stat.used_blocks);
+
+	if (!strcmp(sattr->name, "free_blocks"))
+		return sprintf(buf, UINT32_T_FORMAT, __mm_stat.total_blocks - __mm_stat.used_blocks);
+
+	if (!strcmp(sattr->name, "alloc_fail")) {
+		int ret;
+
+		/* alloc_fail is self-clearing on read */
+		ret = sprintf(buf, UINT32_T_FORMAT, __mm_stat.alloc_fail);
+		__mm_stat.alloc_fail = 0;
+
+		return ret;
+	}
+
+	return 0;
+}
+
+
+__extension__
+static struct sobj_attribute total_blocks_attr = __ATTR(total_blocks,
+							mm_show,
+							NULL);
+__extension__
+static struct sobj_attribute used_blocks_attr = __ATTR(used_blocks,
+						       mm_show,
+						       NULL);
+__extension__
+static struct sobj_attribute free_blocks_attr = __ATTR(free_blocks,
+						       mm_show,
+						       NULL);
+
+__extension__
+static struct sobj_attribute alloc_fail_attr = __ATTR(alloc_fail,
+						      mm_show,
+						      NULL);
+
+__extension__
+static struct sobj_attribute *mm_attributes[] = {&total_blocks_attr,
+						 &used_blocks_attr,
+						 &free_blocks_attr,
+						 &alloc_fail_attr,
+						 NULL};
+
+#endif
 
 /**
  * free blocks are linked to a block order
@@ -310,7 +383,10 @@ static void mm_upmerge_blks(struct mm_pool *mp, struct mm_blk_lnk *blk)
 
 	mm_mark_free(mp, blk);
 	mm_blk_set_alloc_order(mp, blk, order);
-	list_add(&blk->link, &mp->block_order[order]);
+
+	/* never link the initial block */
+	if ((unsigned long) blk != mp->base)
+		list_add(&blk->link, &mp->block_order[order]);
 }
 
 
@@ -330,6 +406,8 @@ static void mm_upmerge_blks(struct mm_pool *mp, struct mm_blk_lnk *blk)
 static unsigned long mm_fixup_validate(struct mm_pool *mp,
 				       const void *addr, unsigned long order)
 {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "__builtin_return_address is just called for informative purposes here");
 	if (!mp) {
 		pr_info("MM: invalid memory pool specified in call from %p.\n",
 			__caller(1));
@@ -366,6 +444,8 @@ static unsigned long mm_fixup_validate(struct mm_pool *mp,
 			order, mp->min_order, __caller(1));
 		order = mp->min_order;
 	}
+
+__diag_pop(); /* -Wframe-address */
 
 	return order;
 }
@@ -427,24 +507,35 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	 *      ___________ ______
 	 * [1] |xx|xx|__|__|__|__| (order [1] growth ->)
 	 *
+	 * note: if the number of blocks allocate is zero, we start splitting
+	 * blocks from our memory block base and the maximum block order
 	 */
 
-	for (i = order; i <= mp->max_order; i++) {
-		list = &mp->block_order[i];
+	if (likely(mp->alloc_blks)) {
 
-		if (!list_empty(list))
-			break;
+		for (i = order; i <= mp->max_order; i++) {
+			list = &mp->block_order[i];
+
+			if (!list_empty(list))
+				break;
+		}
+
+		if(list_empty(list)) {
+			__mm_stat.alloc_fail = 1;
+			pr_debug("MM: pool %p out of blocks for order %lu\n",
+				 mp, order);
+			goto exit;
+		}
+
+		blk = list_entry(list->next, struct mm_blk_lnk, link);
+
+		list_del(&blk->link);
+
+	} else {
+
+		blk = (struct mm_blk_lnk *) mp->base;
+		i = mp->max_order;
 	}
-
-	if(list_empty(list)) {
-		pr_debug("MM: pool %p out of blocks for order %lu\n",
-			 mp, order);
-		goto exit;
-	}
-
-	blk = list_entry(list->next, struct mm_blk_lnk, link);
-
-	list_del(&blk->link);
 
 	mm_mark_alloc(mp, blk);
 	mm_blk_set_alloc_order(mp, blk, order);
@@ -455,6 +546,8 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 
 
 	mp->alloc_blks += (1UL << (order - mp->min_order));
+
+	__mm_stat.used_blocks += (1UL << (order - mp->min_order));
 
 exit:
 	return blk;
@@ -495,6 +588,9 @@ void mm_free(struct mm_pool *mp, const void *addr)
 	if (!IS_ERR_VALUE(order)) {
 		mm_upmerge_blks(mp, (struct mm_blk_lnk *) addr);
 		mp->alloc_blks -= (1UL << (order - mp->min_order));
+
+		__mm_stat.used_blocks -= (1UL << (order - mp->min_order));
+
 		goto exit;
 	}
 
@@ -675,6 +771,8 @@ int mm_init(struct mm_pool *mp, void *base,
 
 	mp->n_blks = MM_NUM_BLOCKS_TRACKABLE(mp->max_order, mp->min_order);
 
+	__mm_stat.total_blocks += mp->n_blks;
+
 	pr_info("MM: tracking %d blocks of %d bytes from base address %lx.\n",
 		mp->n_blks, (1UL << mp->min_order), mp->base);
 
@@ -694,6 +792,35 @@ int mm_init(struct mm_pool *mp, void *base,
 
 	return 0;
 }
+
+#ifdef CONFIG_SYSCTL
+/**
+ * @brief initialise the sysctl entries for the
+ *
+ * @return -1 on error, 0 otherwise
+ *
+ * @note we set this up as a late initcall since we need sysctl to be
+ *	 configured first
+ */
+
+static int mm_init_sysctl(void)
+{
+	struct sysobj *sobj;
+
+
+	sobj = sysobj_create();
+
+	if (!sobj)
+		return -1;
+
+	sobj->sattr = mm_attributes;
+
+	sysobj_add(sobj, NULL, sysctl_root(), "mm");
+
+	return 0;
+}
+late_initcall(mm_init_sysctl);
+#endif /* CONFIG_SYSCTL */
 
 
 /**

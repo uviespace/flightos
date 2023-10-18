@@ -34,6 +34,8 @@
 #define ASI_LEON3_SYSCTRL_ICFG	0x08
 #define ASI_LEON3_SYSCTRL_DCFG	0x0c
 
+#define ASI_LEON3_DFLUSH	0x11
+
 
 
 __attribute__((unused))
@@ -85,6 +87,16 @@ static inline void leon3_flush(void)
 			: "r" (ASI_LEON3_SYSCTRL_CCR),
 			  "i" (ASI_LEON3_SYSCTRL)
 			: "g1");
+}
+
+__attribute__((unused))
+static inline void leon3_flush_dcache(void)
+{
+	__asm__ __volatile__(
+			"sta	%%g0, [%%g0] %0	\n\t"
+			:
+			: "i"(ASI_LEON3_DFLUSH)
+			: "memory");
 }
 
 __attribute__((unused))

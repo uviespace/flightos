@@ -1,6 +1,6 @@
 /**
  * @file arch/sparc/kernel/irq.c
- * 
+ *
  * @ingroup sparc
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -47,6 +47,9 @@
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
 #include <kernel/export.h>
+#include <kernel/time.h>
+#include <kernel/sched.h>
+#include <kernel/kthread.h>
 
 #include <errno.h>
 #include <list.h>
@@ -86,7 +89,7 @@ static struct leon2_eirqctrl_registermap *leon_eirqctrl_regs;
 #ifdef CONFIG_LEON3
 
 #define IRL_SIZE	LEON3_IRL_SIZE
-#define EIRL_SIZE	LEON3_IRL_SIZE
+#define EIRL_SIZE	LEON3_EIRL_SIZE
 
 static struct leon3_irqctrl_registermap *leon_irqctrl_regs;
 
@@ -95,7 +98,7 @@ static struct leon3_irqctrl_registermap *leon_irqctrl_regs;
 #ifdef CONFIG_LEON4
 
 #define IRL_SIZE	LEON3_IRL_SIZE
-#define EIRL_SIZE	LEON3_IRL_SIZE
+#define EIRL_SIZE	LEON3_EIRL_SIZE
 
 static struct leon4_irqctrl_registermap *leon_irqctrl_regs;
 
@@ -120,6 +123,28 @@ static struct irl_vector_elem *irl_queue_pool;
 
 static unsigned int leon_eirq;
 
+
+/* XXX testing, add to kbuild */
+#define CONFIG_IRQ_RATE_PROTECT 1
+#define CONFIG_IRQ_MIN_INTER_US 500
+
+#ifdef CONFIG_IRQ_RATE_PROTECT
+
+#include <kernel/time.h>
+
+static struct {
+	ktime last_irq[IRL_SIZE];
+	ktime last_eirq[EIRL_SIZE];
+
+	int need_restore;
+
+	/* 0 = UNBLOCKED, otherwise CPU_ID-1 */
+	uint8_t irq_blocked[IRL_SIZE];
+	uint8_t eirq_blocked[EIRL_SIZE];
+
+} irq_rate_prot;
+
+#endif /* CONFIG_IRQ_RATE_PROTECT */
 
 #ifdef CONFIG_IRQ_STATS_COLLECT
 
@@ -237,6 +262,14 @@ static struct sobj_attribute *irl_attributes[] = {
 	&irl_attr[12], &irl_attr[13], &irl_attr[14], &irl_attr[15],
 	&irl_attr[16], NULL};
 
+
+/**
+ * in case of leon2, the eirq runs from 0 - 31
+ * in leon 3/4 the EIRQ has the same range, but extended ID register
+ * maps the EIRQs only in the 16 to 31 range to maintain the numerical
+ * sequence
+ */
+
 __extension__
 static struct sobj_attribute eirl_attr[] = {
 	__ATTR(eirl,  eirl_show, eirl_store),
@@ -248,7 +281,6 @@ static struct sobj_attribute eirl_attr[] = {
 	__ATTR(10, eirl_show, eirl_store), __ATTR(11, eirl_show, eirl_store),
 	__ATTR(12, eirl_show, eirl_store), __ATTR(13, eirl_show, eirl_store),
 	__ATTR(14, eirl_show, eirl_store), __ATTR(15,  eirl_show, eirl_store),
-#ifdef CONFIG_LEON2
 	__ATTR(16, eirl_show, eirl_store), __ATTR(17, eirl_show, eirl_store),
 	__ATTR(18, eirl_show, eirl_store), __ATTR(19, eirl_show, eirl_store),
 	__ATTR(20, eirl_show, eirl_store), __ATTR(21, eirl_show, eirl_store),
@@ -257,7 +289,6 @@ static struct sobj_attribute eirl_attr[] = {
 	__ATTR(26, eirl_show, eirl_store), __ATTR(27, eirl_show, eirl_store),
 	__ATTR(28, eirl_show, eirl_store), __ATTR(29, eirl_show, eirl_store),
 	__ATTR(30, eirl_show, eirl_store), __ATTR(31, eirl_show, eirl_store),
-#endif /* CONFIG_LEON2 */
 };
 
 __extension__
@@ -266,15 +297,11 @@ static struct sobj_attribute *eirl_attributes[] = {
 	&eirl_attr[4],  &eirl_attr[5],  &eirl_attr[6],  &eirl_attr[7],
 	&eirl_attr[8],  &eirl_attr[9],  &eirl_attr[10], &eirl_attr[11],
 	&eirl_attr[12], &eirl_attr[13], &eirl_attr[14], &eirl_attr[15],
-	&eirl_attr[16],
-
-#ifdef CONFIG_LEON2
-	&eirl_attr[17], &eirl_attr[18], &eirl_attr[19], &eirl_attr[20],
-	&eirl_attr[21], &eirl_attr[22], &eirl_attr[23], &eirl_attr[24],
-	&eirl_attr[25], &eirl_attr[26], &eirl_attr[27], &eirl_attr[28],
-	&eirl_attr[29], &eirl_attr[30], &eirl_attr[31], &eirl_attr[32],
-#endif /* CONFIG_LEON2 */
-	NULL};
+	&eirl_attr[16],	&eirl_attr[17], &eirl_attr[18], &eirl_attr[19],
+	&eirl_attr[20],	&eirl_attr[21], &eirl_attr[22], &eirl_attr[23],
+	&eirl_attr[24],	&eirl_attr[25], &eirl_attr[26], &eirl_attr[27],
+	&eirl_attr[28],	&eirl_attr[29], &eirl_attr[30], &eirl_attr[31],
+	&eirl_attr[32],	NULL};
 
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
@@ -465,6 +492,146 @@ static void leon_mask_irq(unsigned int irq, int cpu)
 #endif /* CONFIG_LEON2 */
 }
 
+
+
+#ifdef CONFIG_IRQ_RATE_PROTECT
+
+#ifdef CONFIG_LEON4
+#define LEON3_GPTIMERS  5
+#else
+#define LEON3_GPTIMERS  4
+#endif
+
+#ifdef CONFIG_LEON4
+#define GPTIMER_0_IRQ   1
+#endif
+#ifdef CONFIG_LEON3
+#define GPTIMER_0_IRQ   8
+#endif
+
+
+/**
+ * restore an IRQ after some time
+ *
+ * XXX this isn't technically all that safe across CPUs
+ */
+static int leon_irq_prot_restore(void *data)
+{
+	int i;
+	uint32_t psr_flags;
+	ktime now, earlier;
+
+	while (1) {
+
+		if (!irq_rate_prot.need_restore) {
+			sched_yield();
+			continue;
+		}
+
+		now = ktime_get();
+		psr_flags = spin_lock_save_irq();
+
+		for (i = 0; i < IRL_SIZE; i++) {
+			if (!irq_rate_prot.irq_blocked[i])
+				continue;
+
+			earlier = irq_rate_prot.last_irq[i];
+			if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US)
+				continue;
+
+
+			leon_unmask_irq(i, irq_rate_prot.irq_blocked[i] - 1);
+			irq_rate_prot.irq_blocked[i] = 0;
+			irq_rate_prot.need_restore--;
+		}
+
+		for (i = 0; i < EIRL_SIZE; i++) {
+			if (!irq_rate_prot.eirq_blocked[i])
+				continue;
+
+			earlier = irq_rate_prot.last_eirq[i];
+			if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US)
+				continue;
+
+			leon_unmask_irq(i, irq_rate_prot.eirq_blocked[i] - 1);
+			irq_rate_prot.eirq_blocked[i] = 0;
+			irq_rate_prot.need_restore--;
+		}
+
+		/* TODO EIRL */
+
+		spin_lock_restore_irq(psr_flags);
+
+		sched_yield();
+	}
+
+	return 0;
+}
+
+
+
+static void leon_check_irq_rate(unsigned int irq, int cpu)
+{
+	ktime now, earlier;
+
+
+	/* timers are exempt from being blocked */
+	if (irq >= GPTIMER_0_IRQ  && irq < GPTIMER_0_IRQ + LEON3_GPTIMERS)
+		return;
+
+	now = ktime_get();
+	earlier = irq_rate_prot.last_irq[irq];
+
+	irq_rate_prot.last_eirq[irq] = now;
+
+	if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US) {
+		leon_mask_irq(irq, cpu);
+		irq_rate_prot.irq_blocked[irq] = cpu + 1;
+		irq_rate_prot.need_restore++;
+	}
+}
+
+void leon_disable_irq(unsigned int irq, int cpu);
+static int leon_check_eirq_rate(unsigned int irq, int cpu)
+{
+	ktime now, earlier;
+
+
+	now = ktime_get();
+	earlier = irq_rate_prot.last_eirq[irq];
+	irq_rate_prot.last_eirq[irq] = now;
+
+	if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US) {
+
+		leon_disable_irq(irq, cpu);
+		irq_rate_prot.eirq_blocked[irq] = cpu + 1;
+		irq_rate_prot.need_restore++;
+
+		return 1;
+	}
+
+	return 0;
+}
+
+static int leon_irq_prot_restore_setup(void)
+{
+	struct task_struct *t;
+
+	t = kthread_create(leon_irq_prot_restore, NULL, 0, "IRQ_RESTORE");
+	BUG_ON(!t);
+
+	/* run at 100 times the minium tick */
+	kthread_set_sched_rr(t, 100);
+
+	BUG_ON(kthread_wake_up(t) < 0);
+
+	return 0;
+}
+late_initcall(leon_irq_prot_restore_setup);
+
+
+#endif /* CONFIG_IRQ_RATE_PROTECT */
+
 /**
  * @brief enable an interrupt
  *
@@ -495,7 +662,6 @@ void leon_disable_irq(unsigned int irq, int cpu)
 }
 
 
-
 /**
  * @brief force an interrupt
  *
@@ -514,7 +680,10 @@ void leon_force_irq(unsigned int irq, int cpu)
 	}
 #endif
 	iowrite32be((1 << irq), &leon_irqctrl_regs->irq_force);
+
+
 }
+
 
 
 /**
@@ -615,9 +784,17 @@ int leon_irq_dispatch(unsigned int irq)
 			p_elem->handler(irq, p_elem->data);
 	}
 
+#ifdef CONFIG_IRQ_RATE_PROTECT
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+	leon_check_irq_rate(irq, leon3_cpuid());
+#endif /* CONFIG_LEON2 */
+	leon_check_irq_rate(irq, 0);
+#endif /* CONFIG_IRQ_RATE_PROTECT */
+
+
 	return 0;
 }
-
+#include <asm-generic/io.h>
 
 /**
  * @brief the central interrupt handling routine for extended interrupts
@@ -655,10 +832,6 @@ static int leon_eirq_dispatch(unsigned int irq)
 	while (1) {
 
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-		/* no pending EIRQs remain */
-		if (!(leon_irqctrl_regs->irq_pending >> IRL_SIZE))
-			break;
-
 		eirq = leon_irqctrl_regs->extended_irq_id[cpu];
 #endif /* CONFIG_LEON3 */
 
@@ -670,9 +843,23 @@ static int leon_eirq_dispatch(unsigned int irq)
 			break;
 #endif /* CONFIG_LEON2 */
 
+		if (!eirq)
+			break;
+
 		eirq &= 0x1F;	/* get the actual EIRQ number */
 
 		leon_clear_irq(LEON_WANT_EIRQ(eirq));
+
+
+#ifdef CONFIG_IRQ_RATE_PROTECT
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+		/* stop loop-processing if an IRL is throwing a tantrunm */
+		if (leon_check_eirq_rate(eirq, cpu))
+			break;
+#endif /* CONFIG_LEON3 */
+		if (leon_check_eirq_rate(eirq, 0))
+			break;
+#endif /* CONFIG_IRQ_RATE_PROTECT */
 
 
 #ifdef CONFIG_IRQ_STATS_COLLECT
@@ -691,10 +878,25 @@ static int leon_eirq_dispatch(unsigned int irq)
 			else if (leon_irq_queue(p_elem) < 0)
 				p_elem->handler(eirq, p_elem->data);
 		}
+
+
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+		/* XXX this appears to never contain anything */
+		/* no pending EIRQs remain */
+		if (!(leon_irqctrl_regs->irq_pending >> IRL_SIZE))
+			break;
+#endif /* CONFIG_LEON3 */
 	}
 
 
 	leon_clear_irq(irq);
+
+#ifdef CONFIG_IRQ_RATE_PROTECT
+#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+	leon_check_irq_rate(irq, cpu);
+#endif /* CONFIG_LEON3 */
+	leon_check_irq_rate(irq, 0);
+#endif /* CONFIG_IRQ_RATE_PROTECT */
 
 	return 0;
 }
@@ -1022,7 +1224,7 @@ static int irq_dispatch_init_sysctl(void)
 	struct sysobj *sobj;
 
 
-	sset = sysset_create_and_add("irl", NULL, sys_set);
+	sset = sysset_create_and_add("irl", NULL, sysctl_root());
 
 	sobj = sysobj_create();
 

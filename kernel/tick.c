@@ -39,6 +39,39 @@ static struct {
 } tick_device[CONFIG_SMP_CPUS_MAX];
 
 
+/**
+ * @brief calculate an integer square root
+ * @note from wikipedia (I think)
+ */
+
+static int isqrt(int num)
+{
+
+	int res = 0;
+	int bit = 1 << 30;
+
+
+	while (bit > num)
+		bit >>= 2;
+
+	while (bit) {
+
+		if (num >= res + bit) {
+			num -= res + bit;
+			res = (res >> 1) + bit;
+		} else {
+			res >>= 1;
+		}
+
+		bit >>= 2;
+	}
+
+	return res;
+}
+
+
+
+
 static void tick_calibrate_handler(struct clock_event_device *dev)
 {
 	int cpu;
@@ -85,6 +118,7 @@ static void tick_calibrate_min(struct clock_event_device *dev)
 	int i = 0;
 
 	unsigned long min;
+	unsigned long minsq;
 	unsigned long step;
 	unsigned long tick = 0;
 
@@ -144,9 +178,12 @@ static void tick_calibrate_min(struct clock_event_device *dev)
 	}
 
 	/* ok, we found a tick timeout, let's do this a couple of times */
-	min = tick_device[cpu].tick_period_min_ns;
+	min   = tick_device[cpu].tick_period_min_ns;
+	minsq = min * min;
 
 	for (i = 1; i < CALIBRATE_LOOPS; i++) {
+
+		unsigned long dt;
 
 		/* XXX should flush caches here, especially icache */
 
@@ -171,18 +208,26 @@ static void tick_calibrate_min(struct clock_event_device *dev)
 
 		prev = tick_device[cpu].prev_cal_time;
 
-		min += tick_device[cpu].tick_period_min_ns;
+		dt = tick_device[cpu].tick_period_min_ns;
+
+		min   += dt;
+		minsq += dt * dt;
 
 		tick_device[cpu].tick_period_min_ns = 0;
 	}
 
-	min /= (i - 1);
+
+	minsq = ((i - 1) * minsq - min * min) / ((i - 1) * (i - 1));
+	minsq = isqrt(minsq);
+	min  /=  (i - 1);
+
 
 	/* to avoid sampling effects, we set this to at least 2x the minimum */
 	tick_device[cpu].tick_period_min_ns = min * 2;
 
-	pr_warn(MSG "calibrated minimum timeout of tick device to %d ns\n",
-		     tick_device[cpu].tick_period_min_ns);
+	pr_warn(MSG "using calibrated minimum timeout of tick device of %d ns, "
+		    "measured avgerage minimum tick was %d +- %d ns\n",
+		     tick_device[cpu].tick_period_min_ns, min, minsq);
 
 	clockevents_set_handler(dev, NULL);
 }

@@ -19,8 +19,8 @@
 compile_time_assert(!(CONFIG_STACK_SIZE & STACK_ALIGN), STACK_SIZE_UNALIGNED);
 
 
-#define KTHREAD_CPU_AFFINITY_NONE	(-1)
 
+#define KTHREAD_CPU_AFFINITY_NONE	(-1)
 
 
 /* task states */
@@ -36,9 +36,11 @@ compile_time_assert(!(CONFIG_STACK_SIZE & STACK_ALIGN), STACK_SIZE_UNALIGNED);
 #define TASK_NO_CLEAN	(1 << 30)	/* user takes care of cleanup */
 #define TASK_NO_CHECK	(1 << 31)	/* skip any validation checks */
 
+/* maximum length of task name string */
+#define TASK_NAME_LEN	64
 
 
-//extern volatile int sched_edf;
+
 struct task_struct {
 
 	struct thread_info thread_info;
@@ -113,7 +115,13 @@ int kthread_wake_up(struct task_struct *task);
 
 void kthread_free(struct task_struct *task);
 
-void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
+int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			  unsigned long wcet_us, unsigned long deadline_rel_us);
+
+int kthread_set_sched_rr(struct task_struct *task, unsigned long priority);
+
+ktime kthread_get_total_runtime(void);
+void kthread_clear_total_runtime(void);
+
 
 #endif /* _KERNEL_KTHREAD_H_ */

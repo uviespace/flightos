@@ -38,12 +38,18 @@ See Documentation/ subdirectory.
 
 ### Prerequisites
 
-**NOTE** only relase 2.1.2 of bcc2 is confirmed to work properly, v2.0.7 produces
-bad instructions for at least one instance (arch/sparc/kernel/bootmem.c),
-v2.2.0 appears to have major problems, which are yet to be identified in detail
-but appear to be related to the stack offset calculations or register usage, resulting
-in infinite frames due to recursively entering the original code segment
-when a window_overflow trap is triggered.
+
+**NOTE** use release v2.2.0 of bcc2, which appears to work best at this time
+- v2.0.7 produces bad instructions for at least one instance (arch/sparc/kernel/bootmem.c)
+- both v2.1.2 and v2.2.0 appears to have a major problems with inline optimisation,
+  which can create recursive code paths even when used with -O2
+
+  To ensure that this does not happen, always include at least:
+
+	--param max-inline-recursive-depth=0
+
+  in your CFLAGS, but note that the compiler may still ignore that
+  if a function is not declared inline, so BEWARE
 
 
 - bcc or bcc2 (preferred) tool chain

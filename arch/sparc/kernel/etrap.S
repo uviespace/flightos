@@ -9,6 +9,7 @@
 
 #include <asm/ttable.h>
 #include <stack.h>
+#include <asm-generic/unistd.h>
 
 
 #ifndef CONFIG_SPARC_CPU_REG_WINDOWS
@@ -100,6 +101,59 @@ trap_setup_kernel_win_oflow:
 
 	jmpl	%t_retpc + 0x8, %g0	! return to caller
 	 mov	%t_kstack, %sp		! and onto new kernel stack
+
+
+
+	.text
+
+
+        .align  4
+        .globl  syscall_trap
+syscall_trap:
+        cmp     %g1, __NR_syscalls	! syscall id is in %g1
+	bgeu	4f
+/*        bgeu    sys_ni_syscall_ni	! non-implemented syscall number*/
+         sll    %g1, 2, %l4		! compute entry offset
+        ld      [%l7 + %l4], %l7	! load syscall entry pointer
+
+do_syscall:
+        SAVE_ALL_HEAD
+         rd     %wim, %l3
+
+        wr      %l0, PSR_ET, %psr	! re-enable traps
+        mov     %i0, %o0		! forward syscall function args 1...5
+        mov     %i1, %o1
+        mov     %i2, %o2
+        mov     %i3, %o3
+        mov     %i4, %o4
+2:
+        call    %l7			! execute
+         mov    %i5, %o5		! arg 6
+
+3:
+        st      %o0, [%sp + STACKFRAME_SZ + PT_I0]	/* store retval to stack */
+
+ret_sys_call:
+	wr	%t_psr, 0x0, %psr			! delay cycles are covered in store block
+       	ld     [%sp + STACKFRAME_SZ + PT_NPC], %l1	/* pc = npc */
+        add     %l1, 0x4, %l2                   	/* npc = npc+4 */
+        st      %l1, [%sp + STACKFRAME_SZ + PT_PC]
+        b       ret_trap_entry
+         st     %l2, [%sp + STACKFRAME_SZ + PT_NPC]
+
+
+4:
+        SAVE_ALL_HEAD
+         rd     %wim, %l3
+
+        wr      %l0, PSR_ET, %psr	! re-enable traps
+	mov 	7, %o0
+        st      %o0, [%sp + STACKFRAME_SZ + PT_I0]	/* store retval to stack */
+	nop
+	b ret_sys_call
+	 nop
+
+
 
 
 trap_setup_user_spill:

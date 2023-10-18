@@ -26,9 +26,12 @@ obj-y += stacktrace.o
 obj-y += stack.o
 obj-y += traps/data_access_exception_trap.o
 obj-y += traps/data_access_exception.o
+obj-y += traps/floating_point_exception_trap.o
+obj-y += traps/fpe.o
 obj-y += irq.o
 obj-y += smp.o
 obj-y += time.o
 obj-y += clockevent.o
+obj-y += edac.o
 
 

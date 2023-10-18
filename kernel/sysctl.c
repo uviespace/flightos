@@ -61,9 +61,8 @@
 #include <list.h>
 
 
-/* our standard sets */
-struct sysset *sys_set;
-struct sysset *driver_set;
+/* our standard sysset root */
+static struct sysset *sys_set;
 
 
 
@@ -81,6 +80,7 @@ const char *sysobj_name(const struct sysobj *sobj)
         return sobj->name;
 }
 
+EXPORT_SYMBOL(sysobj_name);
 
 /**
  * @brief join a sysobject to its sysset
@@ -149,6 +149,7 @@ void sysobj_init(struct sysobj *sobj)
 
         return;
 }
+EXPORT_SYMBOL(sysobj_init);
 
 
 /**
@@ -225,6 +226,7 @@ int32_t sysobj_add(struct sysobj *sobj, struct sysobj *parent,
 
         return 0;
 }
+EXPORT_SYMBOL(sysobj_add);
 
 
 /**
@@ -248,6 +250,7 @@ struct sysobj *sysobj_create_and_add(const char *name, struct sysobj *parent)
 
 	return sobj;
 }
+EXPORT_SYMBOL(sysobj_create_and_add);
 
 
 /**
@@ -275,6 +278,7 @@ void sysobj_list_attr(struct sysobj *sobj)
 	}
 	printk(" }");
 }
+EXPORT_SYMBOL(sysobj_list_attr);
 
 
 /**
@@ -298,6 +302,11 @@ void sysobj_show_attr(struct sysobj *sobj, const char *name, char *buf)
 	if (!sobj->sattr)
 		return;
 
+	/* not technically needed, but we don't want the contents to
+	 * end up on stdout
+	 */
+	if (!buf)
+		return;
 
 	sattr = sobj->sattr;
 
@@ -311,6 +320,7 @@ void sysobj_show_attr(struct sysobj *sobj, const char *name, char *buf)
 
 	}
 }
+EXPORT_SYMBOL(sysobj_show_attr);
 
 
 /**
@@ -325,6 +335,7 @@ void sysobj_store_attr(struct sysobj *sobj, const char *name, const char *buf, s
 {
 	struct sobj_attribute **sattr;
 
+
 	if (!name)
 		return;
 
@@ -332,6 +343,10 @@ void sysobj_store_attr(struct sysobj *sobj, const char *name, const char *buf, s
 		return;
 
 	if (!sobj->sattr)
+		return;
+
+	/* as in sysobj_show_attr() */
+	if (!buf)
 		return;
 
 
@@ -348,6 +363,7 @@ void sysobj_store_attr(struct sysobj *sobj, const char *name, const char *buf, s
 
 	}
 }
+EXPORT_SYMBOL(sysobj_store_attr);
 
 
 /**
@@ -433,6 +449,7 @@ struct sysset *sysset_create(const char *name,
 
         return sysset;
 }
+EXPORT_SYMBOL(sysset_create);
 
 
 /**
@@ -459,6 +476,7 @@ struct sysset *sysset_create_and_add(const char *name,
 
         return sysset;
 }
+EXPORT_SYMBOL(sysset_create_and_add);
 
 
 /**
@@ -466,12 +484,14 @@ struct sysset *sysset_create_and_add(const char *name,
  * @param sysset a struct sysset
  * @param path a string describing a path
  * @return a reference to the sysobj found
+ *
+ * @note if sysset is NULL, the default sysctl root is used for the search
  */
 
 __extension__
 struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 {
-	char str[256]; /* XXX */
+	char str[SYSCTL_MAX_PATH_LEN]; /* XXX */
 	char *token;
 	const char *root;
 
@@ -480,7 +500,7 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 
 
 	if (!sysset)
-		return ret;
+		sysset = sysctl_root();
 
 	if (!path)
 		return ret;
@@ -518,6 +538,12 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 			if (!s->child)
 				return s;
 
+			/* we have an exact match and no more delimiters,
+			 * so maybe we were looking for a sysset (directory)
+			 */
+			if (!memchr(token, '/', SYSCTL_MAX_PATH_LEN))
+				return s;
+
 			sysset = container_of(s->child, struct sysset, sobj);
 
 			break;
@@ -526,6 +552,36 @@ struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path)
 
         return ret;
 }
+EXPORT_SYMBOL(sysset_find_obj);
+
+
+/**
+ * @brief determines the sysset which contains the sysobject
+ * @param sobj a struct sysobj
+ * @return a reference to the syssset found
+ */
+
+struct sysset *sysset_of_obj(struct sysobj *sobj)
+{
+	return to_sysset(sobj);
+}
+EXPORT_SYMBOL(sysset_of_obj);
+
+
+/**
+ * @brief determines the sysset which contains the sysobject by its path
+ * @param sysset a struct sysset
+ * @param sobj a struct sysobj
+ * @return a reference to the syssset found
+ *
+ * @note if sysset is NULL, the default sysctl root is used for the search
+ */
+
+struct sysset *sysset_from_path(struct sysset *sysset, const char *path)
+{
+	return sysset_of_obj(sysset_find_obj(sysset, path));
+}
+EXPORT_SYMBOL(sysset_from_path);
 
 
 /**
@@ -542,6 +598,9 @@ void sysset_show_tree(struct sysset *sysset)
 
         struct sysobj *k;
 
+
+	if (!sysset)
+		sysset = sysctl_root();
 
 	rec++;
 
@@ -569,6 +628,19 @@ void sysset_show_tree(struct sysset *sysset)
 	}
 	rec--;
 }
+EXPORT_SYMBOL(sysset_show_tree);
+
+
+/**
+ * @brief retrieve the sysset root
+ *
+ * @return a reference to the sysset root
+ */
+
+struct sysset *sysctl_root(void)
+{
+	return sys_set;
+}
 
 
 /**
@@ -577,6 +649,8 @@ void sysset_show_tree(struct sysset *sysset)
 
 static int sysctl_init(void)
 {
+	struct sysset *driver_set;
+
 	if (sys_set)
 		return -1;
 

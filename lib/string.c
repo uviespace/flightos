@@ -20,6 +20,8 @@
 #include <kernel/printk.h>
 #include <kernel/log2.h>
 #include <kernel/bitops.h>
+#include <kernel/kernel.h>
+#include <kernel/tty.h>
 
 
 /**
@@ -145,6 +147,87 @@ EXPORT_SYMBOL(strsep);
 
 
 /**
+ * @brief get length of a prefix substring
+ *
+ * @param s       the string to be searched
+ * @param accept  the string segment to search for
+ */
+
+size_t strspn(const char *s, const char *accept)
+{
+	const char *c;
+	const char *a;
+
+	size_t cnt = 0;
+
+
+	for (c = s; (*c); c++) {
+
+		for (a = accept; (*a); a++) {
+
+			if ((*c) == (*a))
+				break;
+		}
+
+		if (!(*a))
+			break;
+
+		cnt++;
+	}
+
+	return cnt;
+}
+EXPORT_SYMBOL(strspn);
+
+
+/**
+ * @brief split a string into tokens
+ *
+ * @param stringp the string to be searched
+ * @param delim   the characters to search for
+ *
+ * @note stringp is updated to point past the token
+ *
+ * @returns the original location of stringp
+ */
+
+
+char *strtok(char *s, const char *delim)
+{
+	static char *s_prev;
+
+	char *token;
+
+
+	if (!s)
+		s = s_prev;
+
+
+	s += strspn(s, delim);
+
+	if (!(*s)) {
+		s_prev = s;
+		return NULL;
+	}
+
+	token = s;
+	s = strpbrk(token, delim);
+
+	if (s) {
+		*s = '\0';
+		s_prev = s + 1;
+	} else {
+		s_prev = memchr(token, '\0', -1);
+	}
+
+	return token;
+
+}
+EXPORT_SYMBOL(strtok);
+
+
+
+/**
  * @brief return a pointer to a new string which is a duplicate of string s
  *
  * @parm s the string to duplicate
@@ -159,8 +242,11 @@ char *strdup(const char *s)
         char *dup;
 
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wnonnull-compare", "can't guarantee that this is nonnull");
         if (!s)
                 return NULL;
+__diag_pop();
 
         len = strlen(s) + 1;
         dup = kzalloc(len);
@@ -375,6 +461,35 @@ EXPORT_SYMBOL(memmove);
 
 
 /**
+ * @brief	scan memory for a character
+ * @param s	the memory area
+ * @param c	the byte to search
+ * @param n	The size of the area
+ *
+ * @returns	the address of the first occurrence of c or NULL if not found
+ */
+
+void *memchr(const void *s, int c, size_t n)
+{
+        const unsigned char *p = s;
+
+
+        while (n--) {
+
+                if ((unsigned char)c == *p++)
+                        return (void *)(p - 1);
+        }
+
+        return NULL;
+}
+EXPORT_SYMBOL(memchr);
+
+
+
+
+
+
+/**
  * @brief copy a '\0' terminated string
  *
  * @param dest the destination of the string
@@ -413,15 +528,7 @@ EXPORT_SYMBOL(strcpy);
 
 void bzero(void *s, size_t n)
 {
-	char *c;
-
-
-	c = (char *) s;
-
-	while (n--) {
-		(*c) = '\0';
-		c++;
-	}
+	memset(s, '\0', n);
 }
 EXPORT_SYMBOL(bzero);
 
@@ -440,8 +547,13 @@ int puts(const char *s)
 {
 	int n;
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wformat-truncation", "a NULL destination pointer indended");
+
 	n = vsnprintf(NULL, INT_MAX, s, NULL);
 	n+= vsnprintf(NULL, INT_MAX, "\n", NULL);
+
+__diag_pop();
 
 	return n;
 }
@@ -454,32 +566,13 @@ EXPORT_SYMBOL(puts);
  * @param c the character to write
  *
  * @return the number of characters written to buf
- *
- * FIXME: this must be replaced by a different mechanic, e.g. provided
- *	  by the architecture or a driver
  */
 
 int putchar(int c)
 {
-#define TREADY 4
+	char o = 0xff & c;
 
-#if defined(CONFIG_LEON3)
-	static volatile int *console = (int *)0x80000100;
-#endif
-
-#if defined(CONFIG_LEON4)
-	static volatile int *console = (int *)0xFF900000;
-#endif
-	while (!(console[1] & TREADY));
-
-	console[0] = 0x0ff & c;
-
-	if (c == '\n') {
-		while (!(console[1] & TREADY));
-		console[0] = (int) '\r';
-	}
-
-	return c;
+	return tty_write(&o, 1);
 }
 
 
@@ -566,7 +659,12 @@ EXPORT_SYMBOL(vsprintf);
 
 int vprintf(const char *format, va_list ap)
 {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wformat-truncation", "a NULL destination pointer indended");
+
 	return vsnprintf(NULL, INT_MAX, format, ap);
+
+__diag_pop();
 }
 EXPORT_SYMBOL(vprintf);
 
@@ -728,10 +826,41 @@ EXPORT_SYMBOL(atoi);
 
 void *memset(void *s, int c, size_t n)
 {
-	char *p = s;
+	size_t i;
 
-	while (n--)
-		*p++ = c;
+	char byte;
+	char *p;
+
+	/* memset accepts only the least significant BYTE to set,
+	 * so we first prep by filling our integer to full width
+	 * with that byte
+	 */
+	p    = (char *) &c;
+	byte = (char) (c & 0xFF);
+	for (i = 0; i < sizeof(int); i++)
+		p[i] = byte;
+
+
+	/* now start filling the memory area */
+	p = s;
+
+	while (n) {
+		/* do larger stores in the central segment
+		 * for arch specific implementations, you could do larger than
+		 * int stores with precomputed offsets for increased efficiency
+		 */
+		if (n > sizeof(int)) {
+			if (IS_ALIGNED((uintptr_t) p, sizeof(int))) {
+				(* (int *) p) = c;
+				p += 4;
+				n -= 4;
+				continue;
+			}
+		}
+
+		*p++ = (char) (c & 0xFF);
+		n--;
+	}
 
 	return s;
 }

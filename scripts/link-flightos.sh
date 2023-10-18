@@ -310,8 +310,8 @@ if [ "$1" = "embed" ]; then
 	${AR} rcs ${srctree}/modules.image \
 		$(tr '\n' ' ' < ${srctree}/modules.order) \
 		$(find dsp/xentium -name *.xen) \
-		"${CONFIG_EMBED_APPLICATION}"
-		
+		$(echo ${CONFIG_EMBED_APPLICATION})	# meh...
+
 
 	flightos_link "${kallsymso}" flightos "${embedflags}"
 	exit

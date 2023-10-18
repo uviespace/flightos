@@ -595,6 +595,7 @@ export	INSTALL_PATH ?= ./install
 
 core-y		:= arch/$(SRCARCH)/
 kernel-y	:= kernel/
+projects-y	:= projects/
 init-y		:= init/
 libs-y		:= lib/ arch/$(SRCARCH)/lib/
 
@@ -606,23 +607,25 @@ flightos-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(init-y) \
 		     $(core-y) \
 		     $(kernel-y) \
+		     $(projects-y) \
 		     $(libs-y)) \
 		     $(xentium-y))
 #
-flightos-core	:= $(patsubst %/, %/built-in.o, $(core-y))
-flightos-kernel	:= $(patsubst %/, %/built-in.o, $(kernel-y))
-flightos-init	:= $(patsubst %/, %/built-in.o, $(init-y))
-flightos-libs	:= $(patsubst %/, %/lib.a, $(libs-y))
+flightos-core		:= $(patsubst %/, %/built-in.o, $(core-y))
+flightos-kernel		:= $(patsubst %/, %/built-in.o, $(kernel-y))
+flightos-projects	:= $(patsubst %/, %/built-in.o, $(projects-y))
+flightos-init		:= $(patsubst %/, %/built-in.o, $(init-y))
+flightos-libs		:= $(patsubst %/, %/lib.a, $(libs-y))
 
 
 # Externally visible symbols (used by link-flightos.sh)
 export KBUILD_FLIGHTOS_INIT := $(flightos-init)
-export KBUILD_FLIGHTOS_MAIN := $(flightos-core) $(flightos-kernel) $(flightos-libs)
+export KBUILD_FLIGHTOS_MAIN := $(flightos-core) $(flightos-kernel) $(flightos-libs) $(flightos-projects)
 export KBUILD_LDS          := arch/$(SRCARCH)/kernel/kernel.lds
 export LDFLAGS_flightos
 
 
-flightos-deps := $(KBUILD_LDS) $(KBUILD_FLIGHTOS_INIT) $(KBUILD_FLIGHTOS_MAIN)
+flightos-deps := $(KBUILD_LDS) $(KBUILD_FLIGHTOS_INIT) $(KBUILD_FLIGHTOS_MAIN) 
 
 quiet_cmd_flightos = LD      $@
       cmd_flightos = $(CC) $(LDFLAGS) -o $@                          \

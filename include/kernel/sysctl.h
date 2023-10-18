@@ -20,7 +20,7 @@
 	.store = _store,                                        \
 }
 
-
+#define SYSCTL_MAX_PATH_LEN 256
 
 struct sysobj {
         const char             *name;
@@ -46,12 +46,9 @@ struct sobj_attribute {
 	ssize_t (*store)(struct sysobj *sobj, struct sobj_attribute *sattr, const char *buf, size_t len);
 };
 
-extern struct sysset *sys_set;
-extern struct sysset *driver_set;
-
 
 struct sysobj *sysobj_create(void);
-
+void sysobj_init(struct sysobj *sobj);
 int32_t sysobj_add(struct sysobj *sobj, struct sysobj *parent,
 		   struct sysset *sysset, const char *name);
 
@@ -66,7 +63,10 @@ struct sysset *sysset_create_and_add(const char *name,
 
 void sysset_show_tree(struct sysset *sysset);
 struct sysobj *sysset_find_obj(struct sysset *sysset, const char *path);
+struct sysset *sysset_of_obj(struct sysobj *sobj);
+struct sysset *sysset_from_path(struct sysset *sysset, const char *path);
 
+struct sysset *sysctl_root(void);
 
 
 #endif

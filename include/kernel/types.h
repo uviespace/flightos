@@ -11,12 +11,6 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
-#ifdef __GNUC__
-#define GCC_VERSION (__GNUC__ * 10000 \
-		     + __GNUC_MINOR__ * 100 \
-		     + __GNUC_PATCHLEVEL__)
-#endif
-
 
 /* d'oh! -.- */
 #if defined(CONFIG_LEON2) || defined(CONFIG_LEON3)

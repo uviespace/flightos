@@ -23,11 +23,33 @@
 
 #define MSG "KTHREAD: "
 
-#define TASK_NAME_LEN	64
-
 static struct spinlock kthread_spinlock;
 
 struct thread_info *current_set[CONFIG_SMP_CPUS_MAX]; /* XXX */
+
+
+/**
+ * @brief get the total runtime of the current thread
+ *
+ * @note this is done on a best-effort basis without ensuring atomicity
+ */
+
+ktime kthread_get_total_runtime(void)
+{
+	return current_set[smp_cpu_id()]->task->total;
+}
+
+
+/**
+ * @brief clear the total runtime of the current thread
+ *
+ * @note this is done on a best-effort basis without ensuring atomicity
+ */
+
+void kthread_clear_total_runtime(void)
+{
+	current_set[smp_cpu_id()]->task->total = 0;
+}
 
 
 /**
@@ -50,17 +72,33 @@ static void kthread_unlock(void)
 }
 
 
-void kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
+int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			   unsigned long deadline_rel_us, unsigned long wcet_us)
 {
 	struct sched_attr attr;
+
 	sched_get_attr(task, &attr);
-	attr.policy = SCHED_EDF;
+	attr.policy       = SCHED_EDF;
 	attr.period       = us_to_ktime(period_us);
 	attr.deadline_rel = us_to_ktime(deadline_rel_us);
 	attr.wcet         = us_to_ktime(wcet_us);
-	sched_set_attr(task, &attr);
+
+	return sched_set_attr(task, &attr);
 }
+
+
+int kthread_set_sched_rr(struct task_struct *task, unsigned long priority)
+{
+	struct sched_attr attr;
+
+	sched_get_attr(task, &attr);
+	attr.policy	  = SCHED_RR;
+	attr.priority     = priority;
+
+	return sched_set_attr(task, &attr);
+}
+
+
 
 
 
@@ -206,7 +244,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	task->stack_top    = (void *) ((uint8_t *) task->stack
 						   + CONFIG_STACK_SIZE);
 
-	task->name = kmalloc(TASK_NAME_LEN);
+	task->name = kmalloc(TASK_NAME_LEN + 1);
 	vsnprintf(task->name, TASK_NAME_LEN, namefmt, args);
 
 	if (sched_set_policy_default(task)) {
@@ -222,6 +260,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	task->state  = TASK_NEW;
 
 	arch_init_task(task, thread_fn, data);
+	printk("task at %p, stack %08x - %08x name %s\n", task, task->stack_bottom, task->stack_top, task->name);
 
 	return task;
 }

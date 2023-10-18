@@ -3,14 +3,15 @@
 
 #include <compiler.h>
 #include <kernel/printk.h>
+#include <kernel/reboot.h>
 
 #define ALIGN_MASK(x, mask)    (((x) + (mask)) & ~(mask))
 #define ALIGN(x, a)            ALIGN_MASK(x, (typeof(x))(a) - 1)
 #define ALIGN_PTR(x, a)        (typeof(x)) ALIGN((unsigned long) x, a)
+#define IS_ALIGNED(x, a)       (((x) & ((typeof(x))(a) - 1)) == 0)
 
 
-/* this is a bit crude, but must do for now */
-#define panic(x) {} while(1);
+#define panic(x) {machine_halt();} while(1);
 
 /* the BUG() macros may be repurposed to log an error and boot to safe mode! */
 #define BUG() do { \

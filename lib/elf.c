@@ -293,15 +293,19 @@ Elf_Shdr *elf_find_sec(const Elf_Ehdr *ehdr, const char *name)
 	char *sh_str;
 
 	Elf_Shdr *shdr;
+	Elf_Shdr *shstrtab;
 
-
-	shdr = elf_get_sec_shstrtab(ehdr);
+	/* header */
+	shdr = elf_get_shdr(ehdr);
 	if (!shdr)
 		return NULL;
 
-	sh_str  = ((char *) ehdr + shdr->sh_offset);
+	/* section + offset to actual string table */
+	shstrtab = elf_get_sec_shstrtab(ehdr);
+	sh_str  = ((char *) ehdr + shstrtab->sh_offset);
 
 	for (i = 1; i < ehdr->e_shnum; i++) {
+
 		if (!strcmp(sh_str + shdr[i].sh_name, name))
 			return &shdr[i];
 	}
@@ -614,6 +618,8 @@ unsigned short elf_get_symbol_shndx(const Elf_Ehdr *ehdr,
  * @param name the name of the symbol
  *
  * @return the symbol type or 0 on error or if not found
+ *
+ * XXX this function slows down everything if there are tons of symbols
  */
 
 unsigned long elf_get_symbol_type(const Elf_Ehdr *ehdr, const char *name)

@@ -19,6 +19,8 @@ int strncmp(const char *s1, const char *s2, size_t n);
 char *strpbrk(const char *s, const char *accept);
 char *strsep(char **stringp, const char *delim);
 char *strdup(const char *s);
+size_t strspn(const char *s, const char *accept);
+char *strtok(char *s, const char *delim);
 
 char *strchr(const char *s, int c);
 
@@ -29,6 +31,7 @@ int memcmp(const void *s1, const void *s2, size_t n);
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *dest, const void *src, size_t n);
 void *memmove(void *dest, const void *src, size_t n);
+void *memchr(const void *s, int c, size_t n);
 
 char *strcpy(char *dest, const char *src);
 void bzero(void *s, size_t n);

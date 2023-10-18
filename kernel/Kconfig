@@ -24,7 +24,14 @@ config IRQ_STATS_COLLECT
 	default n
 	help
 	 Collect interrupt statistics and expose them in the
-	 systl tree.
+	 sysctl tree.
+
+config CPU_STATS_COLLECT
+	bool "Enable CPU statistics via sysctl"
+	depends on SYSCTL
+	default n
+	help
+	 Expose cpu loads in the sysctl tree.
 
 config TASK_PREEMPTION_DISABLE
 	bool "Disable forced preemption of tasks"
@@ -111,6 +118,13 @@ config XENTIUM
 	 Build the driver to operate a Xentium processing network
 
 endmenu
+
+config TESTMODULE
+	tristate "a test module"
+	default m
+	depends on SYSCTL
+	help
+	 an example module for testing of the module loader
 
 
 

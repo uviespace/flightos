@@ -26,6 +26,7 @@
 
 #include <string.h>
 
+#include <kernel/err.h>
 #include <kernel/printk.h>
 #include <kernel/kernel.h>
 #include <asm/irqflags.h>
@@ -57,12 +58,7 @@ static void *bootmem_alloc_internal(size_t size)
 	blocked = 1;
 #endif
 
-#if (BOOTMEM_CHUNKSIZE > PAGE_SIZE)
-	return page_map_reserve_chunk(size); /* XXX patched for 740 test */
-	//return page_map_reserve_chunk(BOOTMEM_CHUNKSIZE);
-#else
-	return page_alloc();
-#endif
+	return page_map_reserve_chunk(size);
 }
 
 
@@ -243,13 +239,13 @@ void bootmem_init(void)
 	 * for now, we will run the code from the 1:1 mapping of our physical
 	 * base and move everything else into high memory.
 	 */
-
-	start_pfn = (unsigned long) __pa(start_pfn);
+#if 0
+	//start_pfn = (unsigned long) __pa(start_pfn);
 	//start_pfn = PHYS_PFN(start_pfn);
 
-	end_pfn = (unsigned long) __pa(end_pfn);
+	//end_pfn = (unsigned long) __pa(end_pfn);
 	//end_pfn = PHYS_PFN(end_pfn);
-
+#endif
 	pr_info("BOOTMEM: start page frame at 0x%lx\n"
 		"BOOTMEM:   end page frame at 0x%lx\n",
 	       start_pfn, end_pfn);
@@ -277,7 +273,7 @@ void bootmem_init(void)
 	BUG_ON(mem_size  > (1UL << MM_BLOCK_ORDER_MAX));
 	BUG_ON(PAGE_SIZE < (1UL << MM_BLOCK_ORDER_MIN));
 
-	BUG_ON(page_map_init(mm_init_page_map, start_pfn, end_pfn, PAGE_SIZE));
+	BUG_ON(page_map_init(mm_init_page_map, base_pfn, end_pfn, PAGE_SIZE));
 
 
 	/* reserve all space up to the end of the image, so mapping starts
@@ -333,9 +329,10 @@ void bootmem_init(void)
 				   sp_banks[i].base_addr + sp_banks[i].num_bytes,
 				   PAGE_SIZE);
 
-		if (ret) {
+		if (ret == -ENOMEM) {	/* we ignore -EINVAL */
 			pr_emerg("BOOTMEM: cannot add page map node\n");
 			BUG();
 		}
+
 	}
 }

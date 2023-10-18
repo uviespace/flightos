@@ -30,7 +30,9 @@ enum clock_event_state {
 	CLOCK_EVT_STATE_UNUSED,
 	CLOCK_EVT_STATE_SHUTDOWN,
 	CLOCK_EVT_STATE_PERIODIC,
-	CLOCK_EVT_STATE_ONESHOT
+	CLOCK_EVT_STATE_ONESHOT,
+	CLOCK_EVT_STATE_WATCHDOG
+
 };
 
 
@@ -39,6 +41,7 @@ enum clock_event_state {
 #define CLOCK_EVT_FEAT_PERIODIC	0x000001
 #define CLOCK_EVT_FEAT_ONESHOT	0x000002
 #define CLOCK_EVT_FEAT_KTIME	0x000004
+#define CLOCK_EVT_FEAT_WATCHDOG	0x000008
 
 
 /**
@@ -91,6 +94,7 @@ bool clockevents_timout_in_range(struct clock_event_device *dev,
 
 bool clockevents_feature_periodic(struct clock_event_device *dev);
 bool clockevents_feature_oneshot(struct clock_event_device *dev);
+bool clockevents_feature_watchdog(struct clock_event_device *dev);
 
 void clockevents_set_state(struct clock_event_device *dev,
 			   enum clock_event_state state);

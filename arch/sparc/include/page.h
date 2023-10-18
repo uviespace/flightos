@@ -12,6 +12,7 @@
 #include <kernel/mm.h>
 
 #include <mm.h>
+#include <mmu.h>
 
 /* the page size in the SRMMU is 4kib */
 #define PAGE_SHIFT   12
@@ -20,7 +21,7 @@
 
 /* align address to the (next) page boundary */
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
-#define PAGE_ALIGN_PTR(addr)	PTR_ALIGN(addr, PAGE_SIZE)
+#define PAGE_ALIGN_PTR(addr)	ALIGN_PTR(addr, PAGE_SIZE)
 
 #define PFN_PHYS(x)	((unsigned long)((x) << PAGE_SHIFT))
 #define PHYS_PFN(x)((unsigned long)((x) >> PAGE_SHIFT))
@@ -47,21 +48,19 @@
  *	    from some location.
  */
 
-#define HIGHMEM_START	0x40000000
+#define HIGHMEM_START	0x20000000 /* XXX need iommu or lowmem area.. (for SXI, FPGA ADDR. */
 #define LOWMEM_RESERVED 0x01000000
 
 #define VMALLOC_START	(LOWMEM_RESERVED)
 #define VMALLOC_END	(HIGHMEM_START - 1)
 
 
-#define PAGE_OFFSET	HIGHMEM_START
-
 extern unsigned long phys_base;
 extern unsigned long pfn_base;
 
-#if defined(CONFIG_PAGE_OFFSET)
-#define __pa(x)		((unsigned long)(x) - PAGE_OFFSET + phys_base)
-#define __va(x)		((void *)((unsigned long) (x) - phys_base + PAGE_OFFSET))
+#if defined(CONFIG_MMU)
+#define __pa(x)		(mm_get_physical_addr(x))
+#define __va(x)		(0)	/* not implemented */
 #else
 #define __pa(x)		(x)
 #define __va(x)		(x)
@@ -81,20 +80,4 @@ extern struct page_map_node *mm_init_page_map[INIT_PAGE_MAP_MAX_ENTRIES + 1];
 #define MEM_PAGE_MAP		(mm_init_page_map)
 #define MEM_PAGE_NODE(x)	(((x) <= INIT_PAGE_MAP_MAX_ENTRIES) ? \
 				 &MEM_PAGE_MAP[(x)] : NULL)
-
-int page_map_init(struct page_map_node **pg,
-		  unsigned long start, unsigned long end,
-		  unsigned long page_size);
-
-void page_map_set_map(struct page_map_node **pg);
-
-int page_map_add(unsigned long start, unsigned long end,
-		 unsigned long page_size);
-
-void *page_map_reserve_chunk(size_t size);
-
-void *page_alloc(void);
-void page_free(void *page);
-
-
 #endif /*_SPARC_PAGE_H_*/

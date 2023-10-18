@@ -47,5 +47,6 @@ typedef void (*exitcall_t)(void);
 
 
 void setup_arch(void);
+void main_kernel_loop(void);
 
 #endif /* _KERNEL_INIT_H_ */

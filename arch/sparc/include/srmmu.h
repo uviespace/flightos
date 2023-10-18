@@ -135,8 +135,8 @@ struct srmmu_ptde {
 	union {
 #if defined(__BIG_ENDIAN_BITFIELD)
 		struct {
-			unsigned long page_table_pointer:30;
-			unsigned long entry_type : 2;	
+			unsigned long page_table_pointer	:30;
+			unsigned long page_table_entry_type	: 2;
 		};
 
 		struct {
@@ -239,5 +239,7 @@ int srmmu_do_large_mapping(unsigned long ctx_num,
 void srmmu_release_pages(unsigned long ctx_num,
 			 unsigned long va, unsigned long va_end,
 			 void  (*free_page)(void *addr));
+
+unsigned long srmmu_get_pa_page(unsigned long ctx, unsigned long va);
 
 #endif /*_SPARC_SRMMU_H_ */

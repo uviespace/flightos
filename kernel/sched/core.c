@@ -12,22 +12,187 @@
 #include <kernel/init.h>
 #include <kernel/tick.h>
 #include <kernel/smp.h>
+#include <kernel/sysctl.h>
+#include <kernel/kmem.h>
+
 #include <asm-generic/irqflags.h>
 #include <asm-generic/spinlock.h>
 #include <asm/switch_to.h>
 
-#include <string.h>
+
+#include <kernel/string.h>
 
 
 #define MSG "SCHEDULER: "
 
 
-static LIST_HEAD(kernel_schedulers);
-static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
-
-
 /* XXX: per-cpu... */
 extern struct thread_info *current_set[];
+
+static LIST_HEAD(kernel_schedulers);
+static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
+static uint8_t cpu_load[CONFIG_SMP_CPUS_MAX];
+
+
+#ifdef CONFIG_CPU_STATS_COLLECT
+
+/* we'll bomb if there are more than 99 CPUs in the system ;) */
+#define CPU_MAX_CHARS_PER_NAME	2
+static char cpu_load_names[CONFIG_SMP_CPUS_MAX * CPU_MAX_CHARS_PER_NAME];
+static struct sobj_attribute  cpu_load_attr[CONFIG_SMP_CPUS_MAX];
+static struct sobj_attribute *cpu_load_attributes[CONFIG_SMP_CPUS_MAX + 1];
+
+static ssize_t cpu_load_show(__attribute__((unused)) struct sysobj *sobj,
+			__attribute__((unused)) struct sobj_attribute *sattr,
+			char *buf)
+{
+	int cpu;
+
+
+	cpu = strtol(sattr->name, NULL, 10);
+
+	if (cpu > CONFIG_SMP_CPUS_MAX)
+		return 0;
+
+	return sprintf(buf, "%u", sched_get_cpu_load(cpu));
+}
+
+
+static ssize_t proc_stats_show(__attribute__((unused)) struct sysobj *sobj,
+			       __attribute__((unused)) struct sobj_attribute *sattr,
+			       char *buf)
+{
+	struct scheduler *sched;
+
+	struct task_struct *tsk;
+
+
+	/* XXX we currently abuse "buf" to locate the particular thread
+	 *
+	 * TODO: - add sysobj_remove()
+	 *	 - add a flag which controls whether a thread/process receives
+	 *	   an entry in the sysctl tree (for speed reasons with
+	 *	   one-shot thread)
+	 *	 - when a dead task is removed, also remove its entry in sysctl
+	 *	 - make sure to handle the (de-) allocation of name strings
+	 *	 - ???
+	 *	 - profit!
+	 */
+
+	/* we return the stats for the first thread of a given name in any
+	 * scheduler's regular active task queue we can find; we don't care
+	 * about newly added or dead tasks, these typically only exist
+	 * for very brief moments
+	 *
+	 * note: anything value returned can only ever be considered best-effort
+	 *
+	 */
+	list_for_each_entry(sched, &kernel_schedulers, node) {
+
+		int i;
+
+		struct task_struct *tmp;
+
+		for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+
+			list_for_each_entry_safe(tsk, tmp, &sched->tq->run, node) {
+
+				if (!strncmp(tsk->name, buf, TASK_NAME_LEN)) {
+					goto entry_found;
+				}
+			}
+		}
+	}
+
+	return 0;
+
+entry_found:
+	if (!strcmp(sattr->name, "cpu_affinity"))
+		return sprintf(buf, "%d", tsk->on_cpu);
+
+	if (!strcmp(sattr->name, "runtime_ns"))
+		return sprintf(buf, "%lld", tsk->total);
+
+	if (!strcmp(sattr->name, "state"))
+		return sprintf(buf, "0x%lx", tsk->state);
+
+	if (!strcmp(sattr->name, "sched_policy"))
+		return sprintf(buf, "%d", tsk->attr.policy);
+
+	if (!strcmp(sattr->name, "stack_top"))
+		return sprintf(buf, "0x%p", tsk->stack_top);
+
+	if (!strcmp(sattr->name, "stack_bottom"))
+		return sprintf(buf, "0x%p", tsk->stack_bottom);
+
+	return 0;
+}
+
+__extension__
+static struct sobj_attribute proc_stats_attr[] = {
+       	__ATTR(cpu_affinity,  proc_stats_show, NULL),
+       	__ATTR(runtime_ns,    proc_stats_show, NULL),
+       	__ATTR(state,         proc_stats_show, NULL),
+       	__ATTR(sched_policy,  proc_stats_show, NULL),
+       	__ATTR(stack_top,     proc_stats_show, NULL),
+       	__ATTR(stack_bottom,  proc_stats_show, NULL),
+};
+
+__extension__
+static struct sobj_attribute *proc_stats_attributes[] = {
+	&proc_stats_attr[0], &proc_stats_attr[1], &proc_stats_attr[2],
+	&proc_stats_attr[3], &proc_stats_attr[4], &proc_stats_attr[5],
+	NULL
+};
+
+
+
+static void sched_init_sysctl(void)
+{
+	size_t i;
+	struct sysobj *sobj;
+
+	sobj = sysobj_create();
+
+	if (!sobj)
+		return;
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+
+		snprintf(&cpu_load_names[i * 2], CPU_MAX_CHARS_PER_NAME,"%u", i);
+		cpu_load_attr[i].name  = &cpu_load_names[i * 2];
+		cpu_load_attr[i].show  = cpu_load_show;
+		cpu_load_attr[i].store = NULL;
+
+		cpu_load_attributes[i] = &cpu_load_attr[i];
+	}
+
+	/* be explicit; last item in attribute pointer list is always NULL */
+	cpu_load_attributes[CONFIG_SMP_CPUS_MAX] = NULL;
+
+
+	sobj->sattr = cpu_load_attributes;
+	sysobj_add(sobj, NULL, sysctl_root(), "cpu_load");
+
+
+
+	/* XXX we currently export stats via a single entry and
+	 * abuse the write-back buffer to transport the selection of the
+	 * task name string. At some point we only want to create
+	 * a new sysset entry /sys/proc here where we can pack the per-process stats
+	 * when we create them
+	 */
+        sobj = sysobj_create();
+        if (!sobj)
+                return;
+
+        sobj->sattr = proc_stats_attributes;
+        sysobj_add(sobj, NULL, sysctl_root(), "proc");
+}
+
+
+
+#endif /* CONFIG_CPU_STATS_COLLECT */
 
 
 /**
@@ -130,6 +295,38 @@ static ktime sched_find_next_task(struct task_struct **task, int cpu, ktime now)
 
 
 /**
+ * @brief set the load percentage of a cpu for an arbitrary time interval
+ *
+ * @note this is a mechanism to centrally manage the cpu loads; how loads
+ *	 are updated is left to the implementation of the particular platform;
+ *	 this is done on a best-effort basis for informative purposes only
+ */
+
+void sched_set_cpu_load(int cpu, uint8_t load_percent)
+{
+	if (cpu >= CONFIG_SMP_CPUS_MAX)
+		return;
+
+	cpu_load[cpu] = load_percent;
+}
+
+
+/**
+ * @brief get the last known load percentage of a cpu
+ *
+ * @note this is provided on a best-effort basis for informative purposes only
+ */
+
+uint8_t sched_get_cpu_load(int cpu)
+{
+	if (cpu >= CONFIG_SMP_CPUS_MAX)
+		return 0;
+
+	return cpu_load[cpu];
+}
+
+
+/**
  * @brief schedule and execute the next task
  */
 
@@ -151,7 +348,18 @@ void schedule(void)
 		return;
 
 	/* booted yet? */
+#if 0
+	/* XXX this should be fine. It appears we can just return
+	 * in case we get early high-frequency threads and a particular
+	 * CPU is not fully booted
+	 * TODO more tests, or boot all CPUs really early (initcall territory)
+	 */
+
 	BUG_ON(!current_set[cpu]);
+#else
+	if(!current_set[cpu])
+		return;
+#endif
 
 
 	arch_local_irq_disable();
@@ -423,7 +631,7 @@ void sched_enable(void)
 }
 
 
-/*
+/**
  * @brief disable scheduling on the current cpu
  */
 void sched_disable(void)
@@ -442,6 +650,10 @@ static int sched_init(void)
 {
 	tick_set_mode(TICK_MODE_ONESHOT);
 
+#ifdef CONFIG_CPU_STATS_COLLECT
+	sched_init_sysctl();
+#endif /* CONFIG_CPU_STATS_COLLECT */
+
 	return 0;
 }
-late_initcall(sched_init);
+subsys_initcall(sched_init);

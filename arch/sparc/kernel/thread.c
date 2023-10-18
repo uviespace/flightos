@@ -43,23 +43,16 @@ static void th_starter(void)
 	unsigned long flags;
 	struct task_struct *task = current_set[leon3_cpuid()]->task;
 
-	struct timespec ts;
-
-	double start;
-	double stop;
+	ktime t0, t1;
 
 
-
-	ts = get_uptime();
-
-	start = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
+	t0 = ktime_get();
 
 	task->thread_fn(task->data);
 
-	ts = get_uptime();
-	stop = (double) ts.tv_sec + (double) ts.tv_nsec / 1e9;
+	t1 = ktime_get();
 
-//	printk("thread: %p returned after %gs\n", task->stack, stop-start);
+	pr_info("thread: %p returned after %ld ms\n", task->stack, ktime_ms_delta(t1, t0));
 
 	flags = arch_local_irq_save();
 	task->state = TASK_DEAD;
@@ -109,6 +102,9 @@ void arch_promote_to_task(struct task_struct *task)
 {
 #define PSR_CWP     0x0000001f
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
+
 	task->thread_info.ksp = (unsigned long) leon_get_fp();
 	task->thread_info.kpc = (unsigned long) __builtin_return_address(1) - 8;
 	task->thread_info.kpsr = get_psr();
@@ -117,6 +113,8 @@ void arch_promote_to_task(struct task_struct *task)
 
 	task->thread_fn = NULL;
 	task->data      = NULL;
+
+__diag_pop();
 
 
 	pr_debug(MSG "kernel stack %x %x\n", leon_get_fp(), leon_get_sp());

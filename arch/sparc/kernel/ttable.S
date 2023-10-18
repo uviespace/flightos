@@ -34,7 +34,7 @@ trapbase_cpu0:
 	WINDOW_OFLOW
 	WINDOW_UFLOW
 	TRAP_ENTRY(SPARC_TRAP_MNA, mna_trap_handler)
-	TRAP_ENTRY(SPARC_TRAP_FPE, fpe_trap_handler)
+	TRAP_ENTRY(SPARC_TRAP_FPE, floating_point_exception_trap)
 	SRMMU_DFAULT		! Data Fault 
 	TRAP_ENTRY(SPARC_TRAP_TOF, tag_overflow_trap_handler)
 	TRAP_ENTRY(SPARC_TRAP_WPDT, watchpoint_det_trap_handler)
@@ -145,10 +145,8 @@ hw_div0_trap_handler:
 nmi_entry:
 	.global reg_access_trap_handler
 reg_access_trap_handler:
-	.global syscall_tbl
-syscall_tbl:
-	.global syscall_trap
-syscall_trap:
+#	.global syscall_tbl
+#syscall_tbl:
 	.global .udiv
 .udiv:
 	.global .umul

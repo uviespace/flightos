@@ -2,7 +2,7 @@
  * @file arch/sparc/kernel/mmu.c
  *
  * @ingroup sparc
- * 
+ *
  * @brief SPARC MMU initialisation, context, trap handling and sbrk()
  *
  */
@@ -20,6 +20,7 @@
 #include <cpu_type.h>
 #include <errno.h>
 #include <stack.h>
+#include <asm/io.h>
 
 
 /**
@@ -209,8 +210,14 @@ void *kernel_sbrk(intptr_t increment)
 	/* try to release pages if we decremented below a page boundary */
 	if (increment < 0) {
 		if (PAGE_ALIGN(brk) < PAGE_ALIGN(oldbrk - PAGE_SIZE)) {
-			pr_debug("SBRK: release %lx (%lx)\n", brk, PAGE_ALIGN(brk));
-			mm_release_mmu_mapping(PAGE_ALIGN(brk), oldbrk);
+
+			pr_debug("SBRK: release %lx (va %lx, pa%lx) to va %lx pa %lx, %d pages\n",
+				 brk, PAGE_ALIGN(brk), virt_to_phys(PAGE_ALIGN(brk)),
+				 oldbrk, virt_to_phys(oldbrk),
+				 (PAGE_ALIGN(oldbrk) - PAGE_ALIGN(brk)) / PAGE_SIZE);
+
+			if (PAGE_ALIGN(oldbrk) >  PAGE_ALIGN(brk))
+				mm_release_mmu_mapping(PAGE_ALIGN(brk), PAGE_ALIGN(oldbrk));
 		}
 	}
 
@@ -222,6 +229,10 @@ void *kernel_sbrk(intptr_t increment)
 }
 
 
+unsigned long mm_get_physical_addr(unsigned long va)
+{
+	return srmmu_get_pa_page(mm_get_mmu_ctx(), va) | (va & 0xFFFUL);
+}
 
 
 void mm_mmu_trap(void)
@@ -270,9 +281,12 @@ void mm_mmu_trap(void)
 			addr = srmmu_get_mmu_fault_address();
 
 			if (!addr) {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("NULL pointer violation "
 					"in call from %p\n",
 					__builtin_return_address(1));
+__diag_pop();
 				BUG();
 			}
 
@@ -285,16 +299,25 @@ void mm_mmu_trap(void)
 
 			if (addr < mm_proc_mem[ctx].addr_lo) {
 
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("Access violation: RESERVED (0x%08lx) "
 					"in call from %p\n",
 					addr,
 					__caller(1));
+__diag_pop();
 				BUG();
 			}
 
 			if (addr > HIGHMEM_START) {
-				pr_debug("Access violation: HIGHMEM\n");
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
+				pr_crit("Access violation: HIGHMEM (0x%08lx) "
+					"in call from %p\n",
+					addr,
+					__caller(1));
 				BUG();
+__diag_pop();
 			}
 
 
@@ -307,17 +330,23 @@ void mm_mmu_trap(void)
 
 				last = alloc;
 
-				pr_debug("MM: Allocating page %lx -> %lx\n",addr, (unsigned
-									int) alloc);
+				pr_debug("MM: Allocating page %lx -> %lx\n",
+					 addr, (unsigned int) alloc);
+
+
+
 
 				/* XXX for now, set RWX with super use
 				 * permissions until we have mprotect()  */
 				if(srmmu_do_small_mapping(ctx, addr, alloc, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2)))
 					pr_crit("MM: MMU error mapping pa %lx to va %lx\n", (int) alloc, addr);
 			} else {
+__diag_push();
+__diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("Access violation: system break "
-					"in call from %p\n",
-					__builtin_return_address(1));
+					"in call from %p for address 0x%lx\n",
+					__builtin_return_address(1), addr);
+__diag_pop();
 				BUG();
 			}
 		}
