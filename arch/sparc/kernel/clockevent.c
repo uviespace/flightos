@@ -277,6 +277,7 @@ static void leon_setup_clockdevs(void)
 
 		ce->irq  = GPTIMER_0_IRQ + i;
 
+		gptimer_clear_chained(_gp_clk_ev.gptu, i);
 		gptimer_clear_enabled(_gp_clk_ev.gptu, i);
 
 		BUG_ON(irq_request(ce->irq, ISR_PRIORITY_NOW,

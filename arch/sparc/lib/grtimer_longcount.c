@@ -50,6 +50,9 @@ int32_t grtimer_longcount_start(struct grtimer_unit *rtu,
 				uint32_t fine_ticks_per_sec,
 				uint32_t coarse_ticks_max)
 {
+	grtimer_clear_enabled(rtu, 0);
+	grtimer_clear_enabled(rtu, 1);
+
 	grtimer_set_scaler_reload(rtu, scaler_reload);
 	grtimer_set_reload(rtu, 0, fine_ticks_per_sec);
 	grtimer_set_reload(rtu, 1, coarse_ticks_max);
@@ -60,6 +63,7 @@ int32_t grtimer_longcount_start(struct grtimer_unit *rtu,
 	grtimer_set_restart(rtu, 0);
 	grtimer_set_restart(rtu, 1);
 
+	grtimer_clear_chained(rtu, 0);
 	grtimer_set_chained(rtu, 1);
 
 	grtimer_set_enabled(rtu, 0);
