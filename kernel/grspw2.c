@@ -1721,6 +1721,35 @@ uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg)
 
 
 /**
+ * @brief check the EEP status of the next packet
+ *
+ * @returns 1 if EEP is present, 0 otherwise
+ */
+
+int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
+{
+	struct grspw2_rx_desc_ring_elem *p_elem;
+
+
+	p_elem = grspw2_rx_desc_get_next_used(cfg);
+	if (!p_elem)
+		return 0;
+
+	/* still active */
+	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EN)
+		return 0;
+
+
+	/* EEP is set */
+	if (p_elem->desc->pkt_ctrl & GRSPW2_STATUS_EE)
+		return 1;
+
+	return 0;
+}
+
+
+
+/**
  * @brief retrieve the size of the next packet
  */
 

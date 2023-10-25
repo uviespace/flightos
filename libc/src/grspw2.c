@@ -85,3 +85,13 @@ uint32_t grspw2_get_pkt(uint8_t link, uint8_t *pkt)
 	return (uint32_t) sys_grspw2((void *) &spw);
 }
 
+int grspw2_get_next_pkt_eep(uint8_t link)
+{
+	struct grspw2_data spw;
+
+
+	spw.op   = GRSPW2_OP_GET_NEXT_PKT_EEP;
+	spw.link = link;
+
+	return (uint32_t) sys_grspw2((void *) &spw);
+}

@@ -11,6 +11,7 @@
 #define GRSPW2_OP_GET_NEXT_PKT_SIZE	4
 #define GRSPW2_OP_DROP_PKT		5
 #define GRSPW2_OP_GET_PKT		6
+#define GRSPW2_OP_GET_NEXT_PKT_EEP	7
 
 
 /* XXX to transfer */
@@ -38,5 +39,9 @@ int32_t grspw2_add_rmap(uint8_t link, void *hdr,  uint32_t hdr_size,
 			void *data, uint32_t data_size);
 
 uint32_t grspw2_get_pkt(uint8_t link, uint8_t *pkt);
+
+int grspw2_get_next_pkt_eep(uint8_t link);
+
+
 
 #endif /* GRSPW2_H */

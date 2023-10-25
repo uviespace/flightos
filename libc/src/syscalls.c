@@ -85,7 +85,7 @@ int sys_sched_prog_seg(void *addr, int argc, char *argv[])
 
 
 __attribute__((noinline))
-int sys_sysctl_show_attr(const char *path, const char *name, char **buf)
+int sys_sysctl_show_attr(const char *path, const char *name, char *buf)
 {
 	return SYSCALL3(__NR_sysctl_show_attr, path, name, buf);
 }

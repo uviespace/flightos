@@ -532,6 +532,7 @@ uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt);
 uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg);
+int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg);
 
 void grspw2_tick_in(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_timecnt(struct grspw2_core_cfg *cfg);
@@ -586,6 +587,7 @@ void grspw2_spw_hardreset(struct grspw2_regs *regs);
 #define GRSPW2_OP_GET_NEXT_PKT_SIZE	4
 #define GRSPW2_OP_DROP_PKT		5
 #define GRSPW2_OP_GET_PKT		6
+#define GRSPW2_OP_GET_NEXT_PKT_EEP	7
 
 /* a spacewire core configuration */
 struct spw_user_cfg {
