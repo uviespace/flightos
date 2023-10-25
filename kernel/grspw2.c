@@ -1741,7 +1741,7 @@ int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
 
 
 	/* EEP is set */
-	if (p_elem->desc->pkt_ctrl & GRSPW2_STATUS_EE)
+	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EP)
 		return 1;
 
 	return 0;
