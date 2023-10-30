@@ -787,6 +787,8 @@ int mm_init(struct mm_pool *mp, void *base,
 
 	mp->alloc_blks = mp->n_blks;
 
+	__mm_stat.used_blocks += mp->alloc_blks;
+
 	/* we start by dividing the highest order block, mark it as available */
 	mm_free(mp, base);
 
