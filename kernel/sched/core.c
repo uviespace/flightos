@@ -147,7 +147,7 @@ static struct sobj_attribute *proc_stats_attributes[] = {
 
 
 
-static void sched_init_sysctl(void)
+static int  sched_init_sysctl(void)
 {
 	size_t i;
 	struct sysobj *sobj;
@@ -155,7 +155,7 @@ static void sched_init_sysctl(void)
 	sobj = sysobj_create();
 
 	if (!sobj)
-		return;
+		return -ENOMEM;
 
 	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
 
@@ -184,13 +184,14 @@ static void sched_init_sysctl(void)
 	 */
         sobj = sysobj_create();
         if (!sobj)
-                return;
+		return -ENOMEM;
 
         sobj->sattr = proc_stats_attributes;
         sysobj_add(sobj, NULL, sysctl_root(), "proc");
+
+	return 0;
 }
-
-
+fs_initcall(sched_init_sysctl);
 
 #endif /* CONFIG_CPU_STATS_COLLECT */
 
@@ -650,9 +651,6 @@ static int sched_init(void)
 {
 	tick_set_mode(TICK_MODE_ONESHOT);
 
-#ifdef CONFIG_CPU_STATS_COLLECT
-	sched_init_sysctl();
-#endif /* CONFIG_CPU_STATS_COLLECT */
 
 	return 0;
 }
