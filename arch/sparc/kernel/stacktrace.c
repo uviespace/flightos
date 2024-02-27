@@ -12,7 +12,7 @@
 #include <asm/leon.h>
 #include <stacktrace.h>
 #include <kernel/printk.h>
-
+#include <asm/ttable.h>
 
 
 /**
@@ -48,8 +48,9 @@ void save_stack_trace(struct stack_trace *trace, uint32_t sp, uint32_t pc)
 	if (!stack_valid(sp))
 		return;
 
-	/* flush register windows to memory*/
-	leon_reg_win_flush();
+	/* flush register windows to memory if we have traps enabled */
+	if (get_psr() & PSR_ET)
+		leon_reg_win_flush();
 
 	while (trace->nr_entries < trace->max_entries) {
 
@@ -72,17 +73,6 @@ void save_stack_trace(struct stack_trace *trace, uint32_t sp, uint32_t pc)
 
 
 #if defined(USE_STACK_TRACE_TRAP)
-
-/**
- * @brief a generic shutdown function
- * TODO: replace with whatever we need in the end
- */
-
-void die(void)
-{
-	machine_halt();
-}
-
 
 /**
  * @brief executes a stack trace

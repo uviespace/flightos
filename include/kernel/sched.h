@@ -115,6 +115,7 @@ struct scheduler {
 void switch_to(struct task_struct *next);
 void schedule(void);
 void sched_yield(void);
+void sched_maybe_yield(unsigned int frac_wcet);
 
 
 int sched_set_attr(struct task_struct *task, struct sched_attr *attr);

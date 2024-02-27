@@ -7,5 +7,6 @@
 
 
 extern void machine_halt(void);
+extern void die(void);
 
 #endif /* _KERNEL_REBOOT_H_ */

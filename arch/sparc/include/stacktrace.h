@@ -21,8 +21,6 @@ struct stack_trace {
  * @brief a trap handler to execute a stack trace (implemented in asm)
  */
 void trace_trap(void);
-
-void die(void);
 #endif
 
 void save_stack_trace(struct stack_trace *trace, uint32_t sp, uint32_t pc);

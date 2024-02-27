@@ -21,6 +21,6 @@
 #define _KERNEL_MEMSCRUB_H_
 
 int memscrub_seg_rem(unsigned long begin, unsigned long end);
-int memscrub_seg_add(unsigned long begin, unsigned long end, size_t wpc);
+int memscrub_seg_add(unsigned long begin, unsigned long end, unsigned short wpc);
 
 #endif /* _KERNEL_MEMSCRUB_H_ */

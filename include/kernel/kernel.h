@@ -11,12 +11,12 @@
 #define IS_ALIGNED(x, a)       (((x) & ((typeof(x))(a) - 1)) == 0)
 
 
-#define panic(x) {machine_halt();} while(1);
+#define panic(x) do {machine_halt();} while(1);
 
 /* the BUG() macros may be repurposed to log an error and boot to safe mode! */
 #define BUG() do { \
-        printk("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
-        panic("BUG!"); \
+        pr_emerg("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
+        panic(); \
 } while (0)
 
 #define BUG_ON(condition) do { if (unlikely(condition)) BUG(); } while (0)

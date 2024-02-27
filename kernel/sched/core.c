@@ -438,6 +438,25 @@ void sched_yield(void)
 
 
 /**
+ * @brief yield remaining runtime and reschedule if less than a given
+ *	  fraction of the WCET remains
+ */
+
+void sched_maybe_yield(unsigned int frac_wcet)
+{
+	struct task_struct *tsk;
+
+
+	tsk = current_set[smp_cpu_id()]->task;
+
+	if (tsk->runtime > tsk->attr.wcet / frac_wcet) {
+		tsk->runtime = 0;
+		schedule();
+	}
+}
+
+
+/**
  * @brief wake up a task
  */
 

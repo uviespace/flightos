@@ -10,6 +10,10 @@
 #include <asm/processor.h>
 #include <traps.h>
 #include <kernel/irq.h>
+#include <kernel/time.h>
+
+#include <asm/leon.h>
+#include <asm/ttable.h>
 
 
 #define STACKTRACE_MAX_ENTRIES 7
@@ -43,6 +47,8 @@ struct exchange_area {
 	uint8_t trapnum_core0;
 	uint8_t trapnum_core1;
 
+	uint16_t sw_trap_id;
+
 	struct cpu_reginfo regs_cpu0;
 	struct cpu_reginfo regs_cpu1;
 	uint32_t ahb_status_reg;
@@ -50,7 +56,7 @@ struct exchange_area {
 
 	uint32_t stacktrace_cpu0[STACKTRACE_MAX_ENTRIES];
 	uint32_t stacktrace_cpu1[STACKTRACE_MAX_ENTRIES];
-};
+} __attribute__((packed));
 
 
 /**
@@ -60,16 +66,20 @@ struct exchange_area {
  * DPU-SSSIF-IF-5420
  */
 
-static irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
+irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 {
-	uint32_t temp_finetime;
-
-	uint32_t *trace_entries[STACKTRACE_MAX_ENTRIES];
+	struct sparc_stackf *trace_frames[STACKTRACE_MAX_ENTRIES];
+	struct pt_regs      *trace_cpuregs[STACKTRACE_MAX_ENTRIES];
 
 	uint32_t i;
 
 	uint32_t sp;
 	uint32_t pc;
+
+	struct timespec kt;
+	uint32_t coarse;
+	uint32_t fine;
+	char *ts;
 
 	register int sp_local asm("%sp");
 
@@ -77,12 +87,28 @@ static irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 
 	struct exchange_area *exchange = (struct exchange_area *) EXCHANGE_AREA_BASE_ADDR;
 
+	/* re-enable traps, but mask all IRQs */
+	put_psr(get_psr() | PSR_PIL | PSR_ET);
 
+//	exchange->reset_type = 0x223;	/* EVT_RES_EXCEPT */
 
-	/* we start at trap number and leave everything else to the DBS */
+	/* fill uptime in CUC format */
+	kt = get_ktime();
+        coarse = kt.tv_sec;
+        fine   = kt.tv_nsec / 1000;
 
-	exchange->reset_type = 545;
+	ts = (char *) &exchange->reset_time;
 
+        ts[0] = (coarse >> 24) & 0xff;
+        ts[1] = (coarse >> 16) & 0xff;
+        ts[2] = (coarse >>  8) & 0xff;
+        ts[3] =  coarse        & 0xff;
+        ts[4] = (fine   >> 16) & 0xff;
+        ts[5] = (fine   >>  8) & 0xff;
+        ts[6] =  fine          & 0xff;
+        ts[7] = 0;
+
+	/* latest traps */
 	exchange->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
 	exchange->trapnum_core1 = (dsu_get_reg_tbr(1) >> 4) & 0xff;
 
@@ -104,13 +130,17 @@ static irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 	exchange->ahb_status_reg       = ahbstat_get_status();
 	exchange->ahb_failing_addr_reg = ahbstat_get_failing_addr();
 
+	/* unused slots in the trace should be cleared */
+	bzero(exchange->stacktrace_cpu0, sizeof(exchange->stacktrace_cpu0));
+	bzero(exchange->stacktrace_cpu1, sizeof(exchange->stacktrace_cpu1));
+
+
 	/** CALL STACK CORE 1 **/
 	trace.max_entries = STACKTRACE_MAX_ENTRIES;
 	trace.nr_entries  = 0;
-	trace.frames      = (struct sparc_stackf **) &trace_entries;
+	trace.frames      = trace_frames;
+	trace.regs        = trace_cpuregs;
 
-	/* trace_entries has not yet decayed into a pointer, so sizeof() is fine */
-	bzero(trace_entries, sizeof(trace_entries));
 
 	/* The DSU of the GR712 appears to return the contents of a different register
 	 * than requested. Usually it is the following entry, i.e. when requesting
@@ -128,27 +158,32 @@ static irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 	pc = dsu_get_reg_pc(0);	/* not critical if incorrect */
 	save_stack_trace(&trace, sp, pc);
 
-	for (i = 0; i < STACKTRACE_MAX_ENTRIES; i++)
-		exchange->stacktrace_cpu0[i] = (uint32_t) trace_entries[i];
+
+	/* first is always current %pc */
+	exchange->stacktrace_cpu0[0] = pc;
+
+	for (i = 1; i < trace.nr_entries - 1; i++)
+		exchange->stacktrace_cpu0[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
 
+	/** CALL STACK CORE 2 **/
 	trace.max_entries = STACKTRACE_MAX_ENTRIES;
 	trace.nr_entries  = 0;
-	trace.frames      = (struct sparc_stackf **) &trace_entries;
-	/** CALL STACK CORE 2 **/
-	bzero(trace_entries, sizeof(trace_entries));
 
 	sp = dsu_get_reg_sp(1, dsu_get_reg_psr(1) & 0x1f);
 	pc = dsu_get_reg_pc(1);
 	save_stack_trace(&trace, sp, pc);
 
-	for (i = 0; i < STACKTRACE_MAX_ENTRIES; i++)
-		exchange->stacktrace_cpu0[i] = (uint32_t) trace_entries[i];
+	/* first is always current %pc */
+	exchange->stacktrace_cpu1[0] = pc;
 
+	for (i = 1; i < trace.nr_entries - 1; i++)
+		exchange->stacktrace_cpu1[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
-	machine_halt();
 	/* wait for sweet death to take us */
-	return 0;
+	die();
+
+	return 0; /* we never will */
 }
 
 
@@ -159,20 +194,15 @@ static void smile_write_reset_info_trap(void)
 
 static int smile_cfg_reset_traps(void)
 {
-#if 0
 	/* called by machine_halt */
 	trap_handler_install(0x82, smile_write_reset_info_trap);
-#endif
+#if 0
 	/* watchdog timer */
-	irq_request(WD_TIMER_IRL, ISR_PRIORITY_NOW, smile_write_reset_info, NULL);
-
-	/* SpW and 1553 don't need to be stopped explicitly */
+	return irq_request(WD_TIMER_IRL, ISR_PRIORITY_NOW, smile_write_reset_info, NULL);
+#endif
+	return 0;
 }
 late_initcall(smile_cfg_reset_traps)
-
-
-
-
 
 
 

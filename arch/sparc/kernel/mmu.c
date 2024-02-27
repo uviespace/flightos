@@ -341,6 +341,7 @@ __diag_pop();
 				if(srmmu_do_small_mapping(ctx, addr, alloc, (SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2)))
 					pr_crit("MM: MMU error mapping pa %lx to va %lx\n", (int) alloc, addr);
 			} else {
+				panic();
 __diag_push();
 __diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 				pr_crit("Access violation: system break "
