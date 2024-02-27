@@ -1062,7 +1062,7 @@ sym_re_search_free:
  * The entries are located on the call stack so no need to free memory.
  * Note insert() remove() must always match to properly clear the stack.
  */
-static struct dep_stack {
+struct dep_stack {
 	struct dep_stack *prev, *next;
 	struct symbol *sym;
 	struct property *prop;
