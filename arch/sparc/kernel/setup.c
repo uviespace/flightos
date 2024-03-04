@@ -52,8 +52,9 @@ void *_kernel_stack_bottom;
  *     have a kernel bootstrap implemented and we may define custom reserved
  *     areas more freely.
  */
-
+#if 0
 #warning "Using fixed-size kernel stack"
+#endif
 static void reserve_kernel_stack(void)
 {
 	const size_t k_stack_sz = KERNEL_STACK_PAGES * PAGE_SIZE;

@@ -25,22 +25,6 @@
 int tty_read(void *buf, size_t nbyte);
 #endif
 
-
-struct queue {
-	size_t head;
-	size_t tail;
-	size_t wrap;
-	char *buf;
-};
-
-size_t queue_left(struct queue *q);
-size_t queue_empty(struct queue *q);
-size_t queue_used(struct queue *q);
-size_t queue_left(struct queue *q);
-size_t queue_full(struct queue *q);
-size_t queue_get(struct queue *q, char *c);
-size_t queue_put(struct queue *q, char c);
-
 int tty_write(void *buf, size_t nbyte);
 
 #endif /* _KERNEL_TTY_H_ */
