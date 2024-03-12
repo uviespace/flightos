@@ -90,11 +90,8 @@ static void mem_init(void)
 	sp_banks[0].num_bytes = 0x10000000;
 #endif
 
-#ifdef CONFIG_LEON3 /* e.g. GR712 eval */
-#if 0
-	sp_banks[0].base_addr = 0x40000000;
-	sp_banks[0].num_bytes = 0x00800000;
-#else
+#ifdef CONFIG_LEON3
+#ifdef CONFIG_PROJECT_SMILE
 	/* XXX need something like CONFIG_SOC_SMILE_SXI */
 	/* XXX the base address is defined by the requirements
 	 * (DBS RAM + exchange area).
@@ -141,8 +138,11 @@ static void mem_init(void)
 #endif
 	/* ignore the remaing unused space */
 
+#else	/* e.g. GR712 eval */
+	sp_banks[0].base_addr = 0x40000000;
+	sp_banks[0].num_bytes = 0x00800000;
 
-#endif /* 0 */
+#endif /* CONFIG_PROJECT_SMILE */
 #endif /* CONFIG_LEON3 */
 
 

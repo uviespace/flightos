@@ -61,6 +61,17 @@ SECTIONS
 	}
 	__init_end = .;
 
+	. = ALIGN(16);
+	__user_begin = .;
+	.user.data : {
+		__usercall_start = .;
+		KEEP(*(.usercall1.user))
+		KEEP(*(.usercall2.user))
+		KEEP(*(.usercall3.user))
+		KEEP(*(.usercall4.user))
+		__usercall_end = .;
+	}
+	__user_end = .;
 
 
 	. = ALIGN(8);

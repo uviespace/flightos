@@ -8,7 +8,7 @@ choice
 
 config PROJECT_SMILE
 	bool "SMILE DPU"
-	depends on LEON3
+	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
 	help
 	 Configure DPU-specific setup for SMILE
 

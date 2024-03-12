@@ -3,6 +3,7 @@
 #include <leon3_memcfg.h>
 #include <kernel/printk.h>
 #include <kernel/string.h>
+#include <kernel/watchdog.h>
 
 #include <ahb.h>
 #include <leon3_dsu.h>
@@ -90,7 +91,9 @@ irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 	/* re-enable traps, but mask all IRQs */
 	put_psr(get_psr() | PSR_PIL | PSR_ET);
 
-//	exchange->reset_type = 0x223;	/* EVT_RES_EXCEPT */
+#if 0
+	exchange->reset_type = 0x223;	/* EVT_RES_EXCEPT */
+#endif
 
 	/* fill uptime in CUC format */
 	kt = get_ktime();
@@ -186,6 +189,10 @@ irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
 	return 0; /* we never will */
 }
 
+static void smile_watchdog_handler(void *userdata)
+{
+	smile_write_reset_info(0, userdata);
+}
 
 static void smile_write_reset_info_trap(void)
 {
@@ -196,10 +203,8 @@ static int smile_cfg_reset_traps(void)
 {
 	/* called by machine_halt */
 	trap_handler_install(0x82, smile_write_reset_info_trap);
-#if 0
-	/* watchdog timer */
-	return irq_request(WD_TIMER_IRL, ISR_PRIORITY_NOW, smile_write_reset_info, NULL);
-#endif
+	watchdog_set_handler(smile_watchdog_handler, NULL);
+
 	return 0;
 }
 late_initcall(smile_cfg_reset_traps)
@@ -218,6 +223,4 @@ static int smile_mem_cfg(void)
 
 	return 0;
 }
-
-
 core_initcall(smile_mem_cfg)
