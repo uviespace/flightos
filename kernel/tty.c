@@ -41,9 +41,8 @@
 /* on init, we don't have kmalloc() */
 #define TTY_BUF_SIZE 1024*4
 static char buf[TTY_BUF_SIZE];
-struct queue the_q = {0, 0, TTY_BUF_SIZE - 1, buf};
 
-
+QUEUE_DEFINE_INIT(q, char, buf, TTY_BUF_SIZE);
 
 /**
  * XXX implement as architecture interface
@@ -54,8 +53,6 @@ struct queue the_q = {0, 0, TTY_BUF_SIZE - 1, buf};
 static int tty_tx(void *data)
 {
 	char c;
-
-	struct queue *q = (struct queue *) data;
 
 #define TX_EMPTY (1 << 2)
 #define TX_FULL  (1 << 9)
@@ -94,9 +91,6 @@ static int tty_write_internal(void *buf, size_t nbyte)
 	size_t cnt = 0;
 
 	char *c = buf;
-
-	struct queue *q = &the_q;
-
 
 
 	while (nbyte) {
@@ -174,7 +168,7 @@ int tty_init(void)
 {
 	struct task_struct *t;
 
-	t = kthread_create(tty_tx, &the_q, KTHREAD_CPU_AFFINITY_NONE, "TTY_TX");
+	t = kthread_create(tty_tx, NULL, KTHREAD_CPU_AFFINITY_NONE, "TTY_TX");
 
 #if ASYNC_OUTPUT
        	/* BUG: failure at kernel/sched/core.c:154/schedule()! after CPU1 boots */

@@ -9,4 +9,3 @@ lib-y			+= data_proc_tracker.o
 lib-y			+= data_proc_task.o
 lib-y			+= data_proc_net.o
 lib-y			+= libc_bitops.o
-lib-y			+= queue.o
