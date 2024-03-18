@@ -15,7 +15,7 @@ struct name##_queue { \
 	size_t wrap; \
 	storage_type *data; \
 }; \
-struct name ## _queue *name;
+extern struct name ## _queue *name;
 
 
 /**
