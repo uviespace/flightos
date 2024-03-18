@@ -42,7 +42,8 @@
 #define TTY_BUF_SIZE 1024*4
 static char buf[TTY_BUF_SIZE];
 
-QUEUE_DEFINE_INIT(q, char, buf, TTY_BUF_SIZE);
+QUEUE_DECLARE(q, char);
+QUEUE_INIT(q, char, buf, TTY_BUF_SIZE);
 
 /**
  * XXX implement as architecture interface
