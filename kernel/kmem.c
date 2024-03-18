@@ -27,8 +27,7 @@
 #include <kernel/bootmem.h>
 #endif /* CONFIG_MMU */
 
-
-#define WORD_ALIGN(x)	ALIGN((x), sizeof(unsigned long))
+#define WORD_ALIGN(x)	ALIGN((x), sizeof(uint64_t))
 
 #ifdef CONFIG_MMU
 struct kmem {
@@ -37,7 +36,7 @@ struct kmem {
 	int free;
 	struct kmem *prev, *next;
 	struct list_head node;
-} __attribute__((aligned));
+} __attribute__((aligned(8)));
 
 /* the initial and the most recent allocation */
 static struct kmem *_kmem_init;
@@ -88,7 +87,7 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	/* align first */
 	split = (struct kmem *)((size_t) k + size);
-	split = ALIGN_PTR(split, sizeof(void *));
+	split = ALIGN_PTR(split, sizeof(uint64_t));
 
 	split->data = split + 1;
 
