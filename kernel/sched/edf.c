@@ -24,6 +24,9 @@
 
 static struct spinlock edf_spinlock;
 
+extern struct thread_info *current_set[];	/* XXX meh... */
+
+
 /**
  * @brief lock critical edf section
  */
@@ -613,6 +616,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	struct task_struct *tmp;
 	struct task_struct *first;
 
+	struct task_struct *this = current_set[smp_cpu_id()]->task;
 
 
 	if (list_empty(&tq[cpu].run))
@@ -689,6 +693,9 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 		}
 
 		if (tsk->state == TASK_DEAD){ /* XXX need other mechanism */
+			if (tsk == this)
+				continue;
+
 			list_del(&tsk->node);
 			kthread_free(tsk);
 			continue;

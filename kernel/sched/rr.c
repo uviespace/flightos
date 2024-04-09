@@ -18,7 +18,9 @@
 #include <kernel/init.h>
 #include <kernel/tick.h>
 #include <kernel/kthread.h>
+#include <kernel/smp.h>
 #include <asm/spinlock.h>
+
 
 #define MSG "SCHED_RR: "
 
@@ -28,6 +30,7 @@
 
 static struct spinlock rr_spinlock;
 
+extern struct thread_info *current_set[];	/* XXX meh... */
 
 /**
  * @brief lock critical rr section
@@ -62,6 +65,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	struct task_struct *tmp;
 	struct task_struct *next = NULL;
 
+	struct task_struct *this = current_set[smp_cpu_id()]->task;
 
 
 	if (list_empty(&tq[0].run))
@@ -95,8 +99,10 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 		}
 
 		if (tsk->state == TASK_DEAD) {
-			list_del(&tsk->node);
-			kthread_free(tsk);
+			if (tsk != this) {
+				list_del(&tsk->node);
+				kthread_free(tsk);
+			}
 		}
 	}
 
@@ -122,29 +128,29 @@ static int rr_wake(struct task_struct *task, ktime now)
 	struct task_struct *elem;
 	struct task_struct *tmp;
 
-	struct task_queue *tq;
+		struct task_queue *tq;
 
 
-	if (!task)
-		return -EINVAL;
+		if (!task)
+			return -EINVAL;
 
-	if (task->attr.policy != SCHED_RR)
-		return -EINVAL;
-
-
-	tq = task->sched->tq;
-	if (list_empty(&tq[0].wake))
-		return -EINVAL;
+		if (task->attr.policy != SCHED_RR)
+			return -EINVAL;
 
 
-	list_for_each_entry_safe(elem, tmp, &tq[0].wake, node) {
+		tq = task->sched->tq;
+		if (list_empty(&tq[0].wake))
+			return -EINVAL;
 
-		if (elem != task)
-			continue;
 
-		found = 1;
-		break;
-	}
+		list_for_each_entry_safe(elem, tmp, &tq[0].wake, node) {
+
+			if (elem != task)
+				continue;
+
+			found = 1;
+			break;
+		}
 
 	if (!found)
 		return -EINVAL;
