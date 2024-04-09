@@ -56,6 +56,7 @@ static void th_starter(void)
 
 	flags = arch_local_irq_save();
 	task->state = TASK_DEAD;
+	task->runtime = 0;
 	arch_local_irq_restore(flags);
 
 
