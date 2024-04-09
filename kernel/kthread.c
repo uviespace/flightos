@@ -99,9 +99,6 @@ int kthread_set_sched_rr(struct task_struct *task, unsigned long priority)
 }
 
 
-
-
-
 /* we should have a thread with a semaphore which is unlocked by schedule()
  * if dead tasks were added to the "dead" list
  */
@@ -222,7 +219,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	struct task_struct *task;
 
 
-	task = kzalloc(sizeof(struct task_struct));
+	task = kzalloc(sizeof(*task));
 	if (!task)
 		return ERR_PTR(-ENOMEM);
 
@@ -241,8 +238,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	memset32(task->stack, 0xdeadbeef, CONFIG_STACK_SIZE / sizeof(uint32_t));
 
 	task->stack_bottom = task->stack;
-	task->stack_top    = (void *) ((uint8_t *) task->stack
-						   + CONFIG_STACK_SIZE);
+	task->stack_top    = (void *)((uint8_t *)task->stack + CONFIG_STACK_SIZE);
 
 	task->name = kmalloc(TASK_NAME_LEN + 1);
 	vsnprintf(task->name, TASK_NAME_LEN, namefmt, args);
@@ -260,7 +256,10 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	task->state  = TASK_NEW;
 
 	arch_init_task(task, thread_fn, data);
-	printk("task at %p, stack %08x - %08x name %s\n", task, task->stack_bottom, task->stack_top, task->name);
+	pr_info("task at %p, stack %08x - %08x name %s\n", task,
+							   task->stack_bottom,
+							   task->stack_top,
+							   task->name);
 
 	return task;
 }
