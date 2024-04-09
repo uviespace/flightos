@@ -21,6 +21,8 @@
 #include <kernel/printk.h>
 #include <page.h>
 
+#include <asm/spinlock.h>
+
 #ifdef CONFIG_MMU
 #include <kernel/sbrk.h>
 #else
@@ -41,6 +43,28 @@ struct kmem {
 /* the initial and the most recent allocation */
 static struct kmem *_kmem_init;
 static struct kmem *_kmem_last;
+
+static struct spinlock kmem_spinlock;
+
+
+/**
+ * @brief lock critical kmem section
+ */
+
+static void kmem_lock(void)
+{
+	spin_lock_raw(&kmem_spinlock);
+}
+
+
+/**
+ * @brief unlock critical kmem section
+ */
+
+static void kmem_unlock(void)
+{
+	spin_unlock(&kmem_spinlock);
+}
 
 
 /**
@@ -98,6 +122,7 @@ static void kmem_split(struct kmem *k, size_t size)
 		return;
 
 	/* we're good, finalise the split */
+	kmem_lock();
 	split->free = 1;
 	split->prev = k;
 	split->next = k->next;
@@ -113,6 +138,7 @@ static void kmem_split(struct kmem *k, size_t size)
 		_kmem_last = split;
 
 	list_add_tail(&split->node, &_kmem_init->node);
+	kmem_unlock();
 }
 
 
@@ -193,7 +219,9 @@ void *kmalloc(size_t size)
 	len = WORD_ALIGN(size + sizeof(struct kmem));
 
 	/* try to locate a free chunk first */
+	kmem_lock();
 	k_new = kmem_find_free_chunk(len, &k_prev);
+	kmem_unlock();
 
 	if (k_new) {
 		/* take only what we need */
@@ -207,7 +235,9 @@ void *kmalloc(size_t size)
 
 
 	/* need fresh memory */
+	kmem_lock();
 	k_new = kernel_sbrk(len);
+	kmem_unlock();
 
 	if (k_new == (void *) -1)
 		return NULL;
@@ -217,6 +247,7 @@ void *kmalloc(size_t size)
 	k_new->next = NULL;
 
 	/* link */
+	kmem_lock();
 	k_new->prev = k_prev;
 	k_prev->next = k_new;
 
@@ -229,6 +260,7 @@ void *kmalloc(size_t size)
 	k_new->data = k_new + 1;
 
 	_kmem_last = k_new;
+	kmem_unlock();
 
 	return k_new->data;
 #else
@@ -419,6 +451,8 @@ void kfree(void *ptr)
 		return;
 	}
 
+	kmem_lock();
+
 	k->free = 1;
 
 	if (k->next && k->next->free) {
@@ -446,6 +480,8 @@ void kfree(void *ptr)
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);
 	}
+
+	kmem_unlock();
 #endif /* CONFIG_MMU */
 }
 
