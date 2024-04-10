@@ -128,29 +128,29 @@ static int rr_wake(struct task_struct *task, ktime now)
 	struct task_struct *elem;
 	struct task_struct *tmp;
 
-		struct task_queue *tq;
+	struct task_queue *tq;
 
 
-		if (!task)
-			return -EINVAL;
+	if (!task)
+		return -EINVAL;
 
-		if (task->attr.policy != SCHED_RR)
-			return -EINVAL;
-
-
-		tq = task->sched->tq;
-		if (list_empty(&tq[0].wake))
-			return -EINVAL;
+	if (task->attr.policy != SCHED_RR)
+		return -EINVAL;
 
 
-		list_for_each_entry_safe(elem, tmp, &tq[0].wake, node) {
+	tq = task->sched->tq;
+	if (list_empty(&tq[0].wake))
+		return -EINVAL;
 
-			if (elem != task)
-				continue;
 
-			found = 1;
-			break;
-		}
+	list_for_each_entry_safe(elem, tmp, &tq[0].wake, node) {
+
+		if (elem != task)
+			continue;
+
+		found = 1;
+		break;
+	}
 
 	if (!found)
 		return -EINVAL;
