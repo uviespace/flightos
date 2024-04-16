@@ -80,10 +80,10 @@ static int mna_can_handle(uint32_t insn)
 		return -1;
 
 	if (op3 & 0x4)
-		return 1;	/* load */
+		return 0;	/* store */
 
 
-	return 0;		/* store */
+	return 1;		/* load */
 }
 
 
@@ -108,7 +108,8 @@ static int mna_get_access_size(uint32_t insn)
 	return 8;
 }
 
-static uint32_t get_reg_value(struct pt_regs *regs, int reg)
+
+static void *get_reg_addr(struct pt_regs *regs, int reg)
 {
 	struct sparc_stackf *sf;
 
@@ -117,7 +118,7 @@ static uint32_t get_reg_value(struct pt_regs *regs, int reg)
 		return 0;	/* %g0 */
 
 	if(reg < 0xf)
-		return regs->u_regs[reg];
+		return &regs->u_regs[reg];
 
 	/* must access the previous frame */
 	sf = (struct sparc_stackf *) regs->u_regs[UREG_FP];
@@ -125,18 +126,30 @@ static uint32_t get_reg_value(struct pt_regs *regs, int reg)
 	reg -= 16;
 
 	if (reg < 8)
-		return sf->locals[reg];
+		return &sf->locals[reg];
 
 	reg -= 8;
 
 	if (reg < 6)
-		return sf->ins[reg];
+		return &sf->ins[reg];
 
 	if (reg == 6)
-		return (int) sf->fp;
+		return sf->fp;
 
-	return sf->callers_pc;
+	return (void *) sf->callers_pc;
+}
 
+
+static uint32_t get_reg_value(struct pt_regs *regs, int reg)
+{
+	uint32_t *addr;
+
+
+	addr = get_reg_addr(regs, reg);
+	if (!addr)
+		return 0;
+
+	return (*addr);
 }
 
 
@@ -252,8 +265,8 @@ void kernel_mna_trap(struct pt_regs *regs, uint32_t insn)
 	}
 
 	size = mna_get_access_size(insn);
-	if (size == 2)	/* only half-wors have relevant signedness */
-		sign = (insn & 0x400000) != 0;
+	if (size == 2)	/* only half-words have relevant signedness */
+		sign = (insn & 0x400000);
 
 	addr = mna_get_addr(regs, insn);
 
@@ -266,12 +279,12 @@ void kernel_mna_trap(struct pt_regs *regs, uint32_t insn)
       	rd = (insn & 0x03E000000) >> 25;
 
 	if (type == 1) {
-		mna_load((uint8_t *)get_reg_value(regs, rd), (uint8_t *)addr, size, sign);
+		mna_load((uint8_t *)get_reg_addr(regs, rd), (uint8_t *)addr, size, sign);
 		goto exit;
 	}
 
 	if (rd) {
-		mna_store((uint8_t *)addr, (uint8_t *)get_reg_value(regs, rd), size);
+		mna_store((uint8_t *)addr, (uint8_t *)get_reg_addr(regs, rd), size);
 		goto exit;
 	}
 
