@@ -457,7 +457,8 @@ void kfree(void *ptr)
 
 	if (k->next && k->next->free) {
 		/* this one would be on the free list, remove */
-		list_del(&k->next->node);
+		if (!list_empty(&k->next->node))
+			list_del(&k->next->node);
 		kmem_merge(k);
 	}
 
