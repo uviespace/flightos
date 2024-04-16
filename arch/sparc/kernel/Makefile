@@ -11,6 +11,8 @@ obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += etrap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += rtrap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += irqtrap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += thread.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += mna_trap.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += unaligned_memory_access.o
 
 
 obj-y += setup.o

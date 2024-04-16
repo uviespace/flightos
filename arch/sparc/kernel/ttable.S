@@ -125,8 +125,8 @@ priv_instruction_trap_handler:
 leonbare_trapreturn:
 	.global fpdis_trap_handler
 fpdis_trap_handler:
-	.global mna_trap_handler
-mna_trap_handler:
+#	.global mna_trap_handler
+#mna_trap_handler:
 	.global fpe_trap_handler
 fpe_trap_handler:
 	.global tag_overflow_trap_handler
