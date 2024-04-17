@@ -21,6 +21,7 @@
 #include <kernel/printk.h>
 #include <page.h>
 
+#include <asm-generic/irqflags.h>
 #include <asm/spinlock.h>
 
 #ifdef CONFIG_MMU
@@ -122,7 +123,6 @@ static void kmem_split(struct kmem *k, size_t size)
 		return;
 
 	/* we're good, finalise the split */
-	kmem_lock();
 	split->free = 1;
 	split->prev = k;
 	split->next = k->next;
@@ -138,7 +138,6 @@ static void kmem_split(struct kmem *k, size_t size)
 		_kmem_last = split;
 
 	list_add_tail(&split->node, &_kmem_init->node);
-	kmem_unlock();
 }
 
 
@@ -208,6 +207,7 @@ void *kmalloc(size_t size)
 {
 #ifdef CONFIG_MMU
 	size_t len;
+	unsigned long flags;
 
 	struct kmem *k_new;
 	struct kmem *k_prev = NULL;
@@ -218,10 +218,11 @@ void *kmalloc(size_t size)
 
 	len = WORD_ALIGN(size + sizeof(struct kmem));
 
-	/* try to locate a free chunk first */
+	flags = arch_local_irq_save();
 	kmem_lock();
+
+	/* try to locate a free chunk first */
 	k_new = kmem_find_free_chunk(len, &k_prev);
-	kmem_unlock();
 
 	if (k_new) {
 		/* take only what we need */
@@ -230,14 +231,12 @@ void *kmalloc(size_t size)
 
 		k_new->free = 0;
 
-		return k_new->data;
+		goto exit;
 	}
 
 
 	/* need fresh memory */
-	kmem_lock();
 	k_new = kernel_sbrk(len);
-	kmem_unlock();
 
 	if (k_new == (void *) -1)
 		return NULL;
@@ -247,7 +246,6 @@ void *kmalloc(size_t size)
 	k_new->next = NULL;
 
 	/* link */
-	kmem_lock();
 	k_new->prev = k_prev;
 	k_prev->next = k_new;
 
@@ -260,7 +258,10 @@ void *kmalloc(size_t size)
 	k_new->data = k_new + 1;
 
 	_kmem_last = k_new;
+
+exit:
 	kmem_unlock();
+	arch_local_irq_restore(flags);
 
 	return k_new->data;
 #else
@@ -413,6 +414,8 @@ void *krealloc(void *ptr, size_t size)
 
 void kfree(void *ptr)
 {
+	unsigned long flags __attribute__((unused));
+
 	struct kmem *k __attribute__((unused));
 
 
@@ -451,12 +454,15 @@ void kfree(void *ptr)
 		return;
 	}
 
+	flags = arch_local_irq_save();
 	kmem_lock();
 
 	k->free = 1;
 
 	if (k->next && k->next->free) {
-		/* this one would be on the free list, remove */
+		/* this one would be on the free list, remove
+		 * XXX: this check should not be necessary at all
+		 */
 		if (!list_empty(&k->next->node))
 			list_del(&k->next->node);
 		kmem_merge(k);
@@ -483,6 +489,7 @@ void kfree(void *ptr)
 	}
 
 	kmem_unlock();
+	arch_local_irq_restore(flags);
 #endif /* CONFIG_MMU */
 }
 
