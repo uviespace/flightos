@@ -20,6 +20,7 @@
 #include <kernel/kthread.h>
 #include <kernel/smp.h>
 #include <asm/spinlock.h>
+#include <asm-generic/irqflags.h>
 
 
 #define MSG "SCHED_RR: "
@@ -65,7 +66,6 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	struct task_struct *tmp;
 	struct task_struct *next = NULL;
 
-	struct task_struct *this = current_set[smp_cpu_id()]->task;
 
 
 	if (list_empty(&tq[0].run))
@@ -98,12 +98,8 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			break;
 		}
 
-		if (tsk->state == TASK_DEAD) {
-			if (tsk != this) {
-				list_del(&tsk->node);
-				kthread_free(tsk);
-			}
-		}
+		if (tsk->state == TASK_DEAD)
+			list_move_tail(&tsk->node, &tq[0].dead);
 	}
 
 	if (next)
@@ -114,6 +110,41 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	return next;
 }
 
+static int rr_cleanup(void *data)
+{
+	struct task_struct *tsk;
+	struct task_struct *tmp;
+	unsigned long flags;
+
+	struct task_queue *tq;
+
+
+	tq = ((struct scheduler *)data)->tq;
+
+	while (1) {
+
+		sched_yield();
+
+		/* note: we currently use only a single list */
+		if (list_empty(&tq[0].dead)) {
+			continue;
+		}
+
+
+		flags = arch_local_irq_save();
+		rr_lock();
+
+		list_for_each_entry_safe(tsk, tmp, &tq[0].dead, node) {
+			kthread_free(tsk);
+			list_del(&tsk->node);
+		}
+
+		rr_unlock();
+		arch_local_irq_restore(flags);
+	}
+
+	return 0;
+}
 
 /**
  * @brief wake up a task by inserting in into the run queue
@@ -263,6 +294,9 @@ static int sched_rr_init(void)
 
 
 	sched_register(&sched_rr);
+
+	kthread_create(rr_cleanup, &sched_rr,
+		       KTHREAD_CPU_AFFINITY_NONE, "RR_CLEAN");
 
 	return 0;
 }
