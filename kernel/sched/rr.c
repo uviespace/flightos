@@ -302,8 +302,15 @@ postcore_initcall(sched_rr_init);
 
 static int sched_rr_cleanup_init(void)
 {
-	kthread_create(rr_cleanup, &sched_rr,
+	struct task_struct *t;
+
+
+	t = kthread_create(rr_cleanup, &sched_rr,
 		       KTHREAD_CPU_AFFINITY_NONE, "RR_CLEAN");
+
+	BUG_ON(!t);
+
+	BUG_ON(kthread_wake_up(t) < 0);
 
 	return 0;
 }
