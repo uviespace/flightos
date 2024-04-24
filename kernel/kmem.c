@@ -32,6 +32,8 @@
 
 #define WORD_ALIGN(x)	ALIGN((x), sizeof(uint64_t))
 
+#define MAGIC	0x0DEFACED
+
 #ifdef CONFIG_MMU
 struct kmem {
 	void *data;
@@ -39,6 +41,7 @@ struct kmem {
 	int free;
 	struct kmem *prev, *next;
 	struct list_head node;
+	int magic;	/* might as well use the alignment word for something */
 } __attribute__((aligned(8)));
 
 /* the initial and the most recent allocation */
@@ -124,6 +127,7 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	/* we're good, finalise the split */
 	split->free = 1;
+	split->magic = 0;
 	split->prev = k;
 	split->next = k->next;
 
@@ -179,6 +183,7 @@ void *kmem_init(void)
 	_kmem_init->data = NULL;
 	_kmem_init->size = 0;
 	_kmem_init->free = 0;
+	_kmem_init->magic = MAGIC;
 	_kmem_init->prev = NULL;
 	_kmem_init->next = NULL;
 
@@ -230,6 +235,7 @@ void *kmalloc(size_t size)
 			kmem_split(k_new, len);
 
 		k_new->free = 0;
+		k_new->magic = MAGIC;
 
 		goto exit;
 	}
@@ -242,6 +248,7 @@ void *kmalloc(size_t size)
 		return NULL;
 
 	k_new->free = 0;
+	k_new->magic = MAGIC;
 
 	k_new->next = NULL;
 
@@ -454,10 +461,17 @@ void kfree(void *ptr)
 		return;
 	}
 
+	if (k->magic != MAGIC) {
+		pr_warning("KMEM: invalid magic number in kfree() of addr %p in call from %p\n",
+			   ptr, __caller(0));
+		return;
+	}
+
 	flags = arch_local_irq_save();
 	kmem_lock();
 
 	k->free = 1;
+	k->magic = 0;
 
 	if (k->next && k->next->free) {
 		/* this one would be on the free list, remove
