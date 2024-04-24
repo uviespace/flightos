@@ -295,9 +295,16 @@ static int sched_rr_init(void)
 
 	sched_register(&sched_rr);
 
+	return 0;
+}
+postcore_initcall(sched_rr_init);
+
+
+static int sched_rr_cleanup_init(void)
+{
 	kthread_create(rr_cleanup, &sched_rr,
 		       KTHREAD_CPU_AFFINITY_NONE, "RR_CLEAN");
 
 	return 0;
 }
-postcore_initcall(sched_rr_init);
+late_initcall(sched_rr_cleanup_init);
