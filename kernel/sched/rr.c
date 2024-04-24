@@ -135,8 +135,9 @@ static int rr_cleanup(void *data)
 		rr_lock();
 
 		list_for_each_entry_safe(tsk, tmp, &tq[0].dead, node) {
-			kthread_free(tsk);
+
 			list_del(&tsk->node);
+			kthread_free(tsk);
 		}
 
 		rr_unlock();
