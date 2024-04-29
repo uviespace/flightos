@@ -70,7 +70,7 @@ trapbase_cpu0:
 	TRAP_ENTRY(SPARC_TRAP_CPEX, cpex_trap_handler)
 	SRMMU_DFAULT		!  Data Access Error
 	TRAP_ENTRY(SPARC_TRAP_DIVZ, hw_div0_trap_handler)
-	TRAP_EXCEPTION		!  Data Store Error
+	TRAP_ENTRY(SPARC_TRAP_DSTORE, write_buffer_error_trap_handler)
 	TRAP_EXCEPTION		!  Data Access MMU Miss
 
 	.rept 15

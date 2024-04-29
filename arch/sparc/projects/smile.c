@@ -203,7 +203,6 @@ static int smile_cfg_reset_traps(void)
 {
 	/* called by machine_halt */
 	trap_handler_install(0x82, smile_write_reset_info_trap);
-	trap_handler_install(SPARC_TRAP_DSTORE, smile_write_reset_info_trap);
 	watchdog_set_handler(smile_watchdog_handler, NULL);
 
 	return 0;

@@ -13,6 +13,8 @@ obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += irqtrap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += thread.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += mna_trap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += unaligned_memory_access.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += write_buffer_error_trap.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += write_buffer_error.o
 
 
 obj-y += setup.o

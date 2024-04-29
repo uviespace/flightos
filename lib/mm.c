@@ -53,6 +53,13 @@
 #include <kernel/string.h>
 #include <kernel/init.h>
 
+
+#include <asm/irqflags.h>
+#include <asm/spinlock.h>
+
+
+static struct spinlock mm_lock;
+
 static struct {
 	unsigned long total_blocks;
 	unsigned long used_blocks;
@@ -310,6 +317,8 @@ static struct mm_blk_lnk *mm_merge_blk(struct mm_pool *mp,
 	struct mm_blk_lnk *n, *t;
 
 
+	INIT_LIST_HEAD(&blk->link);
+
 	n = mm_find_neighbour(mp, blk, order);
 
 	if (!mm_blk_free(mp, n))
@@ -473,6 +482,8 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	struct mm_blk_lnk *blk = NULL;
 	struct list_head *list = NULL;
 
+	unsigned int flags;
+
 
 	if (!mp)
 		return NULL;
@@ -510,6 +521,10 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	 * note: if the number of blocks allocate is zero, we start splitting
 	 * blocks from our memory block base and the maximum block order
 	 */
+
+
+	flags = arch_local_irq_save();
+	spin_lock_raw(&mm_lock);
 
 	if (likely(mp->alloc_blks)) {
 
@@ -550,6 +565,9 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	__mm_stat.used_blocks += (1UL << (order - mp->min_order));
 
 exit:
+
+	spin_unlock(&mm_lock);
+	arch_local_irq_restore(flags);
 	return blk;
 }
 
