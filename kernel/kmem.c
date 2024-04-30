@@ -474,17 +474,13 @@ void kfree(void *ptr)
 	k->magic = 0;
 
 	if (k->next && k->next->free) {
-		/* this one would be on the free list, remove
-		 * XXX: this check should not be necessary at all
-		 */
-		if (!list_empty(&k->next->node))
-			list_del(&k->next->node);
+		list_del_init(&k->next->node);
 		kmem_merge(k);
 	}
 
 	if (k->prev->free) {
 
-		list_del(&k->prev->node);
+		list_del_init(&k->prev->node);
 
 		k = k->prev;
 		kmem_merge(k);
