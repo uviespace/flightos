@@ -40,9 +40,8 @@ __wim_underflow:
         srl     %l3, (NWINDOWS - 1), %l5
 
         wr      %l4, %l5, %wim	! delayed-write instruction
-	nop			! need 3 delays, restore modifies CWP
-	nop
-	nop
+	nop			! need 2 delays, restore modifies CWP
+	nop			! 3rd cycle is filled by branch instruction
 
 	/* At this point, we proceed depending on the state of the previous
 	 * supervisor (PS) bit. The condition code has been set by the trap
@@ -61,9 +60,8 @@ win_trap_finish:
         save
 
         wr      %l0, %g0, %psr	! restore PSR, delayed-write instruction
-	nop			! need 3 delays, rett modifies CWP
-	nop
-	nop
+	nop			! need 2 delays, rett modifies CWP
+	nop			! 3rd delay cycle is filled by jmp instr
 
 	/* load %pc from %l1 and  return to execute the trapped save instruction
 	 * at %npc
