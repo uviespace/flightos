@@ -19,10 +19,15 @@
 #include <kernel/kmem.h>
 #include <kernel/kernel.h>
 #include <kernel/printk.h>
+#include <kernel/sysctl.h>
+#include <kernel/string.h>
+#include <kernel/init.h>
 #include <page.h>
+
 
 #include <asm-generic/irqflags.h>
 #include <asm/spinlock.h>
+
 
 #ifdef CONFIG_MMU
 #include <kernel/sbrk.h>
@@ -51,6 +56,63 @@ static struct kmem *_kmem_last;
 static struct spinlock kmem_spinlock;
 
 
+
+#ifdef CONFIG_SYSCTL
+
+#if (__sparc__)
+#define UINT32_T_FORMAT		"%lu"
+#else
+#define UINT32_T_FORMAT		"%u"
+#endif
+
+
+/**
+ * @brief get current size of available memory in our chunk pool
+ */
+
+static size_t kmem_get_avail_bytes(void)
+{
+	size_t n = 0;
+
+	struct kmem *p_tmp;
+	struct kmem *p_elem;
+
+
+	if (list_empty(&_kmem_init->node))
+		goto exit;
+
+	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node)
+		n += p_elem->size;
+
+exit:
+	return n;
+}
+
+
+
+static ssize_t kmem_show(__attribute__((unused)) struct sysobj *sobj,
+			 __attribute__((unused)) struct sobj_attribute *sattr,
+			 char *buf)
+{
+	if (!strcmp(sattr->name, "bytes_free"))
+		return sprintf(buf, UINT32_T_FORMAT, (uint32_t) kmem_get_avail_bytes());
+
+
+	return 0;
+}
+
+
+__extension__
+static struct sobj_attribute bytes_free_attr = __ATTR(bytes_free, kmem_show, NULL);
+
+__extension__
+static struct sobj_attribute *kmem_attributes[] = {&bytes_free_attr, NULL};
+
+#endif /* CONFIG_SYSCTL */
+
+
+
+
 /**
  * @brief lock critical kmem section
  */
@@ -71,17 +133,17 @@ static void kmem_unlock(void)
 }
 
 
+
 /**
  * @brief see if we can find a suitable chunk in our pool
  */
 
-static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
+static struct kmem *kmem_find_free_chunk(size_t size)
 {
 	struct kmem *p_tmp;
 	struct kmem *p_elem;
 
 
-	(*prev) = _kmem_last;
 
 	if (list_empty(&_kmem_init->node))
 		return NULL;
@@ -91,11 +153,7 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 		if (p_elem->size < size)
 			continue;
 
-		/* last item in memory */
-		if (!p_elem->next)
-			(*prev) = p_elem->prev;
-
-		list_del(&p_elem->node);
+		list_del_init(&p_elem->node);
 
 		return p_elem;
 	}
@@ -110,20 +168,23 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 
 static void kmem_split(struct kmem *k, size_t size)
 {
+	size_t len;
 	struct kmem *split;
 
 
 	/* align first */
-	split = (struct kmem *)((size_t) k + size);
+	split = (struct kmem *)((size_t) k->data + size);
 	split = ALIGN_PTR(split, sizeof(uint64_t));
 
 	split->data = split + 1;
 
-	split->size = k->size - ((uintptr_t) split->data - (uintptr_t) k->data);
+	len = ((uintptr_t) split - (uintptr_t) k->data);
 
 	/* now check if we still fit the required size */
-	if (split->size < size)
+	if (k->size < len + sizeof(*split))
 		return;
+
+	split->size = k->size - len - sizeof(*split);
 
 	/* we're good, finalise the split */
 	split->free = 1;
@@ -159,6 +220,36 @@ static void kmem_merge(struct kmem *k)
 		k->next->prev = k;
 }
 #endif /* CONFIG_MMU */
+
+
+#ifdef CONFIG_SYSCTL
+/**
+ * @brief initialise the sysctl entries
+ *
+ * @return -1 on error, 0 otherwise
+ *
+ * @note we set this up as a late initcall since we need sysctl to be
+ *	 configured first
+ */
+
+static int kmem_init_sysctl(void)
+{
+	struct sysobj *sobj;
+
+
+	sobj = sysobj_create();
+
+	if (!sobj)
+		return -1;
+
+	sobj->sattr = kmem_attributes;
+
+	sysobj_add(sobj, NULL, sysctl_root(), "kmem");
+
+	return 0;
+}
+late_initcall(kmem_init_sysctl);
+#endif /* CONFIG_SYSCTL */
 
 
 /**
@@ -215,7 +306,7 @@ void *kmalloc(size_t size)
 	unsigned long flags;
 
 	struct kmem *k_new;
-	struct kmem *k_prev = NULL;
+	struct kmem *k_prev = _kmem_last;
 
 
 	if (!size)
@@ -227,8 +318,7 @@ void *kmalloc(size_t size)
 	kmem_lock();
 
 	/* try to locate a free chunk first */
-	k_new = kmem_find_free_chunk(len, &k_prev);
-
+	k_new = kmem_find_free_chunk(len);
 	if (k_new) {
 		/* take only what we need */
 		if ((len + sizeof(struct kmem)) < k_new->size)
@@ -474,16 +564,18 @@ void kfree(void *ptr)
 	k->magic = 0;
 
 	if (k->next && k->next->free) {
-		list_del_init(&k->next->node);
+		list_del(&k->next->node);
 		kmem_merge(k);
+		INIT_LIST_HEAD(&k->node);
 	}
 
 	if (k->prev->free) {
 
-		list_del_init(&k->prev->node);
+		list_del(&k->prev->node);
 
 		k = k->prev;
 		kmem_merge(k);
+		INIT_LIST_HEAD(&k->node);
 	}
 
 	if (!k->next) {
