@@ -55,6 +55,7 @@ struct task_queue {
 	struct list_head wake;
 	struct list_head run;
 	struct list_head dead;
+	struct list_head clean;
 };
 
 

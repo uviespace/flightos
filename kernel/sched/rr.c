@@ -98,8 +98,9 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			break;
 		}
 
+
 		if (tsk->state == TASK_DEAD)
-			list_move_tail(&tsk->node, &tq[0].dead);
+			list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
 
 	if (next)
@@ -112,6 +113,8 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 static int rr_cleanup(void *data)
 {
+	int cpu;
+
 	struct task_struct *tsk;
 	struct task_struct *tmp;
 	unsigned long flags;
@@ -119,26 +122,40 @@ static int rr_cleanup(void *data)
 	struct task_queue *tq;
 
 
+	cpu = smp_cpu_id();
+
 	tq = ((struct scheduler *)data)->tq;
 
 	while (1) {
 
+		/* always explicitly yield here; this ensures that a DEAD
+		 * task has been removed and its stack is no longer in use
+		 * when we next encounter it on the to-clean list
+		 */
+
 		sched_yield();
 
-		/* note: we currently use only a single list */
-		if (list_empty(&tq[0].dead)) {
-			continue;
-		}
-
-
-		flags = arch_local_irq_save();
-		rr_lock();
-
-		list_for_each_entry_safe(tsk, tmp, &tq[0].dead, node) {
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].clean, node) {
 
 			list_del(&tsk->node);
 			kthread_free(tsk);
 		}
+
+		/* the scheduler moves any task encounter to the "dead"
+		 * list if the next task it encounters is so marked;
+		 * we then briefly lock the dead list and move the
+		 * task to the to-clean list; this allows us to keep
+		 * locking time at a minimum and also ensures
+		 * consistency because we are the only users
+		 * of the clean list in this particular function
+		 */
+
+		flags = arch_local_irq_save();
+		rr_lock();
+
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].dead, node)
+			list_move_tail(&tsk->node, &tq[cpu].clean);
+
 
 		rr_unlock();
 		arch_local_irq_restore(flags);
@@ -291,6 +308,7 @@ static int sched_rr_init(void)
 		INIT_LIST_HEAD(&sched_rr.tq[i].wake);
 		INIT_LIST_HEAD(&sched_rr.tq[i].run);
 		INIT_LIST_HEAD(&sched_rr.tq[i].dead);
+		INIT_LIST_HEAD(&sched_rr.tq[i].clean);
 	}
 
 
@@ -303,15 +321,16 @@ postcore_initcall(sched_rr_init);
 
 static int sched_rr_cleanup_init(void)
 {
+	int i;
+
 	struct task_struct *t;
 
-
-	t = kthread_create(rr_cleanup, &sched_rr,
-		       KTHREAD_CPU_AFFINITY_NONE, "RR_CLEAN");
-
-	BUG_ON(!t);
-
-	BUG_ON(kthread_wake_up(t) < 0);
+	/* need one cleanup per cpu */
+	for (i = 1; i < CONFIG_SMP_CPUS_MAX; i++) {
+		t = kthread_create(rr_cleanup, &sched_rr, i, "RR_CLEAN");
+		BUG_ON(!t);
+		BUG_ON(kthread_wake_up(t) < 0);
+	}
 
 	return 0;
 }
