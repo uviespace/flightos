@@ -56,8 +56,9 @@ static struct kmem *_kmem_last;
 static struct spinlock kmem_spinlock;
 
 
-
 #ifdef CONFIG_SYSCTL
+
+static uint32_t kmem_avail_bytes;
 
 #if (__sparc__)
 #define UINT32_T_FORMAT		"%lu"
@@ -65,38 +66,12 @@ static struct spinlock kmem_spinlock;
 #define UINT32_T_FORMAT		"%u"
 #endif
 
-
-/**
- * @brief get current size of available memory in our chunk pool
- */
-
-static size_t kmem_get_avail_bytes(void)
-{
-	size_t n = 0;
-
-	struct kmem *p_tmp;
-	struct kmem *p_elem;
-
-
-	if (list_empty(&_kmem_init->node))
-		goto exit;
-
-	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node)
-		n += p_elem->size;
-
-exit:
-	return n;
-}
-
-
-
 static ssize_t kmem_show(__attribute__((unused)) struct sysobj *sobj,
 			 __attribute__((unused)) struct sobj_attribute *sattr,
 			 char *buf)
 {
 	if (!strcmp(sattr->name, "bytes_free"))
-		return sprintf(buf, UINT32_T_FORMAT, (uint32_t) kmem_get_avail_bytes());
-
+		return sprintf(buf, UINT32_T_FORMAT, kmem_avail_bytes);
 
 	return 0;
 }
@@ -180,6 +155,10 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	len = ((uintptr_t) split - (uintptr_t) k->data);
 
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
+
 	/* now check if we still fit the required size */
 	if (k->size < len + sizeof(*split))
 		return;
@@ -201,6 +180,10 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	if (!split->next)
 		_kmem_last = split;
+
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes += split->size;
+#endif /* CONFIG_SYSCTL */
 
 	list_add_tail(&split->node, &_kmem_init->node);
 }
@@ -565,23 +548,44 @@ void kfree(void *ptr)
 
 	if (k->next && k->next->free) {
 		list_del(&k->next->node);
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
+
 		kmem_merge(k);
 		INIT_LIST_HEAD(&k->node);
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes += k->size;
+#endif /* CONFIG_SYSCTL */
 	}
 
 	if (k->prev->free) {
 
 		list_del(&k->prev->node);
 
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
+
 		k = k->prev;
 		kmem_merge(k);
 		INIT_LIST_HEAD(&k->node);
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes += k->size;
+#endif /* CONFIG_SYSCTL */
 	}
 
 	if (!k->next) {
 		/* last item in heap memory, return to system */
 		k->prev->next = NULL;
 		_kmem_last = k->prev;
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
 
 		/* release back */
 		kernel_sbrk(-(k->size + sizeof(struct kmem)));

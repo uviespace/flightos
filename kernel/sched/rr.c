@@ -100,7 +100,8 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 
 		if (tsk->state == TASK_DEAD)
-			list_move_tail(&tsk->node, &tq[cpu].dead);
+			if (tsk->on_cpu == cpu)
+				list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
 
 	if (next)
@@ -136,7 +137,6 @@ static int rr_cleanup(void *data)
 		sched_yield();
 
 		list_for_each_entry_safe(tsk, tmp, &tq[cpu].clean, node) {
-
 			list_del(&tsk->node);
 			kthread_free(tsk);
 		}
@@ -326,7 +326,7 @@ static int sched_rr_cleanup_init(void)
 	struct task_struct *t;
 
 	/* need one cleanup per cpu */
-	for (i = 1; i < CONFIG_SMP_CPUS_MAX; i++) {
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
 		t = kthread_create(rr_cleanup, &sched_rr, i, "RR_CLEAN");
 		BUG_ON(!t);
 		BUG_ON(kthread_wake_up(t) < 0);
