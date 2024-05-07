@@ -155,10 +155,6 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	len = ((uintptr_t) split - (uintptr_t) k->data);
 
-#ifdef CONFIG_SYSCTL
-	kmem_avail_bytes -= k->size;
-#endif /* CONFIG_SYSCTL */
-
 	/* now check if we still fit the required size */
 	if (k->size < len + sizeof(*split))
 		return;
@@ -303,6 +299,11 @@ void *kmalloc(size_t size)
 	/* try to locate a free chunk first */
 	k_new = kmem_find_free_chunk(len);
 	if (k_new) {
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k_new->size;
+#endif /* CONFIG_SYSCTL */
+
 		/* take only what we need */
 		if ((len + sizeof(struct kmem)) < k_new->size)
 			kmem_split(k_new, len);
@@ -550,15 +551,11 @@ void kfree(void *ptr)
 		list_del(&k->next->node);
 
 #ifdef CONFIG_SYSCTL
-		kmem_avail_bytes -= k->size;
+		kmem_avail_bytes -= k->next->size;
 #endif /* CONFIG_SYSCTL */
 
 		kmem_merge(k);
 		INIT_LIST_HEAD(&k->node);
-
-#ifdef CONFIG_SYSCTL
-		kmem_avail_bytes += k->size;
-#endif /* CONFIG_SYSCTL */
 	}
 
 	if (k->prev->free) {
@@ -566,17 +563,17 @@ void kfree(void *ptr)
 		list_del(&k->prev->node);
 
 #ifdef CONFIG_SYSCTL
-		kmem_avail_bytes -= k->size;
+		kmem_avail_bytes -= k->prev->size;
 #endif /* CONFIG_SYSCTL */
 
 		k = k->prev;
 		kmem_merge(k);
 		INIT_LIST_HEAD(&k->node);
+	}
 
 #ifdef CONFIG_SYSCTL
 		kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
-	}
 
 	if (!k->next) {
 		/* last item in heap memory, return to system */
