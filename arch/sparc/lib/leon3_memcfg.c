@@ -393,6 +393,14 @@ uint32_t leon3_memcfg_bypass_read(void *addr, uint8_t *tcb)
  * @param value the data word to write
  * @param tcb the checkbits to set
  *
+ * XXX note this will introduce extra errors if the MMU is enabled (the
+ * context table entries will receive wrong checkbits),
+ * since this mechanism causes checkbit updates for all write operations
+ * on the bus; this means that this will also potentially cause edac errors
+ * for any other transfer, such as by SpW or other IP cores
+ *
+ * disable the mmu if needed and use with great care
+ *
  */
 
 void leon3_memcfg_bypass_write(void *addr, uint32_t value, uint8_t tcb)
