@@ -102,7 +102,6 @@ static ssize_t memscrub_store(__attribute__((unused)) struct sysobj *sobj,
 	if (p)
 		wpc = strtol(p, NULL, 0);
 
-	printk("%s %d %d %d\n", sattr->name, begin, end, wpc);
 	if (!strcmp("section_add", sattr->name))
 		return memscrub_seg_add(begin, end, wpc);
 
