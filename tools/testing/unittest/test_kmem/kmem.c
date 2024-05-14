@@ -33,7 +33,8 @@ void kfree(void *ptr);
 
 #define WORD_ALIGN(x)	ALIGN((x), sizeof(uint64_t))
 
-#define MAGIC	0x0DEFACED
+#define MAGIC		0xB19B00B5
+#define FREE_MAGIC	0x0DEFACED
 
 #define CONFIG_MMU 1;
 
@@ -67,6 +68,8 @@ uint32_t addr_hi;
 unsigned long sbrk;
 
 
+size_t n_free;
+size_t n_alloc;
 
 
 
@@ -122,13 +125,13 @@ void *kernel_sbrk(intptr_t increment)
 				 */
 				int i;
 				unsigned char *p = (unsigned char *) brk;
-#if 0
+#if 1
 				for (i = 0; i < oldbrk - brk; i++) {
 #if 0
 					printf("set %p\n", &p[i]);
 #endif
 
-					p[i] = 0xde;
+					p[i] = 0x55;
 				}
 #endif
 			}
@@ -139,7 +142,9 @@ void *kernel_sbrk(intptr_t increment)
 #if 0
         printf("SBRK: moved %08lx -> %08lx, alloc %g MB\n", oldbrk, brk, (brk-addr_lo) / (1024. * 1024.));
 #else
+#if 0
         printf("%g\n", (brk-addr_lo) / (1024. * 1024.));
+#endif
 #endif
 
         return (void *) oldbrk;
@@ -150,13 +155,12 @@ void *kernel_sbrk(intptr_t increment)
  * @brief see if we can find a suitable chunk in our pool
  */
 
-static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
+static struct kmem *kmem_find_free_chunk(size_t size)
 {
 	struct kmem *p_tmp;
 	struct kmem *p_elem;
 
 
-	(*prev) = _kmem_last;
 
 	if (list_empty(&_kmem_init->node))
 		return NULL;
@@ -166,11 +170,7 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 		if (p_elem->size < size)
 			continue;
 
-		/* last item in memory */
-		if (!p_elem->next)
-			(*prev) = p_elem->prev;
-
-		list_del(&p_elem->node);
+		list_del_init(&p_elem->node);
 
 		return p_elem;
 	}
@@ -179,32 +179,32 @@ static struct kmem *kmem_find_free_chunk(size_t size, struct kmem **prev)
 }
 
 
-
-
-
 /**
  * @brief split a chunk in two for a given size
  */
 
 static void kmem_split(struct kmem *k, size_t size)
 {
+	size_t len;
 	struct kmem *split;
 
 
 	/* align first */
-	split = (struct kmem *)((size_t) k + size);
+	split = (struct kmem *)((size_t) k->data + size);
 	split = ALIGN_PTR(split, sizeof(uint64_t));
 
 	split->data = split + 1;
 
-	split->size = k->size - ((uintptr_t) split->data - (uintptr_t) k->data);
+	len = ((uintptr_t) split - (uintptr_t) k->data);
 
 	/* now check if we still fit the required size */
-	if (split->size < size)
+	if (k->size < len + sizeof(*split))
 		return;
 
+	split->size = k->size - len - sizeof(*split);
+
 	/* we're good, finalise the split */
-	split->free = 1;
+	split->free = FREE_MAGIC;
 	split->magic = 0;
 	split->prev = k;
 	split->next = k->next;
@@ -298,7 +298,7 @@ void *kmalloc(size_t size)
 	size_t len;
 
 	struct kmem *k_new;
-	struct kmem *k_prev = NULL;
+	struct kmem *k_prev = _kmem_last;
 
 
 	if (!size)
@@ -309,7 +309,7 @@ void *kmalloc(size_t size)
 
 
 	/* try to locate a free chunk first */
-	k_new = kmem_find_free_chunk(len, &k_prev);
+	k_new = kmem_find_free_chunk(len);
 
 	if (k_new) {
 		/* take only what we need */
@@ -318,7 +318,7 @@ void *kmalloc(size_t size)
 
 		k_new->free = 0;
 		k_new->magic = MAGIC;
-
+		n_alloc++;
 		goto exit;
 	}
 
@@ -350,6 +350,7 @@ void *kmalloc(size_t size)
 
 exit:
 
+	n_alloc++;
 	return k_new->data;
 #else
 	return bootmem_alloc(size);
@@ -504,7 +505,7 @@ void kfree(void *ptr)
 	unsigned long flags __attribute__((unused));
 
 	struct kmem *k __attribute__((unused));
-
+	int rel  =0;
 
 	if (!ptr)
 		return;
@@ -540,17 +541,28 @@ void kfree(void *ptr)
 		return;
 	}
 
+	/** XXX try protecting against corruption !*/
+	if (k->next && k->next->free) {
+		if (k->next->free != FREE_MAGIC) {
 
-	k->free = 1;
+			printf("KMEM: corruption detected have invalid free block magic 0x%08x "
+			        "marker when trying to free chunk %p with next chunk %p",
+				k->next->free, k, k->next);
+
+			k->next = NULL;
+		}
+	}
+
+
+	n_free++;
+	k->free = FREE_MAGIC;
 	k->magic = 0;
 
 	if (k->next && k->next->free) {
-		/* this one would be on the free list, remove
-		 * XXX: this check should not be necessary at all
-		 */
-		if (!list_empty(&k->next->node))
-			list_del(&k->next->node);
+		list_del(&k->next->node);
+
 		kmem_merge(k);
+		INIT_LIST_HEAD(&k->node);
 	}
 
 	if (k->prev->free) {
@@ -559,26 +571,24 @@ void kfree(void *ptr)
 
 		k = k->prev;
 		kmem_merge(k);
+		INIT_LIST_HEAD(&k->node);
 	}
 
 	if (!k->next) {
-#if 1
-		_kmem_last = k;
-		INIT_LIST_HEAD(&k->node);
-#else
 		/* last item in heap memory, return to system */
 		k->prev->next = NULL;
 		_kmem_last = k->prev;
 
 		/* release back */
 		kernel_sbrk(-(k->size + sizeof(struct kmem)));
+		rel = 1;
+
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);
-#endif
 	}
 
-		list_add_tail(&k->node, &_kmem_init->node);
-
+	if (rel)
+		printf("SBRK: %p F: %d A: %d\n", kernel_sbrk(0), n_free, n_alloc);
 #endif /* CONFIG_MMU */
 }
 
@@ -598,7 +608,7 @@ void verify(void)
 	return;
 
 	for (i = 0; i < addr_hi - sbrk; i++) {
-		if (p[i] != 0xde) {
+		if (p[i] != 0x55) {
 			printf("error at addr %08x (offset %d), value %02x\n", sbrk + i,i,  p[i]);
 			exit(-1);
 		}
@@ -606,9 +616,9 @@ void verify(void)
 
 }
 
-#define P 150
+#define P 350
 #define LEN_BIG		7 * 1024 * 1024
-#define LEN_SMALL	5 * 1024
+#define LEN_SMALL	5 * 100
 
 
 void run_test(void)
@@ -635,10 +645,20 @@ void run_test(void)
 				break;;
 
 			for (j = 0; j < len[i]; j++)
-				p[i][j] = 0xb19b00b5;
+				p[i][j] = 0xaaaaaa;
 		}
 
-		if (rand() % 200 != 0) {
+		if (rand() % 100 == 0) {
+			for (i = 0; i < P; i++) {
+				kfree(p[i]);
+				p[i] = NULL;
+				verify();
+			}
+		}
+
+
+		if (rand() % 10 != 0)
+		{
 			for (i = 0; i < P; i++) {
 
 				v = rand();
@@ -654,7 +674,7 @@ void run_test(void)
 			for (i = 0; i < P; i++) {
 				kfree(p[i]);
 				p[i] = NULL;
-				//verify();
+				verify();
 			}
 		}
 	}
@@ -674,7 +694,7 @@ int main(void)
 
 	sbrk = (uint32_t) addr_lo;
 
-	memset((void *) addr_lo, 0xde, addr_hi-addr_lo);
+	memset((void *) addr_lo, 0x55, addr_hi-addr_lo);
 
 	kmem_init();
 
