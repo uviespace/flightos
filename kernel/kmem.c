@@ -37,7 +37,8 @@
 
 #define WORD_ALIGN(x)	ALIGN((x), sizeof(uint64_t))
 
-#define MAGIC	0x0DEFACED
+#define MAGIC		0xB19B00B5
+#define FREE_MAGIC	0x0DEFACED
 
 #ifdef CONFIG_MMU
 struct kmem {
@@ -162,7 +163,7 @@ static void kmem_split(struct kmem *k, size_t size)
 	split->size = k->size - len - sizeof(*split);
 
 	/* we're good, finalise the split */
-	split->free = 1;
+	split->free = FREE_MAGIC;
 	split->magic = 0;
 	split->prev = k;
 	split->next = k->next;
@@ -541,11 +542,23 @@ void kfree(void *ptr)
 		return;
 	}
 
+	/** XXX kalarm(): this is pretty bad */
+	if (k->next && k->next->free) {
+		if (k->next->free != FREE_MAGIC) {
+			pr_crit("KMEM: corruption detected have: invalid free block magic 0x%08x "
+			        "marker when trying to free chunk %p with next chunk %p",
+				k->next->free, k, k->next);
+			return;
+		}
+	}
+
+
 	flags = arch_local_irq_save();
 	kmem_lock();
 
-	k->free = 1;
+	k->free = FREE_MAGIC;
 	k->magic = 0;
+
 
 	if (k->next && k->next->free) {
 		list_del(&k->next->node);
