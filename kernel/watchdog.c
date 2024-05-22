@@ -134,7 +134,7 @@ void watchdog_check_device(struct clock_event_device *dev)
 	if (!watchdog_check_preferred(cur, dev))
 		return;
 
-	printk("WD GOT ONE!!!\n");
+	pr_info("Watchdog capable timer found\n");
 
 	clockevents_exchange_device(cur, dev);
 

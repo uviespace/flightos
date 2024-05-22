@@ -4,12 +4,19 @@ config PROJECTS
 
 choice
 	prompt "Select project"
-	default n
+	default PROJECT_SMILE
+	depends on PROJECTS
 
 config PROJECT_SMILE
 	bool "SMILE DPU"
 	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
 	help
 	 Configure DPU-specific setup for SMILE
+
+config PROJECT_MYAPP
+	bool "MYAPP_DEMO"
+	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
+	help
+	 Demonstrate loading of an application software
 
 endchoice

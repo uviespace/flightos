@@ -91,6 +91,7 @@ static void mem_init(void)
 #endif
 
 #ifdef CONFIG_LEON3
+
 #ifdef CONFIG_PROJECT_SMILE
 	/* XXX need something like CONFIG_SOC_SMILE_SXI */
 	/* XXX the base address is defined by the requirements
@@ -142,6 +143,9 @@ static void mem_init(void)
 	sp_banks[0].base_addr = 0x40000000;
 	sp_banks[0].num_bytes = 0x00800000;
 
+	/* use only first 64 MiB of SDRAM for our application demo */
+	sp_banks[1].base_addr = 0x60000000;
+	sp_banks[1].num_bytes = 0x04000000;
 #endif /* CONFIG_PROJECT_SMILE */
 #endif /* CONFIG_LEON3 */
 
