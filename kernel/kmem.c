@@ -4,7 +4,7 @@
  * @ingroup kmem
  * @defgroup kmem Kernel Memory Allocator
  *
- * @brief a malloc-like kernel memory allocator 
+ * @brief a malloc-like kernel memory allocator
  *
  * A simple high-level allocator that uses kernel_sbrk() implemented by the
  * architecture-specific (MMU) code to allocate memory. If no MMU is available,
@@ -286,7 +286,6 @@ void *kmalloc(size_t size)
 	unsigned long flags;
 
 	struct kmem *k_new;
-	struct kmem *k_prev = _kmem_last;
 
 
 	if (!size)
@@ -328,8 +327,8 @@ void *kmalloc(size_t size)
 	k_new->next = NULL;
 
 	/* link */
-	k_new->prev = k_prev;
-	k_prev->next = k_new;
+	k_new->prev = _kmem_last;
+	k_new->prev->next = k_new;
 
 	/* the actual size is defined by sbrk(), we get a guranteed minimum,
 	 * but the resulting size may be larger
@@ -562,6 +561,7 @@ void kfree(void *ptr)
 
 	if (k->next && k->next->free) {
 		list_del(&k->next->node);
+		k->next->free = 0;
 
 #ifdef CONFIG_SYSCTL
 		kmem_avail_bytes -= k->next->size;
@@ -572,8 +572,8 @@ void kfree(void *ptr)
 	}
 
 	if (k->prev->free) {
-
 		list_del(&k->prev->node);
+		k->free = 0;
 
 #ifdef CONFIG_SYSCTL
 		kmem_avail_bytes -= k->prev->size;
@@ -596,6 +596,9 @@ void kfree(void *ptr)
 #ifdef CONFIG_SYSCTL
 		kmem_avail_bytes -= k->size;
 #endif /* CONFIG_SYSCTL */
+
+		k->free  = 0;
+		k->magic = 0;
 
 		/* release back */
 		kernel_sbrk(-(k->size + sizeof(struct kmem)));

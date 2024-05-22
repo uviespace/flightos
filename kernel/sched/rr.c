@@ -179,6 +179,8 @@ static int rr_wake(struct task_struct *task, ktime now)
 
 	struct task_queue *tq;
 
+	unsigned long flags;
+
 
 	if (!task)
 		return -EINVAL;
@@ -212,9 +214,11 @@ static int rr_wake(struct task_struct *task, ktime now)
 	task->runtime   = task->attr.wcet;
 	task->state     = TASK_RUN;
 
+	flags = arch_local_irq_save();
 	rr_lock();
 	list_move(&task->node, &tq[0].run);
 	rr_unlock();
+	arch_local_irq_restore(flags);
 
 
 	return 0;
@@ -228,9 +232,13 @@ static int rr_wake(struct task_struct *task, ktime now)
 
 static int rr_enqueue(struct task_struct *task)
 {
+	unsigned long flags;
+
+	flags = arch_local_irq_save();
 	rr_lock();
 	list_add_tail(&task->node, &task->sched->tq[0].wake);
 	rr_unlock();
+	arch_local_irq_restore(flags);
 
 	return 0;
 }
