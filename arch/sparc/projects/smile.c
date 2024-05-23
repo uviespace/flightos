@@ -221,6 +221,12 @@ static int smile_mem_cfg(void)
 	leon3_memcfg_enable_ram_edac();
 	leon3_memcfg_clear_sram_disable();
 
+	/* leon3_memcfg_() is not fully implemented for memcfg3()
+	 * so we set here by magic number
+	 */
+#define MEMCFG3_RAMACCESS		0x08185300
+	iowrite32be(MEMCFG3_RAMACCESS, (void *)0x80000008);
+
 	return 0;
 }
 core_initcall(smile_mem_cfg)
