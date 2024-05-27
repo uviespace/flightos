@@ -78,9 +78,9 @@ __wim_overflow:
 	mov 	%l5, %g5	! restore original %g5
 
         wr      %l0, %g0, %psr	! restore PSR, delayed-write instruction
-	nop			! need 2 delays, rett modifies CWP
-	nop			! 3rd delay cycle is filled by jmp instr
-
+	nop
+	nop
+	nop
 	/* load %pc from %l1 and  return to execute the trapped save instruction
 	 * at %npc
 	 */

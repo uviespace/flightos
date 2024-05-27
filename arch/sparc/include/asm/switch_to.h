@@ -183,6 +183,7 @@ __asm__ __volatile__(							\
 	"ldd	[%%sp + 0x00], %%l0\n\t"			\
 	"ldd	[%%sp + 0x38], %%i6\n\t"			\
 	"wr	%%g4, 0x0, %%psr\n\t"				\
+	"nop; nop\n\t"						\
 	"jmpl %%o7 + 0x8, %%g0\n\t"				\
 	" nop\n\t"						\
 	"here:\n\t"						\
