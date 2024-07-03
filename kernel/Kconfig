@@ -18,16 +18,6 @@ config KERNEL_LEVEL
 	 7: informational
 	 8: debug
 
-config PAGES_RELEASE_MAX
-	int "Maximum number of pages to return when rewinding the system break"
-	depends on MMU
-	default 4096
-	help
-	  Limit the number of pages released back to the system break on kfree().
-	  This prevents extra time spent releasing pages when deallocating very
-	  large memory buffers. The remaining unused memory will be naturally
-	  released over time during subsequent kmalloc()/kfree() calls.
-	  Set to 0 to disable partial returns.
 
 config IRQ_STATS_COLLECT
 	bool "Enable IRQ statistics via sysctl"

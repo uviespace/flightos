@@ -19,6 +19,41 @@ config MM
 	  size of 4 GiB and a page size of 4 kiB requires bit map space of
 	  1 MiB.
 
+
+menu "Memory Management Page Return Options"
+        depends on MM
+
+config KMEM_RELEASE_UNUSED
+	depends on MMU
+	bool "Release unused memory chunks by rewinding the system break"
+	default y
+
+config KMEM_RELEASE_UNUSED_LAZY
+	depends on KMEM_RELEASE_UNUSED
+	bool "Release only a limited number of pages at once"
+	default y
+
+config PAGES_RELEASE_MAX
+	int "Maximum number of pages to return at once"
+	depends on KMEM_RELEASE_UNUSED_LAZY
+	default 10
+	help
+	  Limit the number of pages released back to the system break.
+	  This prevents extra time spent releasing pages when deallocating very
+	  large memory buffers. The remaining unused memory will be naturally
+	  released over time during subsequent kmalloc()/kfree() calls or
+	  in the background by if KMEM_RELEASE_BACKGROUND is enabled
+	  Note: if set to 0, RELEASE_UNUSED_LAZY is effectively disabled
+	  Beware: if KMEM_RELEASE_BACKGROUND is enabled, leave this number in
+	  the low 10s
+
+config KMEM_RELEASE_BACKGROUND
+	depends on KMEM_RELEASE_UNUSED_LAZY
+	bool "Release unused memory chunks in the background"
+	default y
+endmenu
+
+
 menu "Memory Management Debug Options"
         depends on MM
 

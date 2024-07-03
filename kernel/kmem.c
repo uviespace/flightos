@@ -23,16 +23,13 @@
 #include <kernel/string.h>
 #include <kernel/init.h>
 #include <page.h>
-
+#include <kernel/kthread.h>
 
 #include <asm-generic/irqflags.h>
 #include <asm/spinlock.h>
 
-
 #ifdef CONFIG_MMU
 #include <kernel/sbrk.h>
-#else
-#include <kernel/bootmem.h>
 #endif /* CONFIG_MMU */
 
 #define WORD_ALIGN(x)	ALIGN((x), sizeof(uint64_t))
@@ -203,14 +200,14 @@ static void kmem_merge(struct kmem *k)
 }
 
 
+#ifdef CONFIG_KMEM_RELEASE_UNUSED_LAZY
 /**
  * @brief release surplus chunks in limited size to prevent extensive
  *	  cpu time spent in critical sections during sbrk()
- *
- *	  XXX bugged
+ * @warn to be calle call only from kmem_release_unused()
  */
 
-static void kmem_lazy_release(struct kmem **ptr)
+static void kmem_lazy_release(void)
 {
 	size_t sz;
 
@@ -227,13 +224,12 @@ static void kmem_lazy_release(struct kmem **ptr)
 	if (!CONFIG_PAGES_RELEASE_MAX)
 		return;
 
-	k = (*ptr);
-
-	if (k->next)
-		return;
+	k = _kmem_last;
 
 	if (k->size <= sizeof(struct kmem) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)
 		return;
+
+	list_del_init(&k->node);
 
 	sz = k->size;
 
@@ -243,19 +239,90 @@ static void kmem_lazy_release(struct kmem **ptr)
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes -= sz;
 #endif /* CONFIG_SYSCTL */
-	k->free = FREE_MAGIC;
-	k->magic = 0;
+
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
 
 	list_add_tail(&k->node, &_kmem_init->node);
+}
+#endif /* CONFIG_KMEM_RELEASE_UNUSED_LAZY */
 
-	(*ptr) = k->next;
+#ifdef CONFIG_KMEM_RELEASE_UNUSED
+static void kmem_release_unused(void)
+{
+	unsigned long flags;
+
+	struct kmem *k;
+
+
+	flags = arch_local_irq_save();
+	kmem_lock();
+
+	if (_kmem_last->free != FREE_MAGIC)
+		goto unlock;
+
+#ifdef CONFIG_KMEM_RELEASE_UNUSED_LAZY
+	kmem_lazy_release();
+#endif /* CONFIG_KMEM_RELEASE_UNUSED_LAZY */
+
+	k = _kmem_last;
+
+	/* the previous chunk is now the last item */
+	k->prev->next = NULL;
+	_kmem_last = k->prev;
+
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
+
+	k->free  = 0;
+	k->magic = 0;
+
 	list_del(&k->node);
+
+	/* release back */
+	kernel_sbrk(-(k->size + sizeof(struct kmem)));
+
+unlock:
+	kmem_unlock();
+	arch_local_irq_restore(flags);
+}
+#endif /* CONFIG_KMEM_RELEASE_UNUSED */
+
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
+static int kmem_release_bg(void *data)
+{
+	while (1) {
+		kmem_release_unused();
+		sched_yield();
+	}
+
+	return 0;
 }
 
 
+int kmem_bg_release_init(void)
+{
+	struct task_struct *t;
+
+	/* XXX  we explicitly set cpu affinity 1 and a fixed runtime
+	 * here, but actually we want that to be configurable
+	 * so it can be set on a per-mission basis
+	 */
+
+	t = kthread_create(kmem_release_bg, NULL, 1, "KMEM_REL");
+	BUG_ON(!t);
+
+	/* run for at most 1 ms every second and keep it thight */
+	kthread_set_sched_edf(t, 1000 * 1000, 1100, 1000);
+
+	BUG_ON(kthread_wake_up(t) < 0);
+
+	return 0;
+}
+device_initcall(kmem_bg_release_init);
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 
 #endif /* CONFIG_MMU */
 
@@ -550,14 +617,12 @@ void *krealloc(void *ptr, size_t size)
  *
  * @param ptr the memory to free
  */
-#include <kernel/time.h>
+
 void kfree(void *ptr)
 {
 	unsigned long flags __attribute__((unused));
 
 	struct kmem *k __attribute__((unused));
-	static ktime last;
-	ktime now;
 
 
 	if (!ptr)
@@ -648,74 +713,17 @@ void kfree(void *ptr)
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
 
+	list_add_tail(&k->node, &_kmem_init->node);
 
-
-	/* XXX TODO if this works, fixup the lazy_release call
-	 * and add a CONFIG_PAGES_PER_SECOND_MAX
-	 */
-	now = ktime_get();
-	if (ktime_ms_delta(now, last) < 10) {
-		/* outside grace period, attach to chunk pool and get out */
-		list_add_tail(&k->node, &_kmem_init->node);
-		goto unlock;
-	}
-
-#if 1
-	/* if enabled, we split the last chunk to release at most the configured
-	 * number of bytes back to the system break and keep the remainder
-	 * in our chunk pool. This is used to reduce the time spent releasing
-	 * pages from the MMU-context when freeing very large buffers.
-	 * The remaining memory will be naturally released to the system break
-	 * over time by kmalloc/free calls.
-	 */
-	if (CONFIG_PAGES_RELEASE_MAX && !k->next) {
-		if (k->size > sizeof(struct kmem) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE) {
-
-			size_t sz = k->size;
-
-			if (kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)) {
-#ifdef CONFIG_SYSCTL
-				kmem_avail_bytes -= sz;
-#endif /* CONFIG_SYSCTL */
-				k->free = FREE_MAGIC;
-				k->magic = 0;
-#ifdef CONFIG_SYSCTL
-				kmem_avail_bytes += k->size;
-#endif /* CONFIG_SYSCTL */
-
-				list_add_tail(&k->node, &_kmem_init->node);
-
-				k = k->next;
-				list_del(&k->node);
-
-				last = now;
-			}
-		}
-	}
-#else
-	kmem_lazy_release(&k);
-#endif
-	if (!k->next) {
-		/* last item in heap memory, return to system */
-		k->prev->next = NULL;
-		_kmem_last = k->prev;
-
-#ifdef CONFIG_SYSCTL
-		kmem_avail_bytes -= k->size;
-#endif /* CONFIG_SYSCTL */
-
-		k->free  = 0;
-		k->magic = 0;
-
-		/* release back */
-		kernel_sbrk(-(k->size + sizeof(struct kmem)));
-
-	} else {
-		list_add_tail(&k->node, &_kmem_init->node);
-	}
-unlock:
 	kmem_unlock();
 	arch_local_irq_restore(flags);
+
+#ifdef CONFIG_KMEM_RELEASE_UNUSED
+#ifndef CONFIG_KMEM_RELEASE_BACKGROUND
+	kmem_release_unused();
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
+#endif /* CONFIG_KMEM_RELEASE_UNUSED */
+
 #endif /* CONFIG_MMU */
 }
 
