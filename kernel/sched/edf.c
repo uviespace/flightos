@@ -164,7 +164,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 	/* XXX this task never ran, we're in serious trouble */
 	if (tsk->runtime == tsk->attr.wcet) {
 		printk("T == WCET!! %s\n", tsk->name);
-		__asm__ __volatile__ ("ta 0\n\t");
+		panic();
 	}
 
 
@@ -184,7 +184,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 					      tsk->on_cpu, now);
 
 		/* XXX raise kernel alarm and attempt to recover wakeup */
-		__asm__ __volatile__ ("ta 0\n\t");
+		panic();
 	}
 
 
