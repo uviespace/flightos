@@ -111,6 +111,7 @@ static void kmem_unlock(void)
  * @brief see if we can find a suitable chunk in our pool
  */
 
+static void kmem_merge(struct kmem *k);
 static struct kmem *kmem_find_free_chunk(size_t size)
 {
 	struct kmem *p_tmp;
@@ -120,6 +121,20 @@ static struct kmem *kmem_find_free_chunk(size_t size)
 
 	if (list_empty(&_kmem_init->node))
 		return NULL;
+
+
+	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node) {
+
+		if (p_elem->next->free == FREE_MAGIC) {
+#ifdef CONFIG_SYSCTL
+			kmem_avail_bytes -= p_elem->next->size;
+			kmem_avail_bytes -= p_elem->size;
+#endif /* CONFIG_SYSCTL */
+			list_del_init(&p_elem->next->node);
+			kmem_merge(p_elem);
+		}
+	}
+
 
 	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node) {
 
@@ -316,11 +331,11 @@ int kmem_bg_release_init(void)
 	 * so it can be set on a per-mission basis
 	 */
 
-	t = kthread_create(kmem_release_bg, NULL, 0, "KMEM_REL");
+	t = kthread_create(kmem_release_bg, NULL, 1, "KMEM_REL");
 	BUG_ON(!t);
 
 	/* run for at most 1 ms every second and keep it thight */
-	kthread_set_sched_edf(t, 1000 * 1000, 1100, 1000);
+	kthread_set_sched_edf(t, 1000 * 1000, 2000, 1000);
 
 	BUG_ON(kthread_wake_up(t) < 0);
 
@@ -469,7 +484,25 @@ void *kmalloc(size_t size)
 	k_new->data = k_new + 1;
 
 	_kmem_last = k_new;
+#if 0
+	/* if prev was free, upmerge first, then split */
+	if (k_new->prev->free == FREE_MAGIC) {
 
+		list_del_init(&k_new->prev->node);
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k_new->prev->size;
+#endif /* CONFIG_SYSCTL */
+
+		k_new = k_new->prev;
+		kmem_merge(k_new);
+
+		kmem_split(k_new, len);
+
+		k_new->free = 0;
+		k_new->magic = MAGIC;
+	}
+#endif
 exit:
 	kmem_unlock();
 	arch_local_irq_restore(flags);
@@ -717,7 +750,7 @@ void kfree(void *ptr)
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
-#if 0
+#if 1
 	if (!k->next)
 		_kmem_last = k;
 
@@ -726,7 +759,9 @@ void kfree(void *ptr)
 
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 #ifndef CONFIG_KMEM_RELEASE_BACKGROUND
+
 	kmem_release_unused();
+
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
 #else
