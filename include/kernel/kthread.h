@@ -116,7 +116,7 @@ int kthread_wake_up(struct task_struct *task);
 void kthread_free(struct task_struct *task);
 
 int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
-			  unsigned long wcet_us, unsigned long deadline_rel_us);
+			   unsigned long deadline_rel_us, unsigned long wcet_us);
 
 int kthread_set_sched_rr(struct task_struct *task, unsigned long priority);
 
