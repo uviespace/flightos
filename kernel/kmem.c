@@ -142,7 +142,7 @@ static struct kmem *kmem_find_free_chunk(size_t size)
  * @brief split a chunk in two for a given size
  */
 
-static void kmem_split(struct kmem *k, size_t size)
+static int kmem_split(struct kmem *k, size_t size)
 {
 	size_t len;
 	struct kmem *split;
@@ -158,7 +158,7 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	/* now check if we still fit the required size */
 	if (k->size < len + sizeof(*split))
-		return;
+		return 0;
 
 	split->size = k->size - len - sizeof(*split);
 
@@ -183,6 +183,8 @@ static void kmem_split(struct kmem *k, size_t size)
 #endif /* CONFIG_SYSCTL */
 
 	list_add_tail(&split->node, &_kmem_init->node);
+
+	return 1;
 }
 
 
@@ -199,6 +201,62 @@ static void kmem_merge(struct kmem *k)
 	if (k->next)
 		k->next->prev = k;
 }
+
+
+/**
+ * @brief release surplus chunks in limited size to prevent extensive
+ *	  cpu time spent in critical sections during sbrk()
+ *
+ *	  XXX bugged
+ */
+
+static void kmem_lazy_release(struct kmem **ptr)
+{
+	size_t sz;
+
+	struct kmem *k;
+
+
+	/* if enabled, we split the last chunk to release at most the configured
+	 * number of bytes back to the system break and keep the remainder
+	 * in our chunk pool. This is used to reduce the time spent releasing
+	 * pages from the MMU-context when freeing very large buffers.
+	 * The remaining memory will be naturally released to the system break
+	 * over time by kmalloc/free calls.
+	 */
+	if (!CONFIG_PAGES_RELEASE_MAX)
+		return;
+
+	k = (*ptr);
+
+	if (k->next)
+		return;
+
+	if (k->size <= sizeof(struct kmem) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)
+		return;
+
+	sz = k->size;
+
+	if (!kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE))
+		return;
+
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes -= sz;
+#endif /* CONFIG_SYSCTL */
+	k->free = FREE_MAGIC;
+	k->magic = 0;
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes += k->size;
+#endif /* CONFIG_SYSCTL */
+
+	list_add_tail(&k->node, &_kmem_init->node);
+
+	(*ptr) = k->next;
+	list_del(&k->node);
+}
+
+
+
 #endif /* CONFIG_MMU */
 
 
@@ -492,12 +550,14 @@ void *krealloc(void *ptr, size_t size)
  *
  * @param ptr the memory to free
  */
-
+#include <kernel/time.h>
 void kfree(void *ptr)
 {
 	unsigned long flags __attribute__((unused));
 
 	struct kmem *k __attribute__((unused));
+	static ktime last;
+	ktime now;
 
 
 	if (!ptr)
@@ -585,9 +645,56 @@ void kfree(void *ptr)
 	}
 
 #ifdef CONFIG_SYSCTL
-		kmem_avail_bytes += k->size;
+	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
 
+
+
+	/* XXX TODO if this works, fixup the lazy_release call
+	 * and add a CONFIG_PAGES_PER_SECOND_MAX
+	 */
+	now = ktime_get();
+	if (ktime_ms_delta(now, last) < 10) {
+		/* outside grace period, attach to chunk pool and get out */
+		list_add_tail(&k->node, &_kmem_init->node);
+		goto unlock;
+	}
+
+#if 1
+	/* if enabled, we split the last chunk to release at most the configured
+	 * number of bytes back to the system break and keep the remainder
+	 * in our chunk pool. This is used to reduce the time spent releasing
+	 * pages from the MMU-context when freeing very large buffers.
+	 * The remaining memory will be naturally released to the system break
+	 * over time by kmalloc/free calls.
+	 */
+	if (CONFIG_PAGES_RELEASE_MAX && !k->next) {
+		if (k->size > sizeof(struct kmem) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE) {
+
+			size_t sz = k->size;
+
+			if (kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)) {
+#ifdef CONFIG_SYSCTL
+				kmem_avail_bytes -= sz;
+#endif /* CONFIG_SYSCTL */
+				k->free = FREE_MAGIC;
+				k->magic = 0;
+#ifdef CONFIG_SYSCTL
+				kmem_avail_bytes += k->size;
+#endif /* CONFIG_SYSCTL */
+
+				list_add_tail(&k->node, &_kmem_init->node);
+
+				k = k->next;
+				list_del(&k->node);
+
+				last = now;
+			}
+		}
+	}
+#else
+	kmem_lazy_release(&k);
+#endif
 	if (!k->next) {
 		/* last item in heap memory, return to system */
 		k->prev->next = NULL;
@@ -606,7 +713,7 @@ void kfree(void *ptr)
 	} else {
 		list_add_tail(&k->node, &_kmem_init->node);
 	}
-
+unlock:
 	kmem_unlock();
 	arch_local_irq_restore(flags);
 #endif /* CONFIG_MMU */
