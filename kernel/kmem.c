@@ -251,13 +251,15 @@ static void kmem_lazy_release(void)
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 static void kmem_release_unused(void)
 {
-	unsigned long flags;
+	unsigned long flags __attribute__((unused));
 
 	struct kmem *k;
 
 
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
 	flags = arch_local_irq_save();
 	kmem_lock();
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 
 	if (_kmem_last->free != FREE_MAGIC)
 		goto unlock;
@@ -285,8 +287,11 @@ static void kmem_release_unused(void)
 	kernel_sbrk(-(k->size + sizeof(struct kmem)));
 
 unlock:
+	return;
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
 	kmem_unlock();
 	arch_local_irq_restore(flags);
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 }
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
 
@@ -311,7 +316,7 @@ int kmem_bg_release_init(void)
 	 * so it can be set on a per-mission basis
 	 */
 
-	t = kthread_create(kmem_release_bg, NULL, 1, "KMEM_REL");
+	t = kthread_create(kmem_release_bg, NULL, 0, "KMEM_REL");
 	BUG_ON(!t);
 
 	/* run for at most 1 ms every second and keep it thight */
@@ -712,17 +717,42 @@ void kfree(void *ptr)
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
+#if 0
+	if (!k->next)
+		_kmem_last = k;
 
 	list_add_tail(&k->node, &_kmem_init->node);
 
-	kmem_unlock();
-	arch_local_irq_restore(flags);
 
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 #ifndef CONFIG_KMEM_RELEASE_BACKGROUND
 	kmem_release_unused();
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
+#else
+
+	if (!k->next) {
+		/* last item in heap memory, return to system */
+		k->prev->next = NULL;
+		_kmem_last = k->prev;
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
+
+		k->free  = 0;
+		k->magic = 0;
+
+		/* release back */
+		kernel_sbrk(-(k->size + sizeof(struct kmem)));
+
+	} else {
+		list_add_tail(&k->node, &_kmem_init->node);
+	}
+#endif
+
+	kmem_unlock();
+	arch_local_irq_restore(flags);
 
 #endif /* CONFIG_MMU */
 }
