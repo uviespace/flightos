@@ -493,6 +493,8 @@ void *kmalloc(size_t size)
 		}
 	}
 
+	data = k_new->data;
+
 exit:
 	kmem_unlock();
 	arch_local_irq_restore(flags);
