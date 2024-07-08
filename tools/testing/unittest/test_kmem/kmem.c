@@ -43,7 +43,9 @@ void kfree(void *ptr);
 #define CONFIG_KMEM_RELEASE_UNUSED
 
 #define CONFIG_PAGES_RELEASE_MAX 4096
+#if 0
 #define CONFIG_KMEM_RELEASE_UNUSED_LAZY
+#endif
 #define CONFIG_KMEM_RELEASE_BACKGROUND
 
 
@@ -69,7 +71,7 @@ static struct kmem *_kmem_last;
 #define STACK_ALIGN	8
 #define PAGE_SIZE	4096
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
-#define MEMSIZE_MAX 128*1024*1024
+#define MEMSIZE_MAX 128*1024*1024*4
 uint32_t *mem_base;
 uint32_t addr_lo;
 uint32_t addr_hi;
@@ -165,7 +167,14 @@ void *kernel_sbrk(intptr_t increment)
 
 static void kmem_lock(void)
 {
-	pthread_mutex_lock(&mutex);
+	int ret;
+
+	ret = pthread_mutex_lock(&mutex);
+
+	if (ret < 0) {
+		printf("ret was %d\n", ret);
+		exit(-1);
+	}
 }
 
 static void kmem_unlock(void)
@@ -207,7 +216,7 @@ static struct kmem *kmem_find_free_chunk(size_t size)
  * @brief split a chunk in two for a given size
  */
 
-static int kmem_split(struct kmem *k, size_t size)
+static void kmem_split(struct kmem *k, size_t size)
 {
 	size_t len;
 	struct kmem *split;
@@ -223,7 +232,7 @@ static int kmem_split(struct kmem *k, size_t size)
 
 	/* now check if we still fit the required size */
 	if (k->size < len + sizeof(*split))
-		return 0;
+		return;
 
 	split->size = k->size - len - sizeof(*split);
 
@@ -248,8 +257,6 @@ static int kmem_split(struct kmem *k, size_t size)
 #endif /* CONFIG_SYSCTL */
 
 	list_add_tail(&split->node, &_kmem_init->node);
-
-	return 1;
 }
 
 
@@ -297,12 +304,9 @@ static void kmem_lazy_release(void)
 	if (k->size <= sizeof(*k) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)
 		return;
 
-	list_del_init(&k->node);
-
 	sz = k->size;
 
-	if (!kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE))
-		return;
+	kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE);
 
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes -= sz;
@@ -357,7 +361,7 @@ static void *kmem_release_bg(void *data)
 {
 	while (1) {
 		kmem_release_unused();
-		usleep(100000);
+		usleep(10000);
 	}
 }
 
@@ -431,7 +435,6 @@ void *kmalloc(size_t size)
 #ifdef CONFIG_MMU
 	size_t len;
 
-	void *data = NULL;
 	struct kmem *k_new;
 
 
@@ -454,31 +457,36 @@ void *kmalloc(size_t size)
 		if ((len + sizeof(*k_new)) < k_new->size)
 			kmem_split(k_new, len);
 
-		k_new->free = 0;
-		k_new->magic = MAGIC;
-
-		data = k_new->data;
-
-		goto exit;
+		goto success;
 	}
-#if 0
-	/* kmem_last is free, reduce allocated size, merge and re-split below */
+
+	/* last chunk is free but to small, expand it */
 	if (_kmem_last->free == FREE_MAGIC) {
-		if (size > _kmem_last->size) {
-			printf("is  %d (%d) ", len, _kmem_last->size);
-			len = WORD_ALIGN(((size - _kmem_last->size)));
-			printf("now %d\n", len);
+
+		k_new = _kmem_last;
+
+		if (kernel_sbrk(len - k_new->size) == (void *)-1) {
+			k_new = NULL;
+			goto exit;
 		}
+
+		list_del_init(&k_new->node);
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k_new->size;
+#endif /* CONFIG_SYSCTL */
+
+		k_new->size = (size_t)kernel_sbrk(0) - (size_t)k_new - sizeof(*k_new);
+
+		goto success;
 	}
-#endif
-	/* need fresh memory */
+
+	/* need a fresh chunk */
 	k_new = kernel_sbrk(len);
-
-	if (k_new == (void *) -1)
+	if (k_new == (void *)-1) {
+		k_new = NULL;
 		goto exit;
-
-	k_new->free = 0;
-	k_new->magic = MAGIC;
+	}
 
 	k_new->next = NULL;
 
@@ -489,45 +497,22 @@ void *kmalloc(size_t size)
 	/* the actual size is defined by sbrk(), we get a guranteed minimum,
 	 * but the resulting size may be larger
 	 */
-	k_new->size = (size_t) kernel_sbrk(0) - (size_t) k_new - sizeof(*k_new);
+	k_new->size = (size_t)kernel_sbrk(0) - (size_t)k_new - sizeof(*k_new);
 
 	/* data section follows just after */
 	k_new->data = k_new + 1;
 
 	_kmem_last = k_new;
-	INIT_LIST_HEAD(&k_new->node);
 
-	/* if kmem_last was free, upmerge first, then split */
-	if (k_new->prev->free == FREE_MAGIC) {
-		if (k_new->prev->size + sizeof(*k_new) > k_new->size) {
-
-			list_del_init(&k_new->prev->node);
-
-#ifdef CONFIG_SYSCTL
-			kmem_avail_bytes -= k_new->prev->size;
-#endif /* CONFIG_SYSCTL */
-
-			k_new = k_new->prev;
-			kmem_merge(k_new);
-			INIT_LIST_HEAD(&k_new->node);
-
-			if (!kmem_split(k_new, len)) {
-				printf("SPLIT ERROR\n");
-				exit(-1);
-			}
-
-
-			k_new->free = 0;
-			k_new->magic = MAGIC;
-		}
-	}
-
-	data = k_new->data;
-
+success:
+	k_new->free = 0;
+	k_new->magic = MAGIC;
 exit:
 	kmem_unlock();
+	if (k_new)
+		return k_new->data;
 
-	return data;
+	return NULL;
 #else
 	return bootmem_alloc(size);
 #endif /* CONFIG_MMU */
@@ -825,7 +810,7 @@ void run_test(void)
 			}
 			printf("%d bytes remain\n", kmem_avail_bytes);
 
-			if (! kmem_avail_bytes)
+			if (!kmem_avail_bytes)
 				exit(0);
 
 			continue;
