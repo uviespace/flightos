@@ -20,8 +20,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "list.h"
+#include <unistd.h>
+#include <pthread.h>
 
+#include "list.h"
 
 void kfree(void *ptr);
 
@@ -36,7 +38,14 @@ void kfree(void *ptr);
 #define MAGIC		0xB19B00B5
 #define FREE_MAGIC	0x0DEFACED
 
-#define CONFIG_MMU 1;
+#define CONFIG_MMU
+#define CONFIG_SYSCTL
+#define CONFIG_KMEM_RELEASE_UNUSED
+
+#define CONFIG_PAGES_RELEASE_MAX 4096
+#define CONFIG_KMEM_RELEASE_UNUSED_LAZY
+#define CONFIG_KMEM_RELEASE_BACKGROUND
+
 
 
 #ifdef CONFIG_MMU
@@ -65,11 +74,13 @@ uint32_t *mem_base;
 uint32_t addr_lo;
 uint32_t addr_hi;
 
-unsigned long sbrk;
+unsigned long ksbrk;
+
+static uint32_t kmem_avail_bytes;
 
 
-size_t n_free;
-size_t n_alloc;
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 
@@ -92,9 +103,9 @@ void *kernel_sbrk(intptr_t increment)
 
 
         if (!increment)
-                 return (void *) sbrk;
+                 return (void *) ksbrk;
 
-        oldbrk = sbrk;
+        oldbrk = ksbrk;
 
         /* make sure we are always double-word aligned, otherwise we can't
          * use ldd/std instructions without trapping */
@@ -138,7 +149,7 @@ void *kernel_sbrk(intptr_t increment)
                 }
         }
 
-        sbrk = brk;
+        ksbrk = brk;
 #if 0
         printf("SBRK: moved %08lx -> %08lx, alloc %g MB\n", oldbrk, brk, (brk-addr_lo) / (1024. * 1024.));
 #else
@@ -149,6 +160,19 @@ void *kernel_sbrk(intptr_t increment)
 
         return (void *) oldbrk;
 }
+
+
+
+static void kmem_lock(void)
+{
+	pthread_mutex_lock(&mutex);
+}
+
+static void kmem_unlock(void)
+{
+	pthread_mutex_unlock(&mutex);
+}
+
 
 
 /**
@@ -183,7 +207,7 @@ static struct kmem *kmem_find_free_chunk(size_t size)
  * @brief split a chunk in two for a given size
  */
 
-static void kmem_split(struct kmem *k, size_t size)
+static int kmem_split(struct kmem *k, size_t size)
 {
 	size_t len;
 	struct kmem *split;
@@ -199,7 +223,7 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	/* now check if we still fit the required size */
 	if (k->size < len + sizeof(*split))
-		return;
+		return 0;
 
 	split->size = k->size - len - sizeof(*split);
 
@@ -219,7 +243,13 @@ static void kmem_split(struct kmem *k, size_t size)
 	if (!split->next)
 		_kmem_last = split;
 
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes += split->size;
+#endif /* CONFIG_SYSCTL */
+
 	list_add_tail(&split->node, &_kmem_init->node);
+
+	return 1;
 }
 
 
@@ -229,13 +259,117 @@ static void kmem_split(struct kmem *k, size_t size)
 
 static void kmem_merge(struct kmem *k)
 {
-	k->size = k->size + k->next->size + sizeof(struct kmem);
+	k->size = k->size + k->next->size + sizeof(*k);
 
 	k->next = k->next->next;
 
 	if (k->next)
 		k->next->prev = k;
 }
+
+
+#ifdef CONFIG_KMEM_RELEASE_UNUSED_LAZY
+/**
+ * @brief release surplus chunks in limited size to prevent extensive
+ *	  cpu time spent in critical sections during sbrk()
+ * @warn to be calle call only from kmem_release_unused()
+ */
+
+static void kmem_lazy_release(void)
+{
+	size_t sz;
+
+	struct kmem *k;
+
+
+	/* if enabled, we split the last chunk to release at most the configured
+	 * number of bytes back to the system break and keep the remainder
+	 * in our chunk pool. This is used to reduce the time spent releasing
+	 * pages from the MMU-context when freeing very large buffers.
+	 * The remaining memory will be naturally released to the system break
+	 * over time by kmalloc/free calls.
+	 */
+	if (!CONFIG_PAGES_RELEASE_MAX)
+		return;
+
+	k = _kmem_last;
+
+	if (k->size <= sizeof(*k) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)
+		return;
+
+	list_del_init(&k->node);
+
+	sz = k->size;
+
+	if (!kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE))
+		return;
+
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes -= sz;
+	kmem_avail_bytes += k->size;
+#endif /* CONFIG_SYSCTL */
+
+	list_add_tail(&k->node, &_kmem_init->node);
+}
+#endif /* CONFIG_KMEM_RELEASE_UNUSED_LAZY */
+
+#ifdef CONFIG_KMEM_RELEASE_UNUSED
+static void kmem_release_unused(void)
+{
+
+	struct kmem *k;
+
+
+	kmem_lock();
+
+	if (_kmem_last->free != FREE_MAGIC)
+		goto unlock;
+
+#ifdef CONFIG_KMEM_RELEASE_UNUSED_LAZY
+	kmem_lazy_release();
+#endif /* CONFIG_KMEM_RELEASE_UNUSED_LAZY */
+
+	k = _kmem_last;
+
+	/* the previous chunk is now the last item */
+	k->prev->next = NULL;
+	_kmem_last = k->prev;
+
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes -= k->size;
+#endif /* CONFIG_SYSCTL */
+
+	k->free  = 0;
+	k->magic = 0;
+
+	list_del(&k->node);
+
+	/* release back */
+	kernel_sbrk(-(k->size + sizeof(*k)));
+
+unlock:
+	kmem_unlock();
+}
+#endif /* CONFIG_KMEM_RELEASE_UNUSED */
+
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
+static void *kmem_release_bg(void *data)
+{
+	while (1) {
+		kmem_release_unused();
+		usleep(100000);
+	}
+}
+
+
+int kmem_bg_release_init(void)
+{
+	pthread_t th;
+
+
+	return pthread_create(&th, NULL, kmem_release_bg, NULL);
+}
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 
 #endif /* CONFIG_MMU */
 
@@ -297,37 +431,51 @@ void *kmalloc(size_t size)
 #ifdef CONFIG_MMU
 	size_t len;
 
+	void *data = NULL;
 	struct kmem *k_new;
-	struct kmem *k_prev = _kmem_last;
 
 
 	if (!size)
 		return NULL;
 
-	len = WORD_ALIGN(size + sizeof(struct kmem));
+	len = WORD_ALIGN(size + sizeof(*k_new));
 
-
+	kmem_lock();
 
 	/* try to locate a free chunk first */
 	k_new = kmem_find_free_chunk(len);
-
 	if (k_new) {
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k_new->size;
+#endif /* CONFIG_SYSCTL */
+
 		/* take only what we need */
-		if ((len + sizeof(struct kmem)) < k_new->size)
+		if ((len + sizeof(*k_new)) < k_new->size)
 			kmem_split(k_new, len);
 
 		k_new->free = 0;
 		k_new->magic = MAGIC;
-		n_alloc++;
+
+		data = k_new->data;
+
 		goto exit;
 	}
-
-
+#if 0
+	/* kmem_last is free, reduce allocated size, merge and re-split below */
+	if (_kmem_last->free == FREE_MAGIC) {
+		if (size > _kmem_last->size) {
+			printf("is  %d (%d) ", len, _kmem_last->size);
+			len = WORD_ALIGN(((size - _kmem_last->size)));
+			printf("now %d\n", len);
+		}
+	}
+#endif
 	/* need fresh memory */
 	k_new = kernel_sbrk(len);
 
 	if (k_new == (void *) -1)
-		return NULL;
+		goto exit;
 
 	k_new->free = 0;
 	k_new->magic = MAGIC;
@@ -335,27 +483,54 @@ void *kmalloc(size_t size)
 	k_new->next = NULL;
 
 	/* link */
-	k_new->prev = k_prev;
-	k_prev->next = k_new;
+	k_new->prev = _kmem_last;
+	k_new->prev->next = k_new;
 
 	/* the actual size is defined by sbrk(), we get a guranteed minimum,
 	 * but the resulting size may be larger
 	 */
-	k_new->size = (size_t) kernel_sbrk(0) - (size_t) k_new - sizeof(struct kmem);
+	k_new->size = (size_t) kernel_sbrk(0) - (size_t) k_new - sizeof(*k_new);
 
 	/* data section follows just after */
 	k_new->data = k_new + 1;
 
 	_kmem_last = k_new;
+	INIT_LIST_HEAD(&k_new->node);
+
+	/* if kmem_last was free, upmerge first, then split */
+	if (k_new->prev->free == FREE_MAGIC) {
+		if (k_new->prev->size + sizeof(*k_new) > k_new->size) {
+
+			list_del_init(&k_new->prev->node);
+
+#ifdef CONFIG_SYSCTL
+			kmem_avail_bytes -= k_new->prev->size;
+#endif /* CONFIG_SYSCTL */
+
+			k_new = k_new->prev;
+			kmem_merge(k_new);
+			INIT_LIST_HEAD(&k_new->node);
+
+			if (!kmem_split(k_new, len)) {
+				printf("SPLIT ERROR\n");
+				exit(-1);
+			}
+
+
+			k_new->free = 0;
+			k_new->magic = MAGIC;
+		}
+	}
+
+	data = k_new->data;
 
 exit:
+	kmem_unlock();
 
-	n_alloc++;
-	return k_new->data;
+	return data;
 #else
 	return bootmem_alloc(size);
 #endif /* CONFIG_MMU */
-
 }
 
 
@@ -505,7 +680,6 @@ void kfree(void *ptr)
 	unsigned long flags __attribute__((unused));
 
 	struct kmem *k __attribute__((unused));
-	int rel  =0;
 
 	if (!ptr)
 		return;
@@ -553,42 +727,52 @@ void kfree(void *ptr)
 		}
 	}
 
+	kmem_lock();
 
-	n_free++;
 	k->free = FREE_MAGIC;
 	k->magic = 0;
 
 	if (k->next && k->next->free) {
 		list_del(&k->next->node);
 
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k->next->size;
+#endif /* CONFIG_SYSCTL */
+
 		kmem_merge(k);
 		INIT_LIST_HEAD(&k->node);
 	}
 
 	if (k->prev->free) {
-
 		list_del(&k->prev->node);
+		k->free = 0;
+
+#ifdef CONFIG_SYSCTL
+		kmem_avail_bytes -= k->prev->size;
+#endif /* CONFIG_SYSCTL */
 
 		k = k->prev;
 		kmem_merge(k);
 		INIT_LIST_HEAD(&k->node);
 	}
 
-	if (!k->next) {
-		/* last item in heap memory, return to system */
-		k->prev->next = NULL;
-		_kmem_last = k->prev;
+#ifdef CONFIG_SYSCTL
+	kmem_avail_bytes += k->size;
+#endif /* CONFIG_SYSCTL */
 
-		/* release back */
-		kernel_sbrk(-(k->size + sizeof(struct kmem)));
-		rel = 1;
+	if (!k->next)
+		_kmem_last = k;
 
-	} else {
-		list_add_tail(&k->node, &_kmem_init->node);
-	}
+	list_add_tail(&k->node, &_kmem_init->node);
 
-	if (rel)
-		printf("SBRK: %p F: %d A: %d\n", kernel_sbrk(0), n_free, n_alloc);
+	kmem_unlock();
+
+#ifdef CONFIG_KMEM_RELEASE_UNUSED
+#ifndef CONFIG_KMEM_RELEASE_BACKGROUND
+	kmem_release_unused();
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
+#endif /* CONFIG_KMEM_RELEASE_UNUSED */
+
 #endif /* CONFIG_MMU */
 }
 
@@ -602,12 +786,12 @@ void verify(void)
 {
 	uint32_t i;
 
-	unsigned char *p = (unsigned char *) sbrk;
+	unsigned char *p = (unsigned char *) ksbrk;
 
 
 	return;
 
-	for (i = 0; i < addr_hi - sbrk; i++) {
+	for (i = 0; i < addr_hi - ksbrk; i++) {
 		if (p[i] != 0x55) {
 			printf("error at addr %08x (offset %d), value %02x\n", sbrk + i,i,  p[i]);
 			exit(-1);
@@ -619,7 +803,7 @@ void verify(void)
 #define P 350
 #define LEN_BIG		7 * 1024 * 1024
 #define LEN_SMALL	5 * 100
-
+#define MAX_LOOPS	100000
 
 void run_test(void)
 {
@@ -628,8 +812,27 @@ void run_test(void)
 	uint32_t len[P];
 	int v;
 
+	int cnt=0 ;
+
 
 	while (1) {
+
+		if (cnt++ > MAX_LOOPS) {
+			for (i = 0; i < P; i++) {
+				kfree(p[i]);
+				p[i] = NULL;
+				verify();
+			}
+			printf("%d bytes remain\n", kmem_avail_bytes);
+
+			if (! kmem_avail_bytes)
+				exit(0);
+
+			continue;
+		}
+
+		if (!(cnt % 100))
+			printf("%d bytes alloc %g%% complete\n", kmem_avail_bytes, (double) cnt / MAX_LOOPS * 100);
 
 		for (i = 0; i < P; i++) {
 			if (p[i])
@@ -685,6 +888,10 @@ void run_test(void)
 
 int main(void)
 {
+	pthread_t th;
+
+
+
 	mem_base = calloc(MEMSIZE_MAX + 4 * PAGE_SIZE, 1);
 
 
@@ -692,11 +899,15 @@ int main(void)
 
 	addr_hi = addr_lo + MEMSIZE_MAX;
 
-	sbrk = (uint32_t) addr_lo;
+	ksbrk = (uint32_t) addr_lo;
 
 	memset((void *) addr_lo, 0x55, addr_hi-addr_lo);
 
 	kmem_init();
+
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
+	kmem_bg_release_init();
+#endif
 
 	run_test();
 }

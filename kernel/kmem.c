@@ -122,20 +122,6 @@ static struct kmem *kmem_find_free_chunk(size_t size)
 	if (list_empty(&_kmem_init->node))
 		return NULL;
 
-
-	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node) {
-
-		if (p_elem->next->free == FREE_MAGIC) {
-#ifdef CONFIG_SYSCTL
-			kmem_avail_bytes -= p_elem->next->size;
-			kmem_avail_bytes -= p_elem->size;
-#endif /* CONFIG_SYSCTL */
-			list_del_init(&p_elem->next->node);
-			kmem_merge(p_elem);
-		}
-	}
-
-
 	list_for_each_entry_safe(p_elem, p_tmp, &_kmem_init->node, node) {
 
 		if (p_elem->size < size)
@@ -206,7 +192,7 @@ static int kmem_split(struct kmem *k, size_t size)
 
 static void kmem_merge(struct kmem *k)
 {
-	k->size = k->size + k->next->size + sizeof(struct kmem);
+	k->size = k->size + k->next->size + sizeof(*k);
 
 	k->next = k->next->next;
 
@@ -241,7 +227,7 @@ static void kmem_lazy_release(void)
 
 	k = _kmem_last;
 
-	if (k->size <= sizeof(struct kmem) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)
+	if (k->size <= sizeof(*k) + CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE)
 		return;
 
 	list_del_init(&k->node);
@@ -253,9 +239,6 @@ static void kmem_lazy_release(void)
 
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes -= sz;
-#endif /* CONFIG_SYSCTL */
-
-#ifdef CONFIG_SYSCTL
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
 
@@ -299,7 +282,7 @@ static void kmem_release_unused(void)
 	list_del(&k->node);
 
 	/* release back */
-	kernel_sbrk(-(k->size + sizeof(struct kmem)));
+	kernel_sbrk(-(k->size + sizeof(*k)));
 
 unlock:
 	return;
@@ -430,13 +413,14 @@ void *kmalloc(size_t size)
 	size_t len;
 	unsigned long flags;
 
+	void *data = NULL;
 	struct kmem *k_new;
 
 
 	if (!size)
 		return NULL;
 
-	len = WORD_ALIGN(size + sizeof(struct kmem));
+	len = WORD_ALIGN(size + sizeof(*k_new));
 
 	flags = arch_local_irq_save();
 	kmem_lock();
@@ -450,11 +434,13 @@ void *kmalloc(size_t size)
 #endif /* CONFIG_SYSCTL */
 
 		/* take only what we need */
-		if ((len + sizeof(struct kmem)) < k_new->size)
+		if ((len + sizeof(*k_new)) < k_new->size)
 			kmem_split(k_new, len);
 
 		k_new->free = 0;
 		k_new->magic = MAGIC;
+
+		data = k_new->data;
 
 		goto exit;
 	}
@@ -464,7 +450,7 @@ void *kmalloc(size_t size)
 	k_new = kernel_sbrk(len);
 
 	if (k_new == (void *) -1)
-		return NULL;
+		goto exit;
 
 	k_new->free = 0;
 	k_new->magic = MAGIC;
@@ -478,40 +464,43 @@ void *kmalloc(size_t size)
 	/* the actual size is defined by sbrk(), we get a guranteed minimum,
 	 * but the resulting size may be larger
 	 */
-	k_new->size = (size_t) kernel_sbrk(0) - (size_t) k_new - sizeof(struct kmem);
+	k_new->size = (size_t) kernel_sbrk(0) - (size_t) k_new - sizeof(*k_new);
 
 	/* data section follows just after */
 	k_new->data = k_new + 1;
 
 	_kmem_last = k_new;
-#if 0
-	/* if prev was free, upmerge first, then split */
-	if (k_new->prev->free == FREE_MAGIC) {
+	INIT_LIST_HEAD(&k_new->node);
 
-		list_del_init(&k_new->prev->node);
+	/* if kmem_last was free, upmerge first, then split */
+	if (k_new->prev->free == FREE_MAGIC) {
+		if (k_new->prev->size + sizeof(*k_new) > k_new->size) {
+
+			list_del_init(&k_new->prev->node);
 
 #ifdef CONFIG_SYSCTL
-		kmem_avail_bytes -= k_new->prev->size;
+			kmem_avail_bytes -= k_new->prev->size;
 #endif /* CONFIG_SYSCTL */
 
-		k_new = k_new->prev;
-		kmem_merge(k_new);
+			k_new = k_new->prev;
+			kmem_merge(k_new);
+			INIT_LIST_HEAD(&k_new->node);
 
-		kmem_split(k_new, len);
+			kmem_split(k_new, len);
 
-		k_new->free = 0;
-		k_new->magic = MAGIC;
+			k_new->free = 0;
+			k_new->magic = MAGIC;
+		}
 	}
-#endif
+
 exit:
 	kmem_unlock();
 	arch_local_irq_restore(flags);
 
-	return k_new->data;
+	return data;
 #else
 	return bootmem_alloc(size);
 #endif /* CONFIG_MMU */
-
 }
 
 
@@ -721,10 +710,8 @@ void kfree(void *ptr)
 	k->free = FREE_MAGIC;
 	k->magic = 0;
 
-
 	if (k->next && k->next->free) {
 		list_del(&k->next->node);
-		k->next->free = 0;
 
 #ifdef CONFIG_SYSCTL
 		kmem_avail_bytes -= k->next->size;
@@ -750,12 +737,14 @@ void kfree(void *ptr)
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
-#if 1
+
 	if (!k->next)
 		_kmem_last = k;
 
 	list_add_tail(&k->node, &_kmem_init->node);
 
+	kmem_unlock();
+	arch_local_irq_restore(flags);
 
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 #ifndef CONFIG_KMEM_RELEASE_BACKGROUND
@@ -764,30 +753,6 @@ void kfree(void *ptr)
 
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
-#else
-
-	if (!k->next) {
-		/* last item in heap memory, return to system */
-		k->prev->next = NULL;
-		_kmem_last = k->prev;
-
-#ifdef CONFIG_SYSCTL
-		kmem_avail_bytes -= k->size;
-#endif /* CONFIG_SYSCTL */
-
-		k->free  = 0;
-		k->magic = 0;
-
-		/* release back */
-		kernel_sbrk(-(k->size + sizeof(struct kmem)));
-
-	} else {
-		list_add_tail(&k->node, &_kmem_init->node);
-	}
-#endif
-
-	kmem_unlock();
-	arch_local_irq_restore(flags);
 
 #endif /* CONFIG_MMU */
 }
