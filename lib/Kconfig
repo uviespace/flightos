@@ -25,8 +25,13 @@ menu "Memory Management Page Return Options"
 
 config KMEM_RELEASE_UNUSED
 	depends on MMU
-	bool "Release unused memory chunks by rewinding the system break"
+	bool "Release unused memory chunks by rewinding the system break."
 	default y
+	help
+	 Disable for best performance (i.e. least cumulative overhead) during
+	 runtime but be aware that this may prevent detection of out-of-bounds
+	 memory accesses and use-after-free bugs. This may also be detrimental
+	 to configurations which do not share a common heap.
 
 config KMEM_RELEASE_UNUSED_LAZY
 	depends on KMEM_RELEASE_UNUSED

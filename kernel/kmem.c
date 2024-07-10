@@ -56,6 +56,7 @@ static struct spinlock kmem_spinlock;
 
 #ifdef CONFIG_SYSCTL
 
+static int kmem_alloc_fail;
 static uint32_t kmem_avail_bytes;
 
 #if (__sparc__)
@@ -71,15 +72,28 @@ static ssize_t kmem_show(__attribute__((unused)) struct sysobj *sobj,
 	if (!strcmp(sattr->name, "bytes_free"))
 		return sprintf(buf, UINT32_T_FORMAT, kmem_avail_bytes);
 
+	if (!strcmp(sattr->name, "alloc_fail")) {
+		int ret;
+
+		/* alloc_fail is self-clearing on read */
+		ret = sprintf(buf, UINT32_T_FORMAT, kmem_alloc_fail);
+		kmem_alloc_fail = 0;
+
+		return ret;
+	}
+
 	return 0;
 }
-
 
 __extension__
 static struct sobj_attribute bytes_free_attr = __ATTR(bytes_free, kmem_show, NULL);
 
+static struct sobj_attribute alloc_fail_attr = __ATTR(alloc_fail, kmem_show, NULL);
+
 __extension__
-static struct sobj_attribute *kmem_attributes[] = {&bytes_free_attr, NULL};
+static struct sobj_attribute *kmem_attributes[] = {&bytes_free_attr,
+						   &alloc_fail_attr,
+						   NULL};
 
 #endif /* CONFIG_SYSCTL */
 
@@ -203,7 +217,7 @@ static void kmem_merge(struct kmem *k)
 /**
  * @brief release surplus chunks in limited size to prevent extensive
  *	  cpu time spent in critical sections during sbrk()
- * @warn to be calle call only from kmem_release_unused()
+ * @warn to be called only from kmem_release_unused()
  */
 
 static void kmem_lazy_release(void)
@@ -237,6 +251,7 @@ static void kmem_lazy_release(void)
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
 
+	list_del_init(&k->node);
 	list_add_tail(&k->node, &_kmem_init->node);
 }
 #endif /* CONFIG_KMEM_RELEASE_UNUSED_LAZY */
@@ -280,11 +295,11 @@ static void kmem_release_unused(void)
 	kernel_sbrk(-(k->size + sizeof(*k)));
 
 unlock:
-	return;
 #ifdef CONFIG_KMEM_RELEASE_BACKGROUND
 	kmem_unlock();
 	arch_local_irq_restore(flags);
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
+	return;
 }
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
 
@@ -312,8 +327,8 @@ int kmem_bg_release_init(void)
 	t = kthread_create(kmem_release_bg, NULL, 1, "KMEM_REL");
 	BUG_ON(!t);
 
-	/* run for at most 1 ms every second and keep it thight */
-	kthread_set_sched_edf(t, 1000 * 1000, 2000, 1000);
+	/* run for at most 1 ms every 100 ms and keep it thight */
+	kthread_set_sched_edf(t, 100 * 1000, 2500, 2000);
 
 	BUG_ON(kthread_wake_up(t) < 0);
 
@@ -479,6 +494,7 @@ void *kmalloc(size_t size)
 	_kmem_last = k_new;
 
 success:
+	INIT_LIST_HEAD(&k_new->node);
 	k_new->free = 0;
 	k_new->magic = MAGIC;
 exit:
@@ -487,6 +503,10 @@ exit:
 
 	if (k_new)
 		return k_new->data;
+
+#ifdef CONFIG_SYSCTL
+	kmem_alloc_fail = 1;
+#endif /* CONFIG_SYSCTL */
 
 	return NULL;
 #else
@@ -734,16 +754,14 @@ void kfree(void *ptr)
 
 	list_add_tail(&k->node, &_kmem_init->node);
 
-	kmem_unlock();
-	arch_local_irq_restore(flags);
-
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 #ifndef CONFIG_KMEM_RELEASE_BACKGROUND
-
 	kmem_release_unused();
-
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
+
+	kmem_unlock();
+	arch_local_irq_restore(flags);
 
 #endif /* CONFIG_MMU */
 }
