@@ -35,8 +35,8 @@ config KMEM_RELEASE_UNUSED
 
 config KMEM_RELEASE_UNUSED_LAZY
 	depends on KMEM_RELEASE_UNUSED
-	bool "Release only a limited number of pages at once"
-	default y
+	bool "(EXPERIMENTAL) Release only a limited number of pages at once"
+	default n
 
 config PAGES_RELEASE_MAX
 	int "Maximum number of pages to return at once"
