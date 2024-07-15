@@ -56,7 +56,7 @@ static struct spinlock kmem_spinlock;
 
 #ifdef CONFIG_SYSCTL
 
-static int kmem_alloc_fail;
+static uint8_t kmem_alloc_fail;
 static uint32_t kmem_avail_bytes;
 
 #if (__sparc__)
@@ -76,7 +76,7 @@ static ssize_t kmem_show(__attribute__((unused)) struct sysobj *sobj,
 		int ret;
 
 		/* alloc_fail is self-clearing on read */
-		ret = sprintf(buf, UINT32_T_FORMAT, kmem_alloc_fail);
+		ret = sprintf(buf, "%d", kmem_alloc_fail);
 		kmem_alloc_fail = 0;
 
 		return ret;
@@ -243,7 +243,7 @@ static void kmem_lazy_release(void)
 
 	sz = k->size;
 
-	kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE);
+	kmem_split(k, k->size - sizeof(*k) - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE);
 
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes -= sz;
