@@ -43,7 +43,7 @@ void kfree(void *ptr);
 #define CONFIG_KMEM_RELEASE_UNUSED
 
 #define CONFIG_PAGES_RELEASE_MAX 4096
-#if 0
+#if 1
 #define CONFIG_KMEM_RELEASE_UNUSED_LAZY
 #endif
 #define CONFIG_KMEM_RELEASE_BACKGROUND
@@ -64,7 +64,7 @@ struct kmem {
 static struct kmem *_kmem_init;
 static struct kmem *_kmem_last;
 
-
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 #define likely(x)      __builtin_expect(!!(x), 1)
 
 
@@ -77,93 +77,58 @@ uint32_t addr_lo;
 uint32_t addr_hi;
 
 unsigned long ksbrk;
+void *kernel_sbrk(intptr_t increment);
+void *memset32(void *s, uint32_t c, size_t n);
 
+#ifdef CONFIG_SYSCTL
+
+static int kmem_alloc_fail;
 static uint32_t kmem_avail_bytes;
-
-
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
-
-
-void *memset32(void *s, uint32_t c, size_t n)
-{
-        uint32_t *p = s;
-
-        while (n--)
-                *p++ = c;
-
-        return s;
-}
-
-void *kernel_sbrk(intptr_t increment)
-{
-        long brk;
-        long oldbrk;
-
-        unsigned long ctx;
-
-
-        if (!increment)
-                 return (void *) ksbrk;
-
-        oldbrk = ksbrk;
-
-        /* make sure we are always double-word aligned, otherwise we can't
-         * use ldd/std instructions without trapping */
-        increment = ALIGN(increment, STACK_ALIGN);
-
-        brk = oldbrk + increment;
-
-        if (brk < addr_lo)
-                return (void *) -1;
-
-        if (brk > addr_hi)
-                return (void *) -1;
-
-        /* try to release pages if we decremented below a page boundary */
-        if (increment < 0) {
-                if (PAGE_ALIGN(brk) < PAGE_ALIGN(oldbrk - PAGE_SIZE)) {
 #if 0
-                        printf("SBRK: release %lx (va %lx, pa%lx) to va %lx pa %lx, %d pages\n",
-                                 brk, PAGE_ALIGN(brk), PAGE_ALIGN(brk),
-                                 oldbrk, oldbrk,
-                                 (PAGE_ALIGN(oldbrk) - PAGE_ALIGN(brk)) / PAGE_SIZE);
-#endif
-
-			/* mark unused */
-                        if (PAGE_ALIGN(oldbrk) >  PAGE_ALIGN(brk)) {
-				/* we legally own more memory, so setting n+1 is
-				 * fine
-				 */
-				int i;
-				unsigned char *p = (unsigned char *) brk;
-#if 1
-				for (i = 0; i < oldbrk - brk; i++) {
-#if 0
-					printf("set %p\n", &p[i]);
-#endif
-
-					p[i] = 0x55;
-				}
-#endif
-			}
-                }
-        }
-
-        ksbrk = brk;
-#if 0
-        printf("SBRK: moved %08lx -> %08lx, alloc %g MB\n", oldbrk, brk, (brk-addr_lo) / (1024. * 1024.));
+#if (__sparc__)
+#define UINT32_T_FORMAT		"%lu"
 #else
-#if 0
-        printf("%g\n", (brk-addr_lo) / (1024. * 1024.));
-#endif
+#define UINT32_T_FORMAT		"%u"
 #endif
 
-        return (void *) oldbrk;
+static ssize_t kmem_show(__attribute__((unused)) struct sysobj *sobj,
+			 __attribute__((unused)) struct sobj_attribute *sattr,
+			 char *buf)
+{
+	if (!strcmp(sattr->name, "bytes_free"))
+		return sprintf(buf, UINT32_T_FORMAT, kmem_avail_bytes);
+
+	if (!strcmp(sattr->name, "alloc_fail")) {
+		int ret;
+
+		/* alloc_fail is self-clearing on read */
+		ret = sprintf(buf, UINT32_T_FORMAT, kmem_alloc_fail);
+		kmem_alloc_fail = 0;
+
+		return ret;
+	}
+
+	return 0;
 }
 
+__extension__
+static struct sobj_attribute bytes_free_attr = __ATTR(bytes_free, kmem_show, NULL);
 
+static struct sobj_attribute alloc_fail_attr = __ATTR(alloc_fail, kmem_show, NULL);
+
+__extension__
+static struct sobj_attribute *kmem_attributes[] = {&bytes_free_attr,
+						   &alloc_fail_attr,
+						   NULL};
+#endif
+#endif /* CONFIG_SYSCTL */
+
+
+
+
+/**
+ * @brief lock critical kmem section
+ */
 
 static void kmem_lock(void)
 {
@@ -176,6 +141,11 @@ static void kmem_lock(void)
 		exit(-1);
 	}
 }
+
+
+/**
+ * @brief unlock critical kmem section
+ */
 
 static void kmem_unlock(void)
 {
@@ -228,7 +198,7 @@ static void kmem_split(struct kmem *k, size_t size)
 
 	split->data = split + 1;
 
-	len = ((uintptr_t) split - (uintptr_t) k->data);
+	len = ((uintptr_t)split - (uintptr_t)k->data);
 
 	/* now check if we still fit the required size */
 	if (k->size < len + sizeof(*split))
@@ -242,7 +212,7 @@ static void kmem_split(struct kmem *k, size_t size)
 	split->prev = k;
 	split->next = k->next;
 
-	k->size = ((uintptr_t) split - (uintptr_t) k->data);
+	k->size = ((uintptr_t)split - (uintptr_t)k->data);
 
 	if (k->next)
 		k->next->prev = split;
@@ -279,7 +249,7 @@ static void kmem_merge(struct kmem *k)
 /**
  * @brief release surplus chunks in limited size to prevent extensive
  *	  cpu time spent in critical sections during sbrk()
- * @warn to be calle call only from kmem_release_unused()
+ * @warn to be called only from kmem_release_unused()
  */
 
 static void kmem_lazy_release(void)
@@ -306,13 +276,14 @@ static void kmem_lazy_release(void)
 
 	sz = k->size;
 
-	kmem_split(k, k->size - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE);
+	kmem_split(k, k->size - sizeof(*k) - CONFIG_PAGES_RELEASE_MAX * PAGE_SIZE);
 
 #ifdef CONFIG_SYSCTL
 	kmem_avail_bytes -= sz;
 	kmem_avail_bytes += k->size;
 #endif /* CONFIG_SYSCTL */
 
+	list_del_init(&k->node);
 	list_add_tail(&k->node, &_kmem_init->node);
 }
 #endif /* CONFIG_KMEM_RELEASE_UNUSED_LAZY */
@@ -320,11 +291,13 @@ static void kmem_lazy_release(void)
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 static void kmem_release_unused(void)
 {
+	unsigned long flags __attribute__((unused));
 
 	struct kmem *k;
 
-
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
 	kmem_lock();
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 
 	if (_kmem_last->free != FREE_MAGIC)
 		goto unlock;
@@ -352,7 +325,10 @@ static void kmem_release_unused(void)
 	kernel_sbrk(-(k->size + sizeof(*k)));
 
 unlock:
+#ifdef CONFIG_KMEM_RELEASE_BACKGROUND
 	kmem_unlock();
+#endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
+	return;
 }
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
 
@@ -378,7 +354,36 @@ int kmem_bg_release_init(void)
 #endif /* CONFIG_MMU */
 
 
+#ifdef CONFIG_SYSCTL
+#if 0
+/**
+ * @brief initialise the sysctl entries
+ *
+ * @return -1 on error, 0 otherwise
+ *
+ * @note we set this up as a late initcall since we need sysctl to be
+ *	 configured first
+ */
 
+static int kmem_init_sysctl(void)
+{
+	struct sysobj *sobj;
+
+
+	sobj = sysobj_create();
+
+	if (!sobj)
+		return -1;
+
+	sobj->sattr = kmem_attributes;
+
+	sysobj_add(sobj, NULL, sysctl_root(), "kmem");
+
+	return 0;
+}
+late_initcall(kmem_init_sysctl);
+#endif
+#endif /* CONFIG_SYSCTL */
 
 
 /**
@@ -394,8 +399,6 @@ void *kmem_init(void)
 		return _kmem_init;
 
 	_kmem_init = kernel_sbrk(WORD_ALIGN(sizeof(struct kmem)));
-
-	printf("fetch 0x%x bytes on init\n", sizeof(struct kmem));
 
 	if (_kmem_init == (void *) -1) {
 		printf("KMEM: error, cannot _kmem_initialise\n");
@@ -505,12 +508,17 @@ void *kmalloc(size_t size)
 	_kmem_last = k_new;
 
 success:
+	INIT_LIST_HEAD(&k_new->node);
 	k_new->free = 0;
 	k_new->magic = MAGIC;
 exit:
 	kmem_unlock();
 	if (k_new)
 		return k_new->data;
+
+#ifdef CONFIG_SYSCTL
+	kmem_alloc_fail = 1;
+#endif /* CONFIG_SYSCTL */
 
 	return NULL;
 #else
@@ -666,6 +674,7 @@ void kfree(void *ptr)
 
 	struct kmem *k __attribute__((unused));
 
+
 	if (!ptr)
 		return;
 
@@ -700,17 +709,16 @@ void kfree(void *ptr)
 		return;
 	}
 
-	/** XXX try protecting against corruption !*/
+	/** XXX kalarm(): this is pretty bad */
 	if (k->next && k->next->free) {
 		if (k->next->free != FREE_MAGIC) {
-
 			printf("KMEM: corruption detected have invalid free block magic 0x%08x "
 			        "marker when trying to free chunk %p with next chunk %p",
 				k->next->free, k, k->next);
-
-			k->next = NULL;
+			return;
 		}
 	}
+
 
 	kmem_lock();
 
@@ -750,13 +758,13 @@ void kfree(void *ptr)
 
 	list_add_tail(&k->node, &_kmem_init->node);
 
-	kmem_unlock();
-
 #ifdef CONFIG_KMEM_RELEASE_UNUSED
 #ifndef CONFIG_KMEM_RELEASE_BACKGROUND
 	kmem_release_unused();
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 #endif /* CONFIG_KMEM_RELEASE_UNUSED */
+
+	kmem_unlock();
 
 #endif /* CONFIG_MMU */
 }
