@@ -125,7 +125,6 @@ static void kmem_unlock(void)
  * @brief see if we can find a suitable chunk in our pool
  */
 
-static void kmem_merge(struct kmem *k);
 static struct kmem *kmem_find_free_chunk(size_t size)
 {
 	struct kmem *p_tmp;
