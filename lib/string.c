@@ -827,44 +827,61 @@ EXPORT_SYMBOL(atoi);
 void *memset(void *s, int c, size_t n)
 {
 	size_t i;
-
 	char byte;
 	char *p;
+	uint64_t cc;
 
 	/* memset accepts only the least significant BYTE to set,
 	 * so we first prep by filling our integer to full width
 	 * with that byte
 	 */
-	p    = (char *) &c;
+	p    = (char *) &cc;
 	byte = (char) (c & 0xFF);
-	for (i = 0; i < sizeof(int); i++)
+	for (i = 0; i < sizeof(uint64_t); i++)
 		p[i] = byte;
 
 
 	/* now start filling the memory area */
 	p = s;
 
+
+	/* align head */
 	while (n) {
-		/* do larger stores in the central segment
-		 * for arch specific implementations, you could do larger than
-		 * int stores with precomputed offsets for increased efficiency
-		 */
-		if (n > sizeof(int)) {
-			if (IS_ALIGNED((uintptr_t) p, sizeof(int))) {
-				(* (int *) p) = c;
-				p += 4;
-				n -= 4;
-				continue;
-			}
-		}
+		if (IS_ALIGNED((uintptr_t)p, sizeof(uint64_t)))
+			break;
 
 		*p++ = (char) (c & 0xFF);
 		n--;
 	}
+	/* do larger stores in the central segment
+	 * for arch specific implementations, you could do larger than
+	 * int stores with precomputed offsets for increased efficiency
+	 * NOTE: doing two stores appears to be more efficient (~7%)
+	 * but there is no measurable improvement after that
+	 */
+	while (n >= sizeof(uint64_t) * 2) {
+		uint64_t *dw = (uint64_t *)p;
+
+		dw[0] = cc;
+		dw[1] = cc;
+		p += sizeof(uint64_t) * 2;
+		n -= sizeof(uint64_t) * 2;
+	}
+
+
+	/* fill remaining tail
+	 * NOTE: we need the optimisation barrier, else bcc2 will produce
+	 * garbage. It appears it wants to re-use the first (mostly indentical)
+	 * code segment which aligns the head of the buffer
+	 */
+	while (n) {
+		*p++ = (char) (c & 0xFF);
+		barrier();
+		n--;
+	}
 
 	return s;
-}
-EXPORT_SYMBOL(memset);
+}EXPORT_SYMBOL(memset);
 
 
 /**
