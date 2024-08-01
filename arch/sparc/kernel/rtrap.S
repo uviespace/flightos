@@ -68,8 +68,9 @@ ret_trap_kernel:
 	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, g1)
 2:
 	wr	%t_psr, %g0, %psr ! restore PSR, delayed-write instruction
-	nop			  ! need 2 delays, rett modifies CWP
-        nop			  ! 3rd delay cycle is filled by jmp instr
+	nop			  ! need 3 delays, rett modifies CWP
+	nop
+	nop
 
 	jmp	%t_pc
 	rett	%t_npc
