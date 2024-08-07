@@ -39,23 +39,9 @@ __wim_underflow:
         sll     %l3, 1, %l4
         srl     %l3, (NWINDOWS - 1), %l5
 
-
-	/* re: nops below
-	 * in particular, LEON3s appear to need 3 nops after any delayed-write
-	 * otherwise windows may not be properly switched in the following
-	 * branch-restore-restore sequence, leading to apparent corruption
-	 * on timescales of hours when removing prior execution paths, i.e.
-	 * when a thread returns and is removed. The primary CPU does not appear
-	 * to be affected (at least in GR712RCs)
-	 * technically, it should be possible to save one nop-instruction,
-	 * since the branch instruction would cover the 3rd slot, but for above
-	 * reasons, it is not advisable
-	 */
-
         wr      %l4, %l5, %wim	! delayed-write instruction
-	nop			! need 3 delays, restore modifies CWP
-	nop
-	nop
+	nop			! need 2 delays, restore modifies CWP
+	nop			! 3rd cycle is filled by branch instruction
 
 	/* At this point, we proceed depending on the state of the previous
 	 * supervisor (PS) bit. The condition code has been set by the trap
