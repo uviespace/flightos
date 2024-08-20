@@ -9,21 +9,41 @@ choice
 config LEON2
 	bool "LEON2"
 	help
-	 Configure for LEON2. 
+	 Configure for LEON2.
 
 config LEON3
 	bool "LEON3"
 	help
-	 Configure for LEON3. 
+	 Configure for LEON3.
 
 config LEON4
 	bool "LEON4"
 	help
-	 Configure for LEON4. 
+	 Configure for LEON4.
 
 
 endchoice
 
+menu "LEON3 Errata"
+	depends on LEON3
+
+config LEON3FT_ERRATUM_TN0009
+	bool "GRLIB-TN-0009 workaround"
+	default y
+	help
+	 Enable workaround for erratum GRLIB-TN-0009: 'LEON3FT Stale Cache Entry
+	 After Store with Data Tag Parity Error'
+	 If building for an FT cpu, say Y here.
+
+config LEON3FT_ERRATUM_TN0018
+	bool "GRLIB-TN-0018 workaround"
+	default y
+	help
+	 Enable workaround for erratum GRLIB-TN-0018: 'LEON3FT RETT Restart
+         Errata'
+	 If building for an FT cpu, say Y here.
+
+endmenu
 
 config MMU
 	bool "Enable SPARC Reference MMU support"

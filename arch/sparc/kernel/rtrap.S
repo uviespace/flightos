@@ -9,6 +9,7 @@
 
 #include <asm/ttable.h>
 #include <stack.h>
+#include <uapi/asi.h>
 
 
 #ifndef CONFIG_SPARC_CPU_REG_WINDOWS
@@ -67,9 +68,30 @@ ret_trap_kernel:
 1:
 	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, g1)
 2:
+
+#if defined(LEON3FT_ERRATUM_TN0018)
+1:
+        lda     [%g0] ASI_LEON_CACHEREGS, %l4
+        srl     %l4, ASI_LEON_CACHEREGS_IP_BIT_SHIFT, %l5
+        andcc   %l5, 1, %g0
+        bne     1b
+         andn   %l4, ASI_LEON_CACHEREGS_ICS, %l5
+#endif	/* LEON3FT_ERRATUM_TN0018 */
+
 	wr	%t_psr, %g0, %psr ! restore PSR, delayed-write instruction
-	nop			  ! need 2 delays, rett modifies CWP
-        nop			  ! 3rd delay cycle is filled by jmp instr
+	nop
+	nop
+	nop
+
+#if defined(LEON3FT_ERRATUM_TN0018)
+	.align  0x20				! align the sta for performance
+	sta     %l5, [%g0] ASI_LEON_CACHEREGS	! disable icache
+	nop					! delay for sta to have effect on rett
+	or      %l1, %l1, %l1			! delay + catch rf parity error on l1
+	or      %l2, %l2, %l2			! delay + catch rf parity error on l2
+	sta     %l4, [%g0] ASI_LEON_CACHEREGS	! re-enable icache after rett
+	nop					! delay ensures insn after gets cached
+#endif	/* LEON3FT_ERRATUM_TN0018 */
 
 	jmp	%t_pc
 	rett	%t_npc

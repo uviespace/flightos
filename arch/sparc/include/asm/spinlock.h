@@ -118,6 +118,7 @@ static void spin_lock(struct spinlock *lock)
 	lock->lock_recursion = 1;
 
 	__asm__ __volatile__(
+			".align 16		 \n\t"
 			"1:                      \n\t"
 			"ldstub [%0], %%g2       \n\t"
 			"andcc  %%g2, %%g2, %%g2 \n\t"
@@ -148,6 +149,7 @@ static void spin_lock_raw(struct spinlock *lock)
 	lock->lock_recursion = 1;
 #endif
 	__asm__ __volatile__(
+			".align 16		 \n\t"
 			"1:                      \n\t"
 			"ldstub [%0], %%g2       \n\t"
 			"andcc  %%g2, %%g2, %%g2 \n\t"
@@ -199,7 +201,12 @@ static int spin_try_lock(struct spinlock *lock)
 {
 	uint32_t retval;
 
-	__asm__ __volatile__("ldstub [%1], %0" : "=r" (retval) : "r"  (&lock->lock) : "memory");
+	__asm__ __volatile__(
+			     ".align 16		\n\t"
+			     "ldstub [%1], %0	\n\t"
+			     : "=r" (retval)
+			     : "r"  (&lock->lock)
+			     : "memory");
 
 	return (retval == 0);
 }
@@ -213,7 +220,12 @@ static int spin_try_lock(struct spinlock *lock)
 __attribute__((unused))
 static void spin_unlock(struct spinlock *lock)
 {
-	__asm__ __volatile__("swap [%0], %%g0       \n\t" : : "r" (&lock->lock) : "memory");
+	__asm__ __volatile__(
+			     ".align 16		\n\t"
+			     "swap [%0], %%g0	\n\t"
+			     :
+			     : "r" (&lock->lock)
+			     : "memory");
 }
 
 

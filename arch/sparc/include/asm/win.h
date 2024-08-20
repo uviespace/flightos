@@ -22,6 +22,12 @@
 #define RW_I6     0x38
 #define RW_I7     0x3C
 
+#if defined(LEON3FT_ERRATUM_TN0009)
+#define TN0009_FIX nop
+#else
+#define TN0009_FIX
+#endif
+
 
 #define LOAD_WINDOW(reg) \
 	ldd	[%reg + RW_L0], %l0; \
@@ -35,12 +41,19 @@
 
 #define STORE_WINDOW(reg) \
 	std	%l0, [%reg + RW_L0]; \
+	TN0009_FIX;		     \
 	std	%l2, [%reg + RW_L2]; \
+	TN0009_FIX;		     \
 	std	%l4, [%reg + RW_L4]; \
+	TN0009_FIX;		     \
 	std	%l6, [%reg + RW_L6]; \
+	TN0009_FIX;		     \
 	std	%i0, [%reg + RW_I0]; \
+	TN0009_FIX;		     \
 	std	%i2, [%reg + RW_I2]; \
+	TN0009_FIX;		     \
 	std	%i4, [%reg + RW_I4]; \
+	TN0009_FIX;		     \
 	std	%i6, [%reg + RW_I6];
 
 
@@ -78,14 +91,20 @@
 
 #define STORE_PT_INS(base_reg) \
         std     %i0, [%base_reg + STACKFRAME_SZ + PT_I0]; \
+	TN0009_FIX;		     \
         std     %i2, [%base_reg + STACKFRAME_SZ + PT_I2]; \
+	TN0009_FIX;		     \
         std     %i4, [%base_reg + STACKFRAME_SZ + PT_I4]; \
+	TN0009_FIX;		     \
         std     %i6, [%base_reg + STACKFRAME_SZ + PT_I6];
 
 #define STORE_PT_GLOBALS(base_reg) \
         st      %g1, [%base_reg + STACKFRAME_SZ + PT_G1]; \
+	TN0009_FIX;		     \
         std     %g2, [%base_reg + STACKFRAME_SZ + PT_G2]; \
+	TN0009_FIX;		     \
         std     %g4, [%base_reg + STACKFRAME_SZ + PT_G4]; \
+	TN0009_FIX;		     \
         std     %g6, [%base_reg + STACKFRAME_SZ + PT_G6];
 
 #define STORE_PT_YREG(base_reg, scratch) \
@@ -99,8 +118,11 @@
 
 #define STORE_PT_ALL(base_reg, reg_psr, reg_pc, reg_npc, g_scratch) \
         STORE_PT_PRIV(base_reg, reg_psr, reg_pc, reg_npc) \
+	TN0009_FIX;		     \
         STORE_PT_GLOBALS(base_reg) \
+	TN0009_FIX;		     \
         STORE_PT_YREG(base_reg, g_scratch) \
+	TN0009_FIX;		     \
         STORE_PT_INS(base_reg)
 
 

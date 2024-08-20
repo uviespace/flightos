@@ -278,9 +278,11 @@ static inline void put_psr(unsigned int new_psr)
 static inline unsigned long leon_swap(volatile unsigned long *ptr, unsigned long val)
 {
 	/** TODO: add manual CAS check here */
-        __asm__ __volatile__("swap [%1], %0\n\t" :
-                             "=&r" (val), "=&r" (ptr) :
-                             "0" (val), "1" (ptr));
+        __asm__ __volatile__(".align 16		\n\t"
+			     "swap [%1], %0	\n\t"
+			     :"=&r" (val), "=&r" (ptr)
+			     :"0" (val), "1" (ptr)
+			     :);
         return val;
 }
 
