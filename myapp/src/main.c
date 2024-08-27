@@ -5,8 +5,37 @@
 #include <stdlib.h>
 #include <thread.h>
 #include <time.h>
+#include <sysctl.h>
 
 unsigned int busy;
+
+
+static unsigned long asw_get_num_used_pages(void)
+{
+	char buf[32];
+
+	/* block size == page size */
+	sysctl_show_attr("/sys/mm", "used_blocks", buf);
+	return strtol(buf, NULL, 10);
+}
+
+static unsigned long asw_get_num_free_pages(void)
+{
+	char buf[32];
+
+	/* block size == page size */
+	sysctl_show_attr("/sys/mm", "free_blocks", buf);
+	return strtol(buf, NULL, 10);
+}
+
+static unsigned long asw_get_num_free_mem_chunks(void)
+{
+	char buf[32];
+
+	/* bytes free within the currently assigned heap */
+	sysctl_show_attr("/sys/kmem", "bytes_free", buf);
+	return strtol(buf, NULL, 10);
+}
 
 
 static inline unsigned long leon3_cpuid(void)
@@ -97,6 +126,8 @@ static int compress(void *data)
 
 	unsigned char *buf;
 
+	uint32_t heap_free, heap_used, chunks;
+
 
 
 	buf = (unsigned char *) data;
@@ -108,9 +139,19 @@ static int compress(void *data)
 
 	r = (rand() + busy) % 22;
 
-	printf("%d/%3d lvl %2d (CPU %ld)\n", busy, call_depth(buf[i - 1], r, sp_local), r, leon3_cpuid());
+	printf("%d/%3d lvl %2d (CPU %ld) ", busy, call_depth(buf[i - 1], r, sp_local), r, leon3_cpuid());
 
 	free(data);
+
+
+	/* we have a 4kiB page size */
+	heap_free = asw_get_num_free_pages() * 4096;
+	heap_used = asw_get_num_used_pages() * 4096;
+	/* correct by currently free chunks within the assigned heap */
+	chunks = asw_get_num_free_mem_chunks();
+
+	printf("F: %lu, U %lu, C: %lu\n", heap_free, heap_used, chunks);
+
 
 	busy = 0;
 
