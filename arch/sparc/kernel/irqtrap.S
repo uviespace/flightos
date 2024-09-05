@@ -48,17 +48,17 @@ __interrupt_entry:
 	 * to the IRQ number that occured...
 	 */
 
-	sll     %t_irqlvl, PSR_PIL_SHIFT, %g1	! shift into place
-	andn    %t_psr, PSR_PIL, %g2		! clear field
-	or      %g1, %g2, %g2			! set new level
+	sll     %t_irqlvl, PSR_PIL_SHIFT, %l5	! shift into place
+	andn    %t_psr, PSR_PIL, %l6		! clear field
+	or      %l5, %l6, %l6			! set new level
 
 #else /* !(CONFIG_SPARC_NESTED_IRQ)
 	/* ... otherwise we just set it to max */
 
-	or      %t_psr, PSR_PIL, %g2
+	or      %t_psr, PSR_PIL, %l6
 
 #endif /* CONFIG_SPARC_NESTED_IRQ */
-	wr	%g2, PSR_ET, %psr	! traps are off at this point, so we
+	wr	%l6, PSR_ET, %psr	! traps are off at this point, so we
 	nop				! xor the bit in the new PSR to re-enable
 	nop				! this is delayed-write, we need only
 					! 2 nops before the call

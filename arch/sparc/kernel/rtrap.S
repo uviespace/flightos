@@ -37,25 +37,25 @@ ret_trap_entry:
 ret_trap_kernel:
 
 	/* Will the rett land us in the invalid window? */
-	mov	2, %g1
-	sll	%g1, %t_psr, %g1
-	srl	%g1, NWINDOWS, %g2
-	or	%g1, %g2, %g1
-	rd	%wim, %g2
-	andcc	%g2, %g1, %g0
+	mov	2, %l5
+	sll	%l5, %t_psr, %l5
+	srl	%l5, NWINDOWS, %l6
+	or	%l5, %l6, %l5
+	rd	%wim, %l6
+	andcc	%l6, %l5, %g0
 	be	1f		! Nope, just return from the trap
-	 sll	%g2, 0x1, %g1
+	 sll	%l6, 0x1, %l5
 
 	/* window would be invalid, apply rotated mask (same as in win_uflow) */
-	srl	%g2, (NWINDOWS - 1),  %g2
-	or	%g1, %g2, %g1
+	srl	%l6, (NWINDOWS - 1),  %l6
+	or	%l5, %l6, %l5
 
 	/* no need to mask unused bits here, the CPU ignores any unimplemented
 	 * windows
 	*/
-	wr	%g1, 0x0, %wim
+	wr	%l5, 0x0, %wim
 
-	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, g1)
+	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, l5)
 
 	restore
 	LOAD_WINDOW(sp)
@@ -66,7 +66,7 @@ ret_trap_kernel:
 	 * kernel system call or whatever...
 	 */
 1:
-	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, g1)
+	LOAD_PT_ALL(sp, t_psr, t_pc, t_npc, l5)
 2:
 
 #if defined(LEON3FT_ERRATUM_TN0018)

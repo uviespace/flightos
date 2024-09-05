@@ -35,7 +35,9 @@
 #define _ARCH_SPARC_ASM_SWITCH_TO_H_
 
 
-
+/* need to decrement stack pointer by 64 bytes since input and local registers
+ * must be saved
+ */
 #define prepare_arch_switch(next) do {					\
 __asm__ __volatile__(							\
 "save %sp, -0x40, %sp; save %sp, -0x40, %sp; save %sp, -0x40, %sp\n\t"	\
@@ -80,13 +82,17 @@ __asm__ __volatile__(							\
  * 5:	store the current thread's %wim to %g5
  *
  * 6-7:	toggle the enable traps bit in the %psr (should be off at this point!)
- *	and wait 3 cycles for the bits to settle
+ *	and 1 nop for the bits to settle in time so the following double
+ *	store in (8) can not yet be interrupted. This is critical, otherwise
+ *	the value of %g4 (and thus the old thread's %psr) is likely invalid
+ *	when the code path returns again
  *
  * 8:	double-store store the PSR in %g4 and the WIM in %g5
  *	note that this requires double-word alignment of struct thread_infio
  *	members KPSR an KWIM
  *
- * 9:	double-load KPSR + KWIM into %g4, %g5 from new thread info
+ * 9:	double-load KPSR + KWIM into %g4, %g5 from new thread info. This
+ *	instruction may be preempted following (6-7)
  *
  * NOTE: A double load takes 2 cycles, +1 extra if the subsequent instruction
  *	 depends on the result of the load, that's why we don't set %g6 first
@@ -171,7 +177,7 @@ __asm__ __volatile__(							\
 	"std	%%sp, [%%g6 + %2]\n\t"				\
 	"rd	%%wim, %%g5\n\t"				\
 	"wr	%%g4, 0x20, %%psr\n\t"				\
-	"nop; nop; nop\n\t"					\
+	"nop\n\t"						\
 	"std	%%g4, [%%g6 + %4]\n\t"				\
 	"ldd	[%1 + %4], %%g4\n\t"				\
 	"mov	%1, %%g6\n\t"					\
