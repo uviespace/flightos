@@ -177,7 +177,7 @@ __asm__ __volatile__(							\
 	"std	%%sp, [%%g6 + %2]\n\t"				\
 	"rd	%%wim, %%g5\n\t"				\
 	"wr	%%g4, 0x20, %%psr\n\t"				\
-	"nop\n\t"						\
+	"nop; nop\n\t"						\
 	"std	%%g4, [%%g6 + %4]\n\t"				\
 	"ldd	[%1 + %4], %%g4\n\t"				\
 	"mov	%1, %%g6\n\t"					\
