@@ -32,7 +32,7 @@ extern struct thread_info *current_set[];
 static LIST_HEAD(kernel_schedulers);
 static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
 static uint8_t cpu_load[CONFIG_SMP_CPUS_MAX];
-
+static struct spinlock core_spinlock[CONFIG_SMP_CPUS_MAX];
 
 #ifdef CONFIG_CPU_STATS_COLLECT
 
@@ -364,7 +364,7 @@ void schedule(void)
 
 
 	arch_local_irq_disable();
-
+	spin_lock_raw(&core_spinlock[cpu]);
 
 	now = ktime_get();
 	sched_update_runtime(current_set[cpu]->task, now);
@@ -414,9 +414,13 @@ void schedule(void)
 	/* set next wakeup */
 	tick_set_next_ns(ktime_sub(slice, tick));
 
+	spin_unlock(&core_spinlock[cpu]);
 
-	prepare_arch_switch(1);
-	switch_to(next);
+	/* execute switch only if needed */
+	if (likely(next != current_set[cpu]->task)) {
+		prepare_arch_switch(1);
+		switch_to(next);
+	}
 
 	arch_local_irq_enable();
 }
