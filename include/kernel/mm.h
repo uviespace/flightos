@@ -43,6 +43,8 @@ void mm_free(struct mm_pool *mp, const void *addr);
 unsigned long mm_unallocated_blocks(struct mm_pool *mp);
 unsigned long mm_allocated_blocks(struct mm_pool *mp);
 
+size_t mm_free_bytes(void);
+
 bool mm_addr_in_pool(struct mm_pool *mp, void *addr);
 
 unsigned long mm_block_size(struct mm_pool *mp, const void *addr);

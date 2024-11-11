@@ -38,6 +38,9 @@ extern struct thread_info *current_set[];
  * @brief this is a wrapper that actually executes the thread function
  */
 #include <kernel/time.h>
+#include <asm/processor.h>
+#include <kernel/syscall.h>
+int syscall_sched_yield(void);
 static void th_starter(void)
 {
 	unsigned long flags;
@@ -61,7 +64,9 @@ static void th_starter(void)
 	arch_local_irq_restore(flags);
 
 
-	schedule();
+	syscall_sched_yield();
+
+	cpu_relax();
 
 	pr_crit(MSG "should never have reached %s:%d\n", __func__, __LINE__);
 	BUG();

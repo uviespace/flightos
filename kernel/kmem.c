@@ -448,7 +448,7 @@ void *kmalloc(size_t size)
 		goto success;
 	}
 
-	/* last chunk is free but to small, expand it */
+	/* last chunk is free but too small, expand it */
 	if (_kmem_last->free == FREE_MAGIC) {
 
 		k_new = _kmem_last;

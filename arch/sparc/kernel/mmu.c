@@ -1,11 +1,11 @@
 /**
- * @file arch/sparc/kernel/mmu.c
- *
- * @ingroup sparc
- *
- * @brief SPARC MMU initialisation, context, trap handling and sbrk()
- *
- */
+* @file arch/sparc/kernel/mmu.c
+*
+* @ingroup sparc
+*
+* @brief SPARC MMU initialisation, context, trap handling and sbrk()
+*
+*/
 
 #include <mm.h>
 
@@ -24,21 +24,21 @@
 
 
 /**
- * for now, this is our primitive per-process (we really have only one...)
- * system break tracker
- *
- * sbrk: the current program break
- * addr_low the legal lower boundary
- * addr_hi the legal upper boundary
- *
- * note: we don't have user/kernel memory segmentation yet
- */
+* for now, this is our primitive per-process (we really have only one...)
+* system break tracker
+*
+* sbrk: the current program break
+* addr_low the legal lower boundary
+* addr_hi the legal upper boundary
+*
+* note: we don't have user/kernel memory segmentation yet
+*/
 
 static struct mm_sbrk {
-	unsigned long sbrk;
+unsigned long sbrk;
 
-	unsigned long addr_lo;
-	unsigned long addr_hi;
+unsigned long addr_lo;
+unsigned long addr_hi;
 } mm_proc_mem [SRMMU_CONTEXTS];
 
 static unsigned long _mmu_ctx;
@@ -201,11 +201,14 @@ void *kernel_sbrk(intptr_t increment)
 
 	brk = oldbrk + increment;
 
+	if ((size_t)increment > mm_free_bytes())
+		return (void *)-1;
+
 	if (brk < mm_proc_mem[ctx].addr_lo)
-		return (void *) -1;
+		return (void *)-1;
 
 	if (brk >  mm_proc_mem[ctx].addr_hi)
-		return (void *) -1;
+		return (void *)-1;
 
 	/* try to release pages if we decremented below a page boundary */
 	if (increment < 0) {

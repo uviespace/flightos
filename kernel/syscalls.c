@@ -311,6 +311,13 @@ SYSCALL_DEFINE4(sysctl_store_attr, const char *, path, const char *, name, const
 	return 0;
 }
 
+#include <kernel/syscall.h>
+__attribute__((noinline))
+int syscall_sched_yield(void)
+{
+	return SYSCALL0(__NR_sched_yield);
+}
+
 
 
 /*

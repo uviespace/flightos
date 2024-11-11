@@ -52,6 +52,7 @@
 #include <kernel/sysctl.h>
 #include <kernel/string.h>
 #include <kernel/init.h>
+#include <page.h>
 
 
 #include <asm/irqflags.h>
@@ -660,6 +661,18 @@ unsigned long mm_block_size(struct mm_pool *mp, const void *addr)
 unsigned long mm_unallocated_blocks(struct mm_pool *mp)
 {
 	return mp->n_blks - mp->alloc_blks;
+}
+
+
+/**
+ * @brief returns number of total free bytes tracked
+ *
+ * @return total number of free bytes
+ */
+
+size_t mm_free_bytes(void)
+{
+	return (__mm_stat.total_blocks - __mm_stat.used_blocks) * PAGE_SIZE;
 }
 
 
