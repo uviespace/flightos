@@ -42,27 +42,26 @@ size_t strlen(const char *s);
 
 #define STACK_BUF_SIZE 32
 
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 
 /* leading flags */
-#define VSN_LEFT	(1 << 0)	/* left-align output */
-#define VSN_PLUS	(1 << 1)	/* show leading plus */
-#define VSN_SPACE	(1 << 2)	/* show space if plus */
-#define VSN_ZEROPAD	(1 << 3)	/* pad with zero */
-#define VSN_HASH	(1 << 4)	/* trailing zeros, decimal points, 0x */
+#define VSN_LEFT	(1U << 0)	/* left-align output */
+#define VSN_PLUS	(1U << 1)	/* show leading plus */
+#define VSN_SPACE	(1U << 2)	/* show space if plus */
+#define VSN_ZEROPAD	(1U << 3)	/* pad with zero */
+#define VSN_HASH	(1U << 4)	/* trailing zeros, decimal points, 0x */
 
 /* precision field flag */
-#define VSN_PRECISION	(1 << 5)	/* post-comma precision */
+#define VSN_PRECISION	(1U << 5)	/* post-comma precision */
 
 /* length field flags */
-#define VSN_CHAR	(1 << 6)	/* arg is int, upcast from char */
-#define VSN_SHORT	(1 << 7)	/* arg is int, upcast from short */
-#define VSN_LONG	(1 << 8)	/* arg is long type */
-#define VSN_LONG_LONG	(1 << 10)	/* arg is long long type */
+#define VSN_CHAR	(1U << 6)	/* arg is int, upcast from char */
+#define VSN_SHORT	(1U << 7)	/* arg is int, upcast from short */
+#define VSN_LONG	(1U << 8)	/* arg is long type */
+#define VSN_LONG_LONG	(1U << 10)	/* arg is long long type */
 
 /* type flags */
-#define VSN_UPPERCASE	(1 << 9)	/* %x or %X */
+#define VSN_UPPERCASE	(1U << 9)	/* %x or %X */
 
 
 struct fmt_spec {
@@ -395,8 +394,7 @@ static void config_specifier(const char *fmt, struct fmt_spec *spec)
 
 	case 'd':
 		spec->flags &= ~(VSN_HASH);
-		/* fall-thru */
-		/* above marker for gcc7+ -Wimplicit-fallthrough= */
+		/* fall through */
 	case 'i':
 		spec->base = 10;
 		break;
@@ -896,7 +894,7 @@ static size_t render_characteristic(char *buf, size_t n, const size_t size,
  */
 
 static double get_exp_float_val_param(double value, int *exp,
-				      const unsigned int pow_max,
+				      const double pow_max,
 				      const unsigned int prec_max,
 				      struct fmt_spec *spec)
 {

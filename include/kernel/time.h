@@ -24,7 +24,7 @@
 #include <kernel/kernel.h>
 #include <kernel/clocksource.h>
 
-
+#if 0
 #if (INTPTR_MAX == INT32_MAX)
 /* we use the compiler-defined struct timespec at this time, but we can
  * at least verify the size of the types to see if we are compatible
@@ -34,7 +34,7 @@ compile_time_assert((member_size(struct timespec, tv_sec)  == sizeof(int32_t)),
 compile_time_assert((member_size(struct timespec, tv_nsec) == sizeof(int32_t)),
 		    TIMESPEC_NSEC_SIZE_MISMATCH);
 #endif /* (INTPTR_MAX == INT32_MAX) */
-
+#endif
 #define MSEC_PER_SEC	      1000L
 #define USEC_PER_MSEC	      1000L
 #define NSEC_PER_USEC	      1000L

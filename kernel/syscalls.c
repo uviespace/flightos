@@ -47,7 +47,7 @@ struct sys_sched_attr {
 	unsigned long		priority;
 
 	int			on_cpu;						/* cpu number or THREAD_CPU_AFFINITY_NONE */
-	enum sched_policy	policy;
+	enum ksched_policy	policy;
     };
 
 typedef struct {
@@ -222,11 +222,11 @@ SYSCALL_DEFINE1(thread_create, thread_t *, t)
 		return PTR_ERR(tsk);
 
 	switch (t->attr.policy) {
-	case SCHED_EDF:
+	case KSCHED_EDF:
 		kthread_set_sched_edf(tsk, t->attr.period, t->attr.deadline_rel, t->attr.wcet);
 		break;
-	case SCHED_RR:
-	case SCHED_OTHER:
+	case KSCHED_RR:
+	case KSCHED_OTHER:
 	default:
 		kthread_set_sched_rr(tsk, t->attr.priority);
 		break;

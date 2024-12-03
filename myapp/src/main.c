@@ -201,7 +201,7 @@ static int asw_cycle(void *arg __attribute__((unused)))
 		if (!busy && buf) {
 			busy = cnt;
 
-			th.attr.policy = SCHED_RR;
+			th.attr.policy = KSCHED_RR;
 			th.attr.priority = 10000;
 			thread_create(&th, compress, buf, 1, "SCI_COMPR");
 			thread_wake_up(&th);

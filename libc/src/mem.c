@@ -3,6 +3,7 @@
  */
 
 #include <list.h>
+#include <string.h>
 #include <stddef.h>
 #include <syscalls.h>
 
@@ -244,10 +245,8 @@ void *malloc(size_t size)
 
 void *calloc(size_t nmemb, size_t size)
 {
-	size_t i;
 	size_t len;
 
-	char *dst;
 	void *ptr;
 
 
@@ -255,11 +254,8 @@ void *calloc(size_t nmemb, size_t size)
 
 	ptr = malloc(len);
 
-	if (ptr) {
-		dst = ptr;
-		for (i = 0; i < len; i++)
-			dst[i] = 0;
-	}
+	if (ptr)
+		memset(ptr, 0, len);
 
 	return ptr;
 }

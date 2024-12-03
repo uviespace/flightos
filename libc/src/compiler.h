@@ -41,7 +41,7 @@
 #define unlikely(x)    __builtin_expect(!!(x), 0)
 
 
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 
 /* optimisation barrier */
 #define barrier() __asm__ __volatile__("": : :"memory")

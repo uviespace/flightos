@@ -23,7 +23,7 @@
 #include <asm-generic/irqflags.h>
 
 
-#define MSG "SCHED_RR: "
+#define MSG "KSCHED_RR: "
 
 
 /* radix-2 shift for min tick */
@@ -185,7 +185,7 @@ static int rr_wake(struct task_struct *task, ktime now)
 	if (!task)
 		return -EINVAL;
 
-	if (task->attr.policy != SCHED_RR)
+	if (task->attr.policy != KSCHED_RR)
 		return -EINVAL;
 
 
@@ -266,9 +266,9 @@ static int rr_check_sched_attr(struct sched_attr *attr)
 	if (!attr)
 		return -EINVAL;
 
-	if (attr->policy != SCHED_RR) {
-		pr_err(MSG "attribute policy is %d, expected SCHED_RR (%d)\n",
-		            attr->policy, SCHED_RR);
+	if (attr->policy != KSCHED_RR) {
+		pr_err(MSG "attribute policy is %d, expected KSCHED_RR (%d)\n",
+		            attr->policy, KSCHED_RR);
 		return -EINVAL;
 	}
 
@@ -295,7 +295,7 @@ ktime rr_task_ready_ns(struct task_queue tq[], int cpu, ktime now)
 
 
 static struct scheduler sched_rr = {
-	.policy           = SCHED_RR,
+	.policy           = KSCHED_RR,
 	.pick_next_task   = rr_pick_next,
 	.wake_task        = rr_wake,
 	.enqueue_task     = rr_enqueue,

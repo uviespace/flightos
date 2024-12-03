@@ -25,7 +25,7 @@
  * This is defined the same way as ffs.
  * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
  */
-static inline int fls(int x)
+static inline int kfls(int x)
 {
         return x ? sizeof(x) * 8 - __builtin_clz(x) : 0;
 }
@@ -33,7 +33,7 @@ static inline int fls(int x)
 
 static inline unsigned fls_long(unsigned long l)
 {
-        return fls(l);
+        return kfls(l);
 }
 
 /*
@@ -49,7 +49,7 @@ int ____ilog2_NaN(void);
 static inline __attribute__((const))
 int __ilog2_u32(uint32_t n)
 {
-	return fls(n) - 1;
+	return kfls(n) - 1;
 }
 
 /*

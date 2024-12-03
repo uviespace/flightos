@@ -93,5 +93,5 @@ int grspw2_get_next_pkt_eep(uint8_t link)
 	spw.op   = GRSPW2_OP_GET_NEXT_PKT_EEP;
 	spw.link = link;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return sys_grspw2((void *) &spw);
 }

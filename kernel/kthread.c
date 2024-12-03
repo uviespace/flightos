@@ -78,7 +78,7 @@ int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 	struct sched_attr attr;
 
 	sched_get_attr(task, &attr);
-	attr.policy       = SCHED_EDF;
+	attr.policy       = KSCHED_EDF;
 	attr.period       = us_to_ktime(period_us);
 	attr.deadline_rel = us_to_ktime(deadline_rel_us);
 	attr.wcet         = us_to_ktime(wcet_us);
@@ -92,7 +92,7 @@ int kthread_set_sched_rr(struct task_struct *task, unsigned long priority)
 	struct sched_attr attr;
 
 	sched_get_attr(task, &attr);
-	attr.policy	  = SCHED_RR;
+	attr.policy	  = KSCHED_RR;
 	attr.priority     = priority;
 
 	return sched_set_attr(task, &attr);

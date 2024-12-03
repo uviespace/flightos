@@ -12,19 +12,19 @@
 #include <generated/autoconf.h>	/*XXX */
 
 /* scheduler priority levels */
-#define SCHED_PRIORITY_RR	0
-#define SCHED_PRIORITY_EDF	1
+#define KSCHED_PRIORITY_RR	0
+#define KSCHED_PRIORITY_EDF	1
 
-enum sched_policy {
-	SCHED_RR,
-	SCHED_EDF,
-	SCHED_OTHER,
+enum ksched_policy {
+	KSCHED_RR,
+	KSCHED_EDF,
+	KSCHED_OTHER,
 };
 
 
 
 struct sched_attr {
-	enum sched_policy	policy;
+	enum ksched_policy	policy;
 
 	/* static priority scheduling for RR, FIFO, ... */
 	unsigned long		priority;
@@ -69,7 +69,7 @@ struct scheduler {
 
 	struct task_queue	tq[CONFIG_SMP_CPUS_MAX]; /* XXX */
 
-	const enum sched_policy policy;
+	const enum ksched_policy policy;
 
 	struct task_struct *(*pick_next_task)(struct task_queue tq[], int cpu,
 					      ktime now);

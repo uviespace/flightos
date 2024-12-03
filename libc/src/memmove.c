@@ -153,8 +153,6 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 	s += n;
 	d += n;
 
-	c = (uintptr_t) s;
-
 	if (((uintptr_t) s | (uintptr_t) d) & (sizeof(int) - 1)) {
 
 		/* same as in memmove_fwd, but start at the end */

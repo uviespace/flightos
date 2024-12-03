@@ -1108,7 +1108,7 @@ long int strtol(const char *nptr, char **endptr, int base)
 		 * to clamp (LONG_MAX or LONG_MIN)
 		 */
 
-		if (res & (~0UL << (BITS_PER_LONG - fls(base)))) {
+		if (res & (~0UL << (BITS_PER_LONG - kfls(base)))) {
 	               if (res > (clamp - val) / base) {
 			       res = clamp;
 			       break;
@@ -1224,7 +1224,7 @@ long long int strtoll(const char *nptr, char **endptr, int base)
 		 * to clamp (LLONG_MAX or LLONG_MIN)
 		 */
 
-		if (res & (~0ULL << (BITS_PER_LONG_LONG - fls(base)))) {
+		if (res & (~0ULL << (BITS_PER_LONG_LONG - kfls(base)))) {
 	               if (res > (clamp - val) / base) {
 			       res = clamp;
 			       break;

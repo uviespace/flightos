@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <compiler.h>
 
+__diag_ignore(GCC, 7, "-Wpedantic", "we WANT braced groups, this cannot be implemented otherwise. fuck -pedantic")
 
 /**
  * define queue structure and forward-declare

@@ -55,7 +55,7 @@ static int fls(int x)
 
 int __attribute__((weak)) __clzsi2(unsigned int a)
 {
-	return 32 - fls(a);
+	return 32 - fls((int)a);
 }
 
 

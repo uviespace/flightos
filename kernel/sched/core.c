@@ -580,7 +580,7 @@ int sched_get_attr(struct task_struct *task, struct sched_attr *attr)
 
 int sched_set_policy_default(struct task_struct *task)
 {
-	struct sched_attr attr = {.policy   = SCHED_RR,
+	struct sched_attr attr = {.policy   = KSCHED_RR,
 				  .priority = 100};
 
 

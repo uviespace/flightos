@@ -675,14 +675,14 @@ void kfree(void *ptr)
 
 #ifdef CONFIG_MMU
 	if (ptr < kmem_init()) {
-		pr_warning("KMEM: invalid kfree() of addr %p below lower bound "
+		printk("KMEM: invalid kfree() of addr %p below lower bound "
 			   "of trackable memory in call from %p\n",
 			   ptr, __caller(0));
 		return;
 	}
 
 	if (ptr > kernel_sbrk(0)) {
-		pr_warning("KMEM: invalid kfree() of addr %p beyond system "
+		printk("KMEM: invalid kfree() of addr %p beyond system "
 			   "break in call from %p\n",
 			   ptr, __caller(0));
 		return;
@@ -692,13 +692,13 @@ void kfree(void *ptr)
 	k = ((struct kmem *) ptr) - 1;
 
 	if (k->data != ptr) {
-		pr_warning("KMEM: invalid kfree() of addr %p in call from %p\n",
+		printk("KMEM: invalid kfree() of addr %p in call from %p\n",
 			   ptr, __caller(0));
 		return;
 	}
 
 	if (k->magic != MAGIC) {
-		pr_warning("KMEM: invalid magic number in kfree() of addr %p in call from %p\n",
+		printk("KMEM: invalid magic number in kfree() of addr %p in call from %p\n",
 			   ptr, __caller(0));
 		return;
 	}
@@ -706,7 +706,7 @@ void kfree(void *ptr)
 	/** XXX kalarm(): this is pretty bad */
 	if (k->next && k->next->free) {
 		if (k->next->free != FREE_MAGIC) {
-			pr_crit("KMEM: corruption detected have: invalid free block magic 0x%08x "
+			printk("KMEM: corruption detected have: invalid free block magic 0x%08x "
 			        "marker when trying to free chunk %p with next chunk %p",
 				k->next->free, k, k->next);
 			return;

@@ -18,7 +18,7 @@
 
 
 
-#define MSG "SCHED_EDF: "
+#define MSG "KSCHED_EDF: "
 
 #define UTIL_MAX 0.98 /* XXX should be config option, also should be adaptive depending on RT load */
 
@@ -888,7 +888,7 @@ static int edf_wake(struct task_struct *task, ktime now)
 	if (!task)
 		return -EINVAL;
 
-	if (task->attr.policy != SCHED_EDF)
+	if (task->attr.policy != KSCHED_EDF)
 		return -EINVAL;
 
 
@@ -1004,9 +1004,9 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 
 	tick_min = (ktime) tick_get_period_min_ns();
 
-	if (attr->policy != SCHED_EDF) {
-		pr_err(MSG "attribute policy is %d, expected SCHED_EDF (%d)\n",
-			attr->policy, SCHED_EDF);
+	if (attr->policy != KSCHED_EDF) {
+		pr_err(MSG "attribute policy is %d, expected KSCHED_EDF (%d)\n",
+			attr->policy, KSCHED_EDF);
 		return -EINVAL;
 	}
 
@@ -1104,14 +1104,14 @@ ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)
 
 
 struct scheduler sched_edf = {
-	.policy           = SCHED_EDF,
+	.policy           = KSCHED_EDF,
 	.pick_next_task   = edf_pick_next,
 	.wake_task        = edf_wake,
 	.enqueue_task     = edf_enqueue,
 	.timeslice_ns     = edf_timeslice_ns,
 	.task_ready_ns    = edf_task_ready_ns,
 	.check_sched_attr = edf_check_sched_attr,
-	.priority         = SCHED_PRIORITY_EDF,
+	.priority         = KSCHED_PRIORITY_EDF,
 };
 
 
