@@ -174,7 +174,7 @@ int tty_init(void)
 #if ASYNC_OUTPUT
        	/* BUG: failure at kernel/sched/core.c:154/schedule()! after CPU1 boots */
       /* likely no problem, disabled BUG() call there */
-	kthread_set_sched_edf(t, 10 * 1000, 9 * 1000, 50);
+	kthread_set_sched_edf(t, 10 * 1000, 9 * 1000, 500);
 #endif
 	if (kthread_wake_up(t) < 0) {
 		printk("ALARM!\n");
