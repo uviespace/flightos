@@ -92,7 +92,33 @@ static void mem_init(void)
 
 #ifdef CONFIG_LEON3
 
-#ifdef CONFIG_PROJECT_SMILE
+
+#ifdef CONFIG_PROJECT_ARIEL
+	/* XXX as above... */
+	sp_banks[0].base_addr = 0x40000000;
+	sp_banks[0].num_bytes = 0x00800000;	/* first 8 MiB */
+
+#if (SPARC_PHYS_BANKS > 0)
+	sp_banks[1].base_addr = 0x40800000;
+	sp_banks[1].num_bytes = 0x00400000;	/* next 4 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 1)
+	sp_banks[2].base_addr = 0x40C00000;
+	sp_banks[2].num_bytes = 0x00200000;	/* next 2 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 2)
+	sp_banks[3].base_addr = 0x40E00000;
+	sp_banks[3].num_bytes = 0x00100000;	/* next 1 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 3)
+	sp_banks[4].base_addr = 0x40F00000;
+	sp_banks[4].num_bytes = 0x00080000;	/* next 512 kiB */
+#endif
+	/* ignore the remaing unused space, it is the location of the ASW */
+#elif CONFIG_PROJECT_SMILE
 	/* XXX need something like CONFIG_SOC_SMILE_SXI */
 	/* XXX the base address is defined by the requirements
 	 * (DBS RAM + exchange area).
@@ -147,6 +173,11 @@ static void mem_init(void)
 	sp_banks[1].base_addr = 0x60000000;
 	sp_banks[1].num_bytes = 0x04000000;
 #endif /* CONFIG_PROJECT_SMILE */
+
+
+
+
+
 #endif /* CONFIG_LEON3 */
 
 

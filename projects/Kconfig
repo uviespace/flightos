@@ -13,6 +13,13 @@ config PROJECT_SMILE
 	help
 	 Configure DPU-specific setup for SMILE
 
+config PROJECT_ARIEL
+	bool "ARIEL DPU"
+	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
+	help
+	 Configure DPU-specific setup for ARIEL
+
+
 config PROJECT_MYAPP
 	bool "MYAPP_DEMO"
 	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
