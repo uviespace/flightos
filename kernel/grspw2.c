@@ -1552,7 +1552,6 @@ void grspw2_tick_in(struct grspw2_core_cfg *cfg)
 	iowrite32be(ctrl, &cfg->regs->ctrl);
 }
 
-#ifdef CONFIG_GRSPW2_SPW_ROUTING_
 /**
  * @brief	interrupt handler for packet routing
  * @note	only a single node is supported at the moment
@@ -1595,6 +1594,12 @@ int32_t grspw2_route(void *userdata)
 }
 
 
+static irqreturn_t grspw2_route_call(unsigned int irq, void *userdata)
+{
+	return grspw2_route(userdata);
+}
+
+
 /**
  * @brief enable routing between SpW cores
  */
@@ -1607,8 +1612,7 @@ int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
 
 	cfg->route[0] = route;
 
-	irl2_register_callback(cfg->core_irq, PRIORITY_NOW,
-			       grspw2_route, (void *) cfg);
+	irq_request(cfg->core_irq, ISR_PRIORITY_NOW, grspw2_route_call, (void *)cfg);
 
 
 	grspw2_set_promiscuous(cfg);
@@ -1650,15 +1654,13 @@ int32_t grspw2_enable_routing_noirq(struct grspw2_core_cfg *cfg,
 
 int32_t grspw2_disable_routing(struct grspw2_core_cfg *cfg)
 {
-	irl2_deregister_callback(cfg->core_irq, grspw2_route,
-				 (void *) cfg->route[0]);
+	irq_free(cfg->core_irq, grspw2_route_call, (void *)cfg->route[0]);
 
 	grspw2_unset_promiscuous(cfg);
 	grspw2_rx_interrupt_disable(cfg);
 
 	return 0;
 }
-#endif /* (__SPW_ROUTING__) */
 
 
 /**
