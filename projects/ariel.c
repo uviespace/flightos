@@ -32,6 +32,13 @@ struct spw_user_cfg spw_cfg[6];
 #define ARIEL_MTU_TC		GRSPW2_DEFAULT_MTU	/* Table 1.0, ARIEL-SPW-858 according to BSW ICD + 4byte header */
 
 
+
+
+#define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
+#define ARIEL_DPU_ADDR_TO_DCU	0x77	/* link 3, used for routing to DCU XXX fix address (maybew not needed due to promisc routing mode */
+
+
+
 #define CLKGATE_GRETH		0x00000001
 #define CLKGATE_GRSPW0		0x00000002
 #define CLKGATE_GRSPW1		0x00000004
@@ -90,7 +97,7 @@ static void ariel_set_gr712_spw_clock(void)
 }
 
 
-static void spw_alloc_obc(struct spw_user_cfg *cfg)
+static void spw_alloc_desc_table(struct spw_user_cfg *cfg)
 {
 	uint32_t mem;
 
@@ -164,6 +171,80 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 }
 
 
+
+/**
+ * @brief perform basic initialisation of the spw core
+ */
+
+static void spw_init_core_dcu(struct spw_user_cfg *cfg)
+{
+	ariel_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW5);
+
+	/* configure for spw core0 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_3,
+			 ARIEL_DPU_ADDR_TO_DCU, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE3,
+			 GR712_IRL1_AHBSTAT, 0);
+
+	grspw2_rx_desc_table_init(&cfg->spw,
+				  cfg->rx_desc,
+				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  cfg->rx_data,
+				  ARIEL_MTU_TC);
+
+	grspw2_tx_desc_table_init(&cfg->spw,
+				  cfg->tx_desc,
+				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  cfg->tx_hdr, 0,
+				  cfg->tx_data, ARIEL_MTU_TM);
+}
+
+
+
+/**
+ * @brief perform basic initialisation of the spw core
+ */
+
+static void spw_init_core_debug(struct spw_user_cfg *cfg)
+{
+	ariel_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW5);
+
+	/* configure for spw core0 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_5,
+			 ARIEL_DPU_ADDR_TO_DEBUG, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE5,
+			 GR712_IRL1_AHBSTAT, 0);
+
+	grspw2_rx_desc_table_init(&cfg->spw,
+				  cfg->rx_desc,
+				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  cfg->rx_data,
+				  ARIEL_MTU_TC);
+
+	grspw2_tx_desc_table_init(&cfg->spw,
+				  cfg->tx_desc,
+				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  cfg->tx_hdr, 0,
+				  cfg->tx_data, ARIEL_MTU_TM);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 __attribute__((unused))
 static void ariel_edac_reset(void *data)
 {
@@ -223,14 +304,26 @@ static int ariel_init(void)
 	void *addr;
 
 
-	/* XXX MEH, just hack this in for EMC test */
-	spw_alloc_obc(&spw_cfg[0]);
+	spw_alloc_desc_table(&spw_cfg[0]);
 	spw_init_core_obc(&spw_cfg[0]);
 
-	grspw2_core_start(&spw_cfg[0].spw, 0, 1);
+
+	grspw2_core_start(&spw_cfg[0].spw, 1, 1);
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
+
+	/* setup routing between dcu and debug link 5 */
+	spw_alloc_desc_table(&spw_cfg[2]);
+	spw_alloc_desc_table(&spw_cfg[4]);
+
+	spw_init_core_dcu(&spw_cfg[2]);
+	spw_init_core_debug(&spw_cfg[4]);
+
+	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
+	grspw2_core_start(&spw_cfg[4].spw, 1, 1);
+
+	grspw2_enable_routing(&spw_cfg[2].spw, &spw_cfg[4].spw);
 #if 0
 	/* empty link in case the mkII brick acts up again,
 	 * note that this does not work unless the power to the FEE psu
