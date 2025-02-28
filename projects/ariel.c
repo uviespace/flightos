@@ -31,7 +31,7 @@ struct spw_user_cfg spw_cfg[6];
 #define ARIEL_MTU_TM		4096			/* no idea, just took this from BSW ICD */
 #define ARIEL_MTU_TC		GRSPW2_DEFAULT_MTU	/* Table 1.0, ARIEL-SPW-858 according to BSW ICD + 4byte header */
 
-
+#define ARIEL_MTU_DCU		(32 * 1024)
 
 
 #define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
@@ -97,7 +97,7 @@ static void ariel_set_gr712_spw_clock(void)
 }
 
 
-static void spw_alloc_desc_table(struct spw_user_cfg *cfg)
+static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_t tm_size, size_t hdr_size)
 {
 	uint32_t mem;
 
@@ -130,12 +130,10 @@ static void spw_alloc_desc_table(struct spw_user_cfg *cfg)
 
 
 	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS
-					    * ARIEL_MTU_TC);
-	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS
-					    * ARIEL_MTU_TM);
+	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS * tc_size);
+	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * tm_size);
 
-	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
+	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * hdr_size);
 }
 
 
@@ -192,13 +190,13 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 				  cfg->rx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->rx_data,
-				  ARIEL_MTU_TC);
+				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->tx_hdr, 0,
-				  cfg->tx_data, ARIEL_MTU_TM);
+				  cfg->tx_data, ARIEL_MTU_DCU);
 }
 
 
@@ -223,13 +221,13 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 				  cfg->rx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->rx_data,
-				  ARIEL_MTU_TC);
+				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->tx_hdr, 0,
-				  cfg->tx_data, ARIEL_MTU_TM);
+				  cfg->tx_data, ARIEL_MTU_DCU);
 }
 
 
@@ -304,7 +302,7 @@ static int ariel_init(void)
 	void *addr;
 
 
-	spw_alloc_desc_table(&spw_cfg[0]);
+	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE);
 	spw_init_core_obc(&spw_cfg[0]);
 
 
@@ -314,8 +312,8 @@ static int ariel_init(void)
 
 
 	/* setup routing between dcu and debug link 5 */
-	spw_alloc_desc_table(&spw_cfg[2]);
-	spw_alloc_desc_table(&spw_cfg[4]);
+	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0);
+	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0);
 
 	spw_init_core_dcu(&spw_cfg[2]);
 	spw_init_core_debug(&spw_cfg[4]);
