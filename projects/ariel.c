@@ -97,7 +97,7 @@ static void ariel_set_gr712_spw_clock(void)
 }
 
 
-static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_t tm_size, size_t hdr_size)
+static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_t tm_size, size_t hdr_size, size_t rx_desc, size_t tx_desc)
 {
 	uint32_t mem;
 
@@ -130,10 +130,10 @@ static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_
 
 
 	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS * tc_size);
-	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * tm_size);
+	cfg->rx_data = (uint8_t *) kpcalloc(1, rx_desc * tc_size);
+	cfg->tx_data = (uint8_t *) kpcalloc(1, tx_desc * tm_size);
 
-	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * hdr_size);
+	cfg->tx_hdr = (uint8_t *) kpcalloc(1, tx_desc * hdr_size);
 }
 
 
@@ -178,12 +178,12 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 {
 	ariel_set_gr712_spw_clock();
 
-	gr712_clkgate_enable(CLKGATE_GRSPW5);
+	gr712_clkgate_enable(CLKGATE_GRSPW2);
 
 	/* configure for spw core0 */
-	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_3,
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_2,
 			 ARIEL_DPU_ADDR_TO_DCU, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
-			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE3,
+			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE2,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -209,12 +209,12 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 {
 	ariel_set_gr712_spw_clock();
 
-	gr712_clkgate_enable(CLKGATE_GRSPW5);
+	gr712_clkgate_enable(CLKGATE_GRSPW4);
 
 	/* configure for spw core0 */
-	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_5,
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_4,
 			 ARIEL_DPU_ADDR_TO_DEBUG, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
-			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE5,
+			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE4,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -228,6 +228,7 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->tx_hdr, 0,
 				  cfg->tx_data, ARIEL_MTU_DCU);
+
 }
 
 
@@ -302,7 +303,7 @@ static int ariel_init(void)
 	void *addr;
 
 
-	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE);
+	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, GRSPW2_RX_DESCRIPTORS, GRSPW2_RX_DESCRIPTORS);
 	spw_init_core_obc(&spw_cfg[0]);
 
 
@@ -310,10 +311,9 @@ static int ariel_init(void)
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
-
 	/* setup routing between dcu and debug link 5 */
-	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0);
-	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0);
+	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 10, 10);
+	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 10, 10);
 
 	spw_init_core_dcu(&spw_cfg[2]);
 	spw_init_core_debug(&spw_cfg[4]);
@@ -321,6 +321,7 @@ static int ariel_init(void)
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_core_start(&spw_cfg[4].spw, 1, 1);
 
+	grspw2_enable_routing(&spw_cfg[4].spw, &spw_cfg[2].spw);
 	grspw2_enable_routing(&spw_cfg[2].spw, &spw_cfg[4].spw);
 #if 0
 	/* empty link in case the mkII brick acts up again,
