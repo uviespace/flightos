@@ -1303,7 +1303,7 @@ static void grswp2_rx_desc_add_all(struct grspw2_core_cfg *cfg)
 {
 	size_t i;
 
-	for (i = 0; i < GRSPW2_RX_DESCRIPTORS; i++) {
+	for (i = 0; i < cfg->rx_n_desc; i++) {
 		if (grspw2_rx_desc_add(cfg))
 			break;
 	}
@@ -1608,6 +1608,7 @@ int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
 			      struct grspw2_core_cfg *route)
 {
 	size_t i;
+	uint32_t n_desc;
 
 
 	cfg->route[0] = route;
@@ -1624,7 +1625,11 @@ int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
 	 */
 	grspw2_rx_desc_clear_all(cfg);
 
-	for (i = 0; i < GRSPW2_TX_DESCRIPTORS; i++)
+	n_desc = cfg->rx_n_desc;
+	if (n_desc > route->tx_n_desc)
+		n_desc = route->tx_n_desc;
+
+	for (i = 0; i < n_desc; i++)
 		grspw2_rx_desc_add(cfg);
 
 	return 0;
