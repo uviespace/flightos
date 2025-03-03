@@ -409,7 +409,16 @@ EXPORT_SYMBOL(arch_local_irq_restore);
 static void leon_clear_irq(unsigned int irq)
 {
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-	iowrite32be((1 << irq), &leon_irqctrl_regs->irq_clear);
+
+	if (irq < IRL_SIZE) {
+		iowrite32be((1 << irq), &leon_irqctrl_regs->irq_clear);
+	} else {
+		uint32_t mask;
+		mask = ioread32be(&leon_irqctrl_regs->irq_pending);
+		mask &= ~(1 << irq);
+		iowrite32be(mask, &leon_irqctrl_regs->irq_pending);
+	}
+
 #endif /* CONFIG_LEON3 */
 
 #ifdef CONFIG_LEON2
@@ -856,9 +865,10 @@ static int leon_eirq_dispatch(unsigned int irq)
 		/* stop loop-processing if an IRL is throwing a tantrunm */
 		if (leon_check_eirq_rate(eirq, cpu))
 			break;
-#endif /* CONFIG_LEON3 */
+#else /* CONFIG_LEON3 */
 		if (leon_check_eirq_rate(eirq, 0))
 			break;
+#endif /* CONFIG_LEON3 */
 #endif /* CONFIG_IRQ_RATE_PROTECT */
 
 
