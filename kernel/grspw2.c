@@ -969,7 +969,6 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 		list_add_tail(&cfg->rx_desc_ring[i].node,
 			      &cfg->rx_desc_ring_free);
 	}
-	cfg->rx_desc_ring[i - 1].desc->pkt_ctrl |= GRSPW2_RX_DESC_WR;
 
 	return 0;
 }
@@ -1036,8 +1035,6 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 		list_add_tail(&cfg->tx_desc_ring[i].node,
 			      &cfg->tx_desc_ring_free);
 	}
-
-	cfg->tx_desc_ring[i - 1].desc->pkt_ctrl |= GRSPW2_TX_DESC_WR;
 
 	return 0;
 }
@@ -1236,6 +1233,59 @@ static void grspw2_tx_desc_set_active(struct grspw2_tx_desc_ring_elem *p_elem)
 	p_elem->desc->pkt_ctrl |= GRSPW2_TX_DESC_IE | GRSPW2_TX_DESC_EN;
 }
 
+
+/**
+ * @brief	set tx descriptor wrap bit
+ * @note	always set before EN bit
+ */
+
+static void grspw2_rx_desc_set_wrap(struct grspw2_rx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl |= GRSPW2_RX_DESC_WR;
+}
+
+
+/**
+ * @brief	set tx descriptor wrap bit
+ * @note	always set before EN bit
+ */
+
+static void grspw2_tx_desc_set_wrap(struct grspw2_tx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl |= GRSPW2_TX_DESC_WR;
+}
+
+
+/**
+ * @brief	check if RX descriptor ist the last in the table
+ */
+
+static int32_t grspw2_rx_desc_is_last(struct grspw2_core_cfg *cfg,
+				      struct grspw2_rx_desc_ring_elem *desc)
+{
+	if (desc == &cfg->rx_desc_ring[cfg->rx_n_desc - 1])
+		return 1;
+
+	return 0;
+}
+
+
+/**
+ * @brief	check if TX descriptor ist the last in the table
+ */
+
+static int32_t grspw2_tx_desc_is_last(struct grspw2_core_cfg *cfg,
+				      struct grspw2_tx_desc_ring_elem *desc)
+{
+	if (desc == &cfg->tx_desc_ring[cfg->tx_n_desc - 1])
+		return 1;
+
+	return 0;
+}
+
+
+
+
 /**
  * @brief	check if there are rx descriptors in the free ring
  *
@@ -1291,6 +1341,9 @@ static int32_t grspw2_rx_desc_add(struct grspw2_core_cfg *cfg)
 	   Also see the note in the function description.
 	*/
 	p_elem = grspw2_rx_desc_get_next_free(cfg);
+
+	if (grspw2_rx_desc_is_last(cfg, p_elem))
+		grspw2_rx_desc_set_wrap(p_elem);
 
 	grspw2_rx_desc_set_active(p_elem);
 
@@ -1438,6 +1491,10 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 		if (non_crc_bytes)
 			p_elem->desc->non_crc_bytes = non_crc_bytes & 0xF;
 	}
+
+	/* set wrap bit on last */
+	if (grspw2_tx_desc_is_last(cfg, p_elem))
+		grspw2_tx_desc_set_wrap(p_elem);
 
 	grspw2_tx_desc_set_active(p_elem);
 
