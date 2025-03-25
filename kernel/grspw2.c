@@ -969,6 +969,7 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 		list_add_tail(&cfg->rx_desc_ring[i].node,
 			      &cfg->rx_desc_ring_free);
 	}
+	cfg->rx_desc_ring[i - 1].desc->pkt_ctrl |= GRSPW2_RX_DESC_WR;
 
 	return 0;
 }
@@ -1035,6 +1036,8 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 		list_add_tail(&cfg->tx_desc_ring[i].node,
 			      &cfg->tx_desc_ring_free);
 	}
+
+	cfg->tx_desc_ring[i - 1].desc->pkt_ctrl |= GRSPW2_TX_DESC_WR;
 
 	return 0;
 }
