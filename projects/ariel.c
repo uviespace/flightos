@@ -188,13 +188,13 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  GRSPW2_RX_DESC_SIZE * 10,
 				  cfg->rx_data,
 				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  GRSPW2_TX_DESC_SIZE *  10,
 				  cfg->tx_hdr, 0,
 				  cfg->tx_data, ARIEL_MTU_DCU);
 }
@@ -219,13 +219,13 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  GRSPW2_RX_DESC_SIZE * 10,
 				  cfg->rx_data,
 				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  GRSPW2_TX_DESC_SIZE * 10,
 				  cfg->tx_hdr, 0,
 				  cfg->tx_data, ARIEL_MTU_DCU);
 
@@ -303,7 +303,7 @@ static int ariel_init(void)
 	void *addr;
 
 
-	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, GRSPW2_RX_DESCRIPTORS, GRSPW2_RX_DESCRIPTORS);
+	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, GRSPW2_RX_DESCRIPTORS, GRSPW2_TX_DESCRIPTORS);
 	spw_init_core_obc(&spw_cfg[0]);
 
 
