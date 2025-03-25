@@ -169,7 +169,7 @@ int kernel_main(void)
 #ifdef CONFIG_KERNEL_PRINTK
 	{
 		struct timespec t = get_uptime();
-		printk("OS boot complete at uptime %u s, %u ms\n", t.tv_sec, t.tv_nsec / 1000000);
+		printk("OS boot complete at uptime %llu s, %lu ms\n", t.tv_sec, t.tv_nsec / 1000000);
 	}
 #endif /* CONFIG_KERNEL_PRINTK */
 
@@ -180,7 +180,7 @@ int kernel_main(void)
 #ifdef CONFIG_KERNEL_PRINTK
 	{
 		struct timespec t = get_uptime();
-		printk("entering main idle loop at uptime %u s, %u ms\n", t.tv_sec, t.tv_nsec / 1000000);
+		printk("entering main idle loop at uptime %llu s, %lu ms\n", t.tv_sec, t.tv_nsec / 1000000);
 	}
 #endif /* CONFIG_KERNEL_PRINTK */
 
