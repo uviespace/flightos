@@ -331,8 +331,22 @@
 struct grspw2_dma_regs {
 	uint32_t ctrl_status;
 	uint32_t rx_max_pkt_len;
-	uint32_t tx_desc_table_addr;
-	uint32_t rx_desc_table_addr;
+	union {
+		struct {
+			uint32_t tx_desc_base_addr:22;
+			uint32_t tx_desc_sel:6;
+			uint32_t reserved0:4;
+		};
+		uint32_t tx_desc_table_addr;
+	};
+	union {
+		struct {
+			uint32_t rx_desc_base_addr:22;
+			uint32_t rx_desc_sel:7;
+			uint32_t reserved1:3;
+		};
+		uint32_t rx_desc_table_addr;
+	};
 	uint32_t addr;
 	uint32_t dummy[3];
 };
@@ -465,6 +479,9 @@ struct grspw2_core_cfg {
 	uint32_t rx_bytes;
 	uint32_t tx_bytes;
 
+	/* irq-driven packet overwrite mode status */
+	int overwrite;
+
 	struct sysobj sobj;
 
 	/* routing node, we currently support only one device and only
@@ -533,6 +550,8 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt);
 uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg);
 int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg);
+int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg);
+int grspw2_overwrite_disable(struct grspw2_core_cfg *cfg);
 
 void grspw2_tick_in(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_timecnt(struct grspw2_core_cfg *cfg);
@@ -588,6 +607,9 @@ void grspw2_spw_hardreset(struct grspw2_regs *regs);
 #define GRSPW2_OP_DROP_PKT		5
 #define GRSPW2_OP_GET_PKT		6
 #define GRSPW2_OP_GET_NEXT_PKT_EEP	7
+#define GRSPW2_OP_OVERWRITE_ENABLE	8
+#define GRSPW2_OP_OVERWRITE_DISABLE	9
+
 
 /* a spacewire core configuration */
 struct spw_user_cfg {
