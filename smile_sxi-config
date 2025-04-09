@@ -45,7 +45,7 @@ CONFIG_CROSS_COMPILE="sparc-gaisler-elf-"
 CONFIG_ARCH_CUSTOM_BOOT_CODE=y
 CONFIG_MODULES=y
 CONFIG_EMBED_MODULES_IMAGE=y
-CONFIG_EMBED_APPLICATION="/home/space/git/SMILE-OBSW/implementation/CrIa/build/dpu/CrIa"
+CONFIG_EMBED_APPLICATION="/home/smile/git/SMILE-OBSW/implementation/CrIa/build/dpu/CrIa"
 # CONFIG_BUILD_XEN_KERNELS is not set
 
 #
