@@ -1445,6 +1445,8 @@ static int32_t grspw2_rx_desc_add(struct grspw2_core_cfg *cfg)
 	if (grspw2_rx_desc_is_last(cfg, p_elem))
 		grspw2_rx_desc_set_wrap(p_elem);
 
+	p_elem->desc->pkt_size = 0;
+
 	grspw2_rx_desc_set_active(p_elem);
 
 	grspw2_rx_desc_move_busy(cfg, p_elem);
@@ -1925,13 +1927,17 @@ int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
 }
 
 
+#define GRSPW2_OVERWRITE_DROP_MAX_DESC	125
+
 static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
 {
 
 	struct grspw2_core_cfg *cfg;
 	struct grspw2_rx_desc_ring_elem *p_elem;
+	struct grspw2_rx_desc_ring_elem *p_tmp;
 
 	int idx;
+	int i;
 
 
 	cfg = (struct grspw2_core_cfg *) userdata;
@@ -1958,11 +1964,24 @@ static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
 	/* clear irq on last */
 	grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[idx]);
 
-	/* set IRQ on current */
-	grspw2_rx_desc_set_irq(p_elem);
-
 	/* re-add the descriptor of the packet we just dropped */
 	grspw2_rx_desc_readd(cfg, p_elem);
+
+	for (i = 0; i < GRSPW2_OVERWRITE_DROP_MAX_DESC; i++) {
+
+		p_tmp = grspw2_rx_desc_get_next_used(cfg);
+		if (!p_tmp)
+			break;
+
+		p_elem = p_tmp;
+
+		cfg->rx_bytes += p_elem->desc->pkt_size;
+		/* re-add the descriptor of the packet we just dropped */
+		grspw2_rx_desc_readd(cfg, p_elem);
+	}
+
+	/* set IRQ on current */
+	grspw2_rx_desc_set_irq(p_elem);
 
 	return 0;
 }
@@ -1979,6 +1998,8 @@ static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
 
 int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg)
 {
+	int ret;
+
 	struct grspw2_rx_desc_ring_elem *p_elem;
 
 
@@ -1993,10 +2014,10 @@ int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg)
 	cfg->overwrite = 1;
 	grspw2_rx_desc_set_irq(p_elem);
 
+	ret = irq_request(cfg->core_irq, ISR_PRIORITY_NOW, grspw2_overwrite_call, (void *)cfg);
 	grspw2_rx_interrupt_enable(cfg);
 
-	return irq_request(cfg->core_irq, ISR_PRIORITY_NOW,
-			   grspw2_overwrite_call, (void *)cfg);
+	return ret;
 }
 
 
