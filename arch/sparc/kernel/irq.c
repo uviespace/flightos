@@ -126,7 +126,7 @@ static unsigned int leon_eirq;
 
 /* XXX testing, add to kbuild */
 #define CONFIG_IRQ_RATE_PROTECT 1
-#define CONFIG_IRQ_MIN_INTER_US 500
+#define CONFIG_IRQ_MIN_INTER_US 250
 
 #ifdef CONFIG_IRQ_RATE_PROTECT
 
@@ -518,6 +518,7 @@ static void leon_mask_irq(unsigned int irq, int cpu)
 #define GPTIMER_0_IRQ   8
 #endif
 
+static int leon_irq_queue(struct irl_vector_elem *p_elem);
 
 /**
  * restore an IRQ after some time
@@ -529,6 +530,10 @@ static int leon_irq_prot_restore(void *data)
 	int i;
 	uint32_t psr_flags;
 	ktime now, earlier;
+
+	struct irl_vector_elem *p_elem;
+	struct irl_vector_elem *p_tmp;
+
 
 	while (1) {
 
@@ -548,6 +553,18 @@ static int leon_irq_prot_restore(void *data)
 			if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US)
 				continue;
 
+			/* delay-execute the associated ISRs */
+			list_for_each_entry_safe(p_elem, p_tmp, &irl_vector[i],
+						 handler_node) {
+
+				/* deferred ISRs are executed immediately if
+				 * queueing fails
+				 */
+				if (likely(p_elem->priority == ISR_PRIORITY_NOW))
+					p_elem->handler(i, p_elem->data);
+				else if (leon_irq_queue(p_elem) < 0)
+					p_elem->handler(i, p_elem->data);
+			}
 
 			leon_unmask_irq(i, irq_rate_prot.irq_blocked[i] - 1);
 			irq_rate_prot.irq_blocked[i] = 0;
@@ -561,6 +578,19 @@ static int leon_irq_prot_restore(void *data)
 			earlier = irq_rate_prot.last_eirq[i];
 			if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US)
 				continue;
+
+			/* delay-execute the associated ISRs */
+			list_for_each_entry_safe(p_elem, p_tmp, &eirl_vector[i],
+						 handler_node) {
+
+				/* deferred ISRs are executed immediately if
+				 * queueing fails
+				 */
+				if (likely(p_elem->priority == ISR_PRIORITY_NOW))
+					p_elem->handler(i, p_elem->data);
+				else if (leon_irq_queue(p_elem) < 0)
+					p_elem->handler(i, p_elem->data);
+			}
 
 			leon_unmask_irq(i, irq_rate_prot.eirq_blocked[i] - 1);
 			irq_rate_prot.eirq_blocked[i] = 0;
@@ -689,8 +719,6 @@ void leon_force_irq(unsigned int irq, int cpu)
 	}
 #endif
 	iowrite32be((1 << irq), &leon_irqctrl_regs->irq_force);
-
-
 }
 
 
