@@ -126,7 +126,7 @@ static unsigned int leon_eirq;
 
 /* XXX testing, add to kbuild */
 #define CONFIG_IRQ_RATE_PROTECT 1
-#define CONFIG_IRQ_MIN_INTER_US 250
+#define CONFIG_IRQ_MIN_INTER_US 200
 
 #ifdef CONFIG_IRQ_RATE_PROTECT
 
