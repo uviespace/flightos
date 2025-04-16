@@ -95,3 +95,26 @@ int grspw2_get_next_pkt_eep(uint8_t link)
 
 	return sys_grspw2((void *) &spw);
 }
+
+uint32_t grspw2_auto_drop_enable(uint8_t link, uint8_t n_drop)
+{
+	struct grspw2_data spw;
+
+
+	spw.op   = GRSPW2_OP_AUTO_DROP_ENABLE;
+	spw.link = link;
+	spw.n_drop = n_drop;
+
+	return (uint32_t) sys_grspw2((void *) &spw);
+}
+
+uint32_t grspw2_auto_drop_disable(uint8_t link)
+{
+	struct grspw2_data spw;
+
+
+	spw.op   = GRSPW2_OP_AUTO_DROP_DISABLE;
+	spw.link = link;
+
+	return (uint32_t) sys_grspw2((void *) &spw);
+}

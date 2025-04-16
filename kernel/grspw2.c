@@ -1934,13 +1934,12 @@ int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
 
 static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 {
+	int i;
+	int idx;
 
 	struct grspw2_core_cfg *cfg;
 	struct grspw2_rx_desc_ring_elem *p_elem;
-	struct grspw2_rx_desc_ring_elem *p_tmp;
 
-	int idx;
-	int i;
 
 
 	cfg = (struct grspw2_core_cfg *) userdata;
@@ -2024,9 +2023,9 @@ int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 	p_elem = grspw2_rx_desc_get_next_used(cfg);
 
 	/* clamp, we want to have at least one useable slot */
-	if (n_drop >= cfg->rx_n_desc)
-		n_drop = cfg->rx_n_desc - 1;
-	cfg->n_drop = n_drop;
+	if ((uint32_t)n_drop >= cfg->rx_n_desc)
+		n_drop = (uint8_t)(cfg->rx_n_desc - 1);
+	cfg->n_drop = (int)n_drop;
 
 	/* set IE bit relative to current  head of the list */
 	idx = (uintptr_t)p_elem->desc - (uintptr_t)cfg->rx_desc_ring[0].desc;
@@ -2035,7 +2034,6 @@ int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 	if (idx > cfg->rx_n_desc)
 		idx = idx - cfg->rx_n_desc;
 
-	printk("EN idx: %d\n", idx);
 	cfg->auto_drop = 1;
 	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
 
