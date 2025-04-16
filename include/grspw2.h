@@ -479,8 +479,9 @@ struct grspw2_core_cfg {
 	uint32_t rx_bytes;
 	uint32_t tx_bytes;
 
-	/* irq-driven packet overwrite mode status */
-	int overwrite;
+	/* irq-driven packet drop mode */
+	int auto_drop;
+	int n_drop;
 
 	struct sysobj sobj;
 
@@ -550,8 +551,8 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt);
 uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg);
 int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg);
-int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg);
-int grspw2_overwrite_disable(struct grspw2_core_cfg *cfg);
+int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop);
+int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg);
 
 void grspw2_tick_in(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_timecnt(struct grspw2_core_cfg *cfg);
@@ -607,8 +608,8 @@ void grspw2_spw_hardreset(struct grspw2_regs *regs);
 #define GRSPW2_OP_DROP_PKT		5
 #define GRSPW2_OP_GET_PKT		6
 #define GRSPW2_OP_GET_NEXT_PKT_EEP	7
-#define GRSPW2_OP_OVERWRITE_ENABLE	8
-#define GRSPW2_OP_OVERWRITE_DISABLE	9
+#define GRSPW2_OP_AUTO_DROP_ENABLE	8
+#define GRSPW2_OP_AUTO_DROP_DISABLE	9
 
 
 /* a spacewire core configuration */
@@ -631,6 +632,7 @@ struct grspw2_data {
 	void *data;
 	uint32_t data_size;
 	uint8_t *pkt;
+	int n_drop;
 };
 
 

@@ -951,6 +951,8 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->rx_desc_ring_free);
 
 	cfg->rx_n_desc = tbl_size / GRSPW2_RX_DESC_SIZE;
+	if (!cfg->rx_n_desc)
+		return -1;
 
 	if (cfg->rx_n_desc > GRSPW2_RX_DESCRIPTORS)
 		cfg->rx_n_desc = GRSPW2_RX_DESCRIPTORS;
@@ -1008,6 +1010,8 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->tx_desc_ring_free);
 
 	cfg->tx_n_desc = tbl_size / GRSPW2_TX_DESC_SIZE;
+	if (!cfg->tx_n_desc)
+		return -1;
 
 	if (cfg->tx_n_desc > GRSPW2_TX_DESCRIPTORS)
 		cfg->tx_n_desc = GRSPW2_TX_DESCRIPTORS;
@@ -1200,7 +1204,7 @@ static struct grspw2_rx_desc_ring_elem
 /**
  * @brief	retrieve a rx descriptor which is last in the busy list
  */
-
+__attribute__((unused))
 static struct grspw2_rx_desc_ring_elem
 	*grspw2_rx_desc_get_last_used(struct grspw2_core_cfg *cfg)
 {
@@ -1927,9 +1931,8 @@ int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
 }
 
 
-#define GRSPW2_OVERWRITE_DROP_MAX_DESC	125
 
-static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
+static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 {
 
 	struct grspw2_core_cfg *cfg;
@@ -1950,6 +1953,7 @@ static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
 	/* update statistics on drop */
 	cfg->rx_bytes += p_elem->desc->pkt_size;
 
+
 	/* the previous desc_sel would have been the one with the IE flag set;
 	 *  we have to determine that one by its index, since we have no direct
 	 * visibility in the list; the current p_elem is not necessarily
@@ -1967,21 +1971,24 @@ static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
 	/* re-add the descriptor of the packet we just dropped */
 	grspw2_rx_desc_readd(cfg, p_elem);
 
-	for (i = 0; i < GRSPW2_OVERWRITE_DROP_MAX_DESC; i++) {
+	/* move IE flag forward */
+	idx -= (cfg->rx_n_desc - cfg->n_drop);
+	if (idx < 0)
+		idx = cfg->rx_n_desc + idx;
 
-		p_tmp = grspw2_rx_desc_get_next_used(cfg);
-		if (!p_tmp)
+	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+
+
+	for (i = 0; i < cfg->n_drop - 1; i++) {
+
+		p_elem = grspw2_rx_desc_get_next_used(cfg);
+		if (!p_elem)
 			break;
-
-		p_elem = p_tmp;
 
 		cfg->rx_bytes += p_elem->desc->pkt_size;
 		/* re-add the descriptor of the packet we just dropped */
 		grspw2_rx_desc_readd(cfg, p_elem);
 	}
-
-	/* set IRQ on current */
-	grspw2_rx_desc_set_irq(p_elem);
 
 	return 0;
 }
@@ -1991,14 +1998,19 @@ static irqreturn_t grspw2_overwrite_call(unsigned int irq, void *userdata)
  * @brief enable auto-drop of the oldest packet from the descriptor table
  *	  in situations where the RX table runs full
  *
- * @note this call will clear and re-build the current RX table
+ * @param n_drop the number of packets to drop at once
  *
- * @returns 0 on success, otherwise error
+ * @note the actual number of packets to be dropped depends on the configured
+ *	 number of RX descriptors for the particular link; if n_drop is larger
+ *	 or equal the number of descriptors, it will be clamped to (n_drop - 1)
+ *
+ * @returns the number of n_drop, < 0 on error
  */
 
-int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg)
+int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 {
 	int ret;
+	uintptr_t idx;
 
 	struct grspw2_rx_desc_ring_elem *p_elem;
 
@@ -2006,15 +2018,28 @@ int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg)
 	if (!cfg)
 		return -1;
 
-	if (cfg->overwrite)
+	if (cfg->auto_drop)
 		return -1;
 
-	p_elem = grspw2_rx_desc_get_last_used(cfg);
+	p_elem = grspw2_rx_desc_get_next_used(cfg);
 
-	cfg->overwrite = 1;
-	grspw2_rx_desc_set_irq(p_elem);
+	/* clamp, we want to have at least one useable slot */
+	if (n_drop >= cfg->rx_n_desc)
+		n_drop = cfg->rx_n_desc - 1;
+	cfg->n_drop = n_drop;
 
-	ret = irq_request(cfg->core_irq, ISR_PRIORITY_NOW, grspw2_overwrite_call, (void *)cfg);
+	/* set IE bit relative to current  head of the list */
+	idx = (uintptr_t)p_elem->desc - (uintptr_t)cfg->rx_desc_ring[0].desc;
+	idx /= sizeof(struct grspw2_rx_desc);
+	idx += cfg->n_drop;
+	if (idx > cfg->rx_n_desc)
+		idx = idx - cfg->rx_n_desc;
+
+	printk("EN idx: %d\n", idx);
+	cfg->auto_drop = 1;
+	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+
+	ret = irq_request(cfg->core_irq, ISR_PRIORITY_NOW, grspw2_auto_drop_call, (void *)cfg);
 	grspw2_rx_interrupt_enable(cfg);
 
 	return ret;
@@ -2028,19 +2053,19 @@ int grspw2_overwrite_enable(struct grspw2_core_cfg *cfg)
  * @returns 0 on success, otherwise error
  */
 
-int grspw2_overwrite_disable(struct grspw2_core_cfg *cfg)
+int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
 {
 	if (!cfg)
 		return -1;
 
-	if (!cfg->overwrite)
+	if (!cfg->auto_drop)
 		return -1;
 
 	grspw2_rx_interrupt_disable(cfg);
 
-	cfg->overwrite = 0;
+	cfg->auto_drop = 0;
 
-	return irq_free(cfg->core_irq, grspw2_overwrite_call, (void *)cfg);
+	return irq_free(cfg->core_irq, grspw2_auto_drop_call, (void *)cfg);
 }
 
 
@@ -2087,12 +2112,12 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 
 	/*
 	 * XXX we have no locks at this time, so there is a non-zero possibility
-	 * of interference between the IRL and a user call when overwrite is
+	 * of interference between the IRL and a user call when auto_drop is
 	 * enable
 	 * for now we just disable the RX interrupt here in case we are
 	 * preempted
 	 */
-	if (cfg->overwrite)
+	if (cfg->auto_drop)
 		grspw2_rx_interrupt_disable(cfg);
 
 	p_elem = grspw2_rx_desc_get_next_used(cfg);
@@ -2115,23 +2140,30 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 
 	grspw2_rx_desc_readd(cfg, p_elem);
 
-	if (cfg->overwrite) {
 
-		struct grspw2_rx_desc_ring_elem *p_prev;
+	if (cfg->auto_drop) {
+		uintptr_t idx;
 
-		p_prev = p_elem;
 		p_elem = grspw2_rx_desc_get_next_used(cfg);
+		if (!(p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_IE))
+			goto exit;
 
-		/* if next had IE flag set, move flag forward by one */
-		if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_IE) {
-			grspw2_rx_desc_clear_irq(p_elem);
-			grspw2_rx_desc_set_irq(p_prev);
-		}
+		/* if next had IE flag set, move flag to tail of list  */
+		idx = (uintptr_t)p_elem->desc - (uintptr_t)cfg->rx_desc_ring[0].desc;
+		idx /= sizeof(struct grspw2_rx_desc);
+
+		/* move IE forward */
+		idx += cfg->n_drop;
+		if (idx > cfg->rx_n_desc)
+			idx = idx - cfg->rx_n_desc;
+
+		grspw2_rx_desc_clear_irq(p_elem);
+		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
 
 	}
 
 exit:
-	if (cfg->overwrite)
+	if (cfg->auto_drop)
 		grspw2_rx_interrupt_enable(cfg);
 
 	return pkt_size;
