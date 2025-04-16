@@ -1944,15 +1944,6 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 
 	cfg = (struct grspw2_core_cfg *) userdata;
 
-	/* this is the oldest entry we must dump and enable the IRQ on */
-	p_elem = grspw2_rx_desc_get_next_used(cfg);
-	if (!p_elem)
-		return 0;
-
-	/* update statistics on drop */
-	cfg->rx_bytes += p_elem->desc->pkt_size;
-
-
 	/* the previous desc_sel would have been the one with the IE flag set;
 	 *  we have to determine that one by its index, since we have no direct
 	 * visibility in the list; the current p_elem is not necessarily
@@ -1967,9 +1958,6 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 	/* clear irq on last */
 	grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[idx]);
 
-	/* re-add the descriptor of the packet we just dropped */
-	grspw2_rx_desc_readd(cfg, p_elem);
-
 	/* move IE flag forward */
 	idx -= (cfg->rx_n_desc - cfg->n_drop);
 	if (idx < 0)
@@ -1977,8 +1965,7 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 
 	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
 
-
-	for (i = 0; i < cfg->n_drop - 1; i++) {
+	for (i = 0; i < cfg->n_drop; i++) {
 
 		p_elem = grspw2_rx_desc_get_next_used(cfg);
 		if (!p_elem)
@@ -2140,22 +2127,23 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 
 
 	if (cfg->auto_drop) {
-		uintptr_t idx;
+		int i;
+		int idx;
 
-		p_elem = grspw2_rx_desc_get_next_used(cfg);
-		if (!(p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_IE))
-			goto exit;
+		for (i = 0; i < cfg->rx_n_desc; i++)
+			if ((cfg->rx_desc_ring[0].desc->pkt_ctrl & GRSPW2_RX_DESC_IE))
+				break;
 
-		/* if next had IE flag set, move flag to tail of list  */
-		idx = (uintptr_t)p_elem->desc - (uintptr_t)cfg->rx_desc_ring[0].desc;
-		idx /= sizeof(struct grspw2_rx_desc);
+		if (i >= cfg->rx_n_desc)
+			goto exit; /* same descriptor */
+
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[i]);
 
 		/* move IE forward */
-		idx += cfg->n_drop;
+		idx = i + cfg->n_drop;
 		if (idx > cfg->rx_n_desc)
 			idx = idx - cfg->rx_n_desc;
 
-		grspw2_rx_desc_clear_irq(p_elem);
 		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
 
 	}
