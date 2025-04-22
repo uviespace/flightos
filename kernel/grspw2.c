@@ -342,8 +342,9 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 
 
 		status &= GRSPW2_STATUS_TO;
-
+#if 0
 		printk("abs:: %lld ns;\n", drift);
+#endif
 	}
 exit:
 
@@ -1944,37 +1945,32 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 
 	cfg = (struct grspw2_core_cfg *) userdata;
 
-	/* the previous desc_sel would have been the one with the IE flag set;
-	 *  we have to determine that one by its index, since we have no direct
-	 * visibility in the list; the current p_elem is not necessarily
-	 * the item next to the one, so we'd have to iterate
-	 * this is much faster and does exactly what we need
-	 */
-	idx = ioread32be(&cfg->regs->dma[0].rx_desc_table_addr);
-	idx = ((idx >> 3) & 0x7f) - 1;	/* can't take address of a bitfield */
-	if (idx < 0)
-		idx = cfg->rx_n_desc + idx;
 
-	/* clear irq on last */
-	grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[idx]);
+	/* clear irq on the previous IE descriptor  */
+	grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
 
 	/* move IE flag forward */
-	idx -= (cfg->rx_n_desc - cfg->n_drop);
-	if (idx < 0)
-		idx = cfg->rx_n_desc + idx;
+	idx = cfg->idx_drop + cfg->n_drop;
+	if (idx >= cfg->rx_n_desc)
+		idx = idx - cfg->rx_n_desc;
 
+	/* set flag on new */
 	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+	cfg->idx_drop = idx;
 
+	/* drop the stale packets */
 	for (i = 0; i < cfg->n_drop; i++) {
 
 		p_elem = grspw2_rx_desc_get_next_used(cfg);
 		if (!p_elem)
-			break;
+			break; /* should never happen */
 
 		cfg->rx_bytes += p_elem->desc->pkt_size;
 		/* re-add the descriptor of the packet we just dropped */
 		grspw2_rx_desc_readd(cfg, p_elem);
 	}
+
+
 
 	return 0;
 }
@@ -1989,6 +1985,18 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
  * @note the actual number of packets to be dropped depends on the configured
  *	 number of RX descriptors for the particular link; if n_drop is larger
  *	 or equal the number of descriptors, it will be clamped to (n_drop - 1)
+ *
+ * @warn There is no guard against setting n_drop too low; in situations where
+ *	 CONFIG_IRQ_RATE_PROTECT is enabled and CONFIG_IRQ_MIN_INTER_US is
+ *	 set too low this could lead to IRQs being lost when n_drop is set too
+ *	 low as well. This does not actually interfere with the proper SpW
+ *	 operation and will self-correct as long as packets are fetched by
+ *	 calling grspw2_get_pkt(). Note that this feature was only introduced
+ *	 as a mitigation of malfunctioning HW such as the SMILE FEE which
+ *	 appears to permanently stop functioning without the ability to recover
+ *	 during the acquisition cycle in certain modes where the packet
+ *	 generation rate is at the limit of its own SpW device and all of its
+ *	 packet buffers are full.
  *
  * @returns the number of n_drop, < 0 on error
  */
@@ -2018,10 +2026,12 @@ int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 	idx = (uintptr_t)p_elem->desc - (uintptr_t)cfg->rx_desc_ring[0].desc;
 	idx /= sizeof(struct grspw2_rx_desc);
 	idx += cfg->n_drop;
-	if (idx > cfg->rx_n_desc)
+	if (idx >= cfg->rx_n_desc)
 		idx = idx - cfg->rx_n_desc;
 
+
 	cfg->auto_drop = 1;
+	cfg->idx_drop = idx;
 	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
 
 	ret = irq_request(cfg->core_irq, ISR_PRIORITY_NOW, grspw2_auto_drop_call, (void *)cfg);
@@ -2127,25 +2137,16 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 
 
 	if (cfg->auto_drop) {
-		int i;
 		int idx;
 
-		for (i = 0; i < cfg->rx_n_desc; i++)
-			if ((cfg->rx_desc_ring[0].desc->pkt_ctrl & GRSPW2_RX_DESC_IE))
-				break;
-
-		if (i >= cfg->rx_n_desc)
-			goto exit; /* same descriptor */
-
-		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[i]);
-
-		/* move IE forward */
-		idx = i + cfg->n_drop;
-		if (idx > cfg->rx_n_desc)
+		/* we picked up one packet move the IE flag by one */
+		idx = cfg->idx_drop + 1;
+		if (idx >= cfg->rx_n_desc)
 			idx = idx - cfg->rx_n_desc;
 
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
+		cfg->idx_drop = idx;
 		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
-
 	}
 
 exit:
@@ -2165,6 +2166,10 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 	struct grspw2_rx_desc_ring_elem *p_elem;
 
 
+	/* see grspw2_get_pkt() */
+	if (cfg->auto_drop)
+		grspw2_rx_interrupt_disable(cfg);
+
 	p_elem = grspw2_rx_desc_get_next_used(cfg);
 
 	if (!p_elem)
@@ -2177,6 +2182,24 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 	cfg->rx_bytes += p_elem->desc->pkt_size;
 
 	grspw2_rx_desc_readd(cfg, p_elem);
+
+
+	if (cfg->auto_drop) {
+		int idx;
+
+		/* we picked up one packet move the IE flag by one */
+		idx = cfg->idx_drop + 1;
+		if (idx >= cfg->rx_n_desc)
+			idx = idx - cfg->rx_n_desc;
+
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
+		cfg->idx_drop = idx;
+		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+
+		grspw2_rx_interrupt_enable(cfg);
+	}
+
+
 
 	return 1;
 }

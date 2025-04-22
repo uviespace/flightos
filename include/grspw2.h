@@ -482,6 +482,7 @@ struct grspw2_core_cfg {
 	/* irq-driven packet drop mode */
 	int auto_drop;
 	int n_drop;
+	uint8_t idx_drop;
 
 	struct sysobj sobj;
 
