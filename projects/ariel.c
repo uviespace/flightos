@@ -188,13 +188,13 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_RX_DESC_SIZE * 10,
+				  GRSPW2_RX_DESC_SIZE * 5,
 				  cfg->rx_data,
 				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_TX_DESC_SIZE *  10,
+				  GRSPW2_TX_DESC_SIZE *  5,
 				  cfg->tx_hdr, 0,
 				  cfg->tx_data, ARIEL_MTU_DCU);
 }
@@ -219,13 +219,13 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_RX_DESC_SIZE * 10,
+				  GRSPW2_RX_DESC_SIZE * 5,
 				  cfg->rx_data,
 				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_TX_DESC_SIZE * 10,
+				  GRSPW2_TX_DESC_SIZE * 5,
 				  cfg->tx_hdr, 0,
 				  cfg->tx_data, ARIEL_MTU_DCU);
 
@@ -312,8 +312,8 @@ static int ariel_init(void)
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
 	/* setup routing between dcu and debug link 5 */
-	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 10, 10);
-	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 10, 10);
+	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
+	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
 
 	spw_init_core_dcu(&spw_cfg[2]);
 	spw_init_core_debug(&spw_cfg[4]);
@@ -323,28 +323,25 @@ static int ariel_init(void)
 
 	grspw2_enable_routing(&spw_cfg[4].spw, &spw_cfg[2].spw);
 	grspw2_enable_routing(&spw_cfg[2].spw, &spw_cfg[4].spw);
-#if 0
-	/* empty link in case the mkII brick acts up again,
-	 * note that this does not work unless the power to the FEE psu
-	 * is ON for the SXI DPU, as the LVDS transceivers are not
-	 * powered otherwise; this is a devel workaround anyways
-	 */
-	iowrite32be((1 << 12), (void *) 0x20000420);
-	iowrite32be(0x9A000000, (void *) 0x20000428);
+#if 1
+	/* attempt to empty link */
 
-	printk("status is %08x\n", ioread32be((void *) 0x2000042C) );
-
-	while (grspw2_get_num_pkts_avail(&spw_cfg[1].spw)) {
-		grspw2_drop_pkt(&spw_cfg[1].spw);
+	while (grspw2_get_num_pkts_avail(&spw_cfg[2].spw)) {
+		grspw2_drop_pkt(&spw_cfg[2].spw);
 		printk(".");
 	}
-	printk("\n");
+
+
+	while (grspw2_get_num_pkts_avail(&spw_cfg[4].spw)) {
+		grspw2_drop_pkt(&spw_cfg[4].spw);
+		printk(".");
+	}
 #endif
 
 
 #ifdef CONFIG_EMBED_APPLICATION
 	/* load ARIEL ASW */
-	addr = module_read_embedded("CrIa");
+	addr = module_read_embedded("asw");
 	printk(MSG "test executable address is %p\n", addr);
 	if (addr)
 		application_load(addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
