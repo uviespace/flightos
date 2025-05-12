@@ -12,7 +12,7 @@ void thread_set_sched_edf(thread_t *t,
 	if (!t)
 		return;
 
-	t->attr.policy       = SCHED_EDF;
+	t->attr.policy       = KSCHED_EDF;
 	t->attr.period       = period_us;
 	t->attr.wcet         = wcet_us;
 	t->attr.deadline_rel = deadline_rel_us;

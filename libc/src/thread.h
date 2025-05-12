@@ -8,9 +8,9 @@
 #define THREAD_CPU_AFFINITY_NONE	(-1)
 
 enum sched_policy {
-	SCHED_RR,
-	SCHED_EDF,
-	SCHED_OTHER
+	KSCHED_RR,
+	KSCHED_EDF,
+	KSCHED_OTHER
 };
 
 struct sched_attr {

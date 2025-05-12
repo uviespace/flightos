@@ -342,8 +342,9 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 
 
 		status &= GRSPW2_STATUS_TO;
-
+#if 0
 		printk("abs:: %lld ns;\n", drift);
+#endif
 	}
 exit:
 
@@ -951,6 +952,8 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->rx_desc_ring_free);
 
 	cfg->rx_n_desc = tbl_size / GRSPW2_RX_DESC_SIZE;
+	if (!cfg->rx_n_desc)
+		return -1;
 
 	if (cfg->rx_n_desc > GRSPW2_RX_DESCRIPTORS)
 		cfg->rx_n_desc = GRSPW2_RX_DESCRIPTORS;
@@ -1008,6 +1011,8 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->tx_desc_ring_free);
 
 	cfg->tx_n_desc = tbl_size / GRSPW2_TX_DESC_SIZE;
+	if (!cfg->tx_n_desc)
+		return -1;
 
 	if (cfg->tx_n_desc > GRSPW2_TX_DESCRIPTORS)
 		cfg->tx_n_desc = GRSPW2_TX_DESCRIPTORS;
@@ -1118,6 +1123,8 @@ static void grspw2_tx_desc_move_free_all(struct grspw2_core_cfg *cfg)
  *		to the free ring)
  */
 
+static void grspw2_rx_desc_clear_irq(struct grspw2_rx_desc_ring_elem *p_elem);
+static void grspw2_rx_desc_clear_active(struct grspw2_rx_desc_ring_elem *p_elem);
 __attribute__((unused))
 static void grspw2_rx_desc_clear_all(struct grspw2_core_cfg *cfg)
 {
@@ -1127,6 +1134,8 @@ static void grspw2_rx_desc_clear_all(struct grspw2_core_cfg *cfg)
 	list_for_each_entry_safe(p_elem, p_tmp,
 				 &cfg->rx_desc_ring_used, node) {
 
+		grspw2_rx_desc_clear_active(p_elem);
+		grspw2_rx_desc_clear_irq(p_elem);
 		grspw2_rx_desc_move_free(cfg, p_elem);
 	}
 }
@@ -1175,7 +1184,7 @@ static struct grspw2_rx_desc_ring_elem
 }
 
 /**
- * @brief	retrieve a busy rx descriptor
+ * @brief	retrieve a rx descriptor which is first in the busy list
  */
 
 static struct grspw2_rx_desc_ring_elem
@@ -1186,6 +1195,25 @@ static struct grspw2_rx_desc_ring_elem
 	if (likely(list_filled(&cfg->rx_desc_ring_used))) {
 		p_elem = list_entry((&cfg->rx_desc_ring_used)->next,
 				    struct grspw2_rx_desc_ring_elem, node);
+		return p_elem;
+	} else {
+		return NULL;
+	}
+}
+
+
+/**
+ * @brief	retrieve a rx descriptor which is last in the busy list
+ */
+__attribute__((unused))
+static struct grspw2_rx_desc_ring_elem
+	*grspw2_rx_desc_get_last_used(struct grspw2_core_cfg *cfg)
+{
+	struct grspw2_rx_desc_ring_elem *p_elem;
+
+	if (likely(list_filled(&cfg->rx_desc_ring_used))) {
+		p_elem = list_entry((&cfg->rx_desc_ring_used)->prev,
+					 struct grspw2_rx_desc_ring_elem, node);
 		return p_elem;
 	} else {
 		return NULL;
@@ -1213,14 +1241,22 @@ static struct grspw2_tx_desc_ring_elem
 
 
 /**
- * @brief	set tx descriptor active
- * @note	per-packet interrupt are enabled by default, enable rx irq
- *		in dma control register to have them actually fire
+ * @brief	set rx descriptor active
  */
 
 static void grspw2_rx_desc_set_active(struct grspw2_rx_desc_ring_elem *p_elem)
 {
-	p_elem->desc->pkt_ctrl |= GRSPW2_RX_DESC_IE | GRSPW2_RX_DESC_EN;
+	p_elem->desc->pkt_ctrl |= GRSPW2_RX_DESC_EN;
+}
+
+
+/**
+ * @brief	set rx descriptor inactive
+ */
+
+static void grspw2_rx_desc_clear_active(struct grspw2_rx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl &= ~GRSPW2_RX_DESC_EN;
 }
 
 
@@ -1230,7 +1266,7 @@ static void grspw2_rx_desc_set_active(struct grspw2_rx_desc_ring_elem *p_elem)
 
 static void grspw2_tx_desc_set_active(struct grspw2_tx_desc_ring_elem *p_elem)
 {
-	p_elem->desc->pkt_ctrl |= GRSPW2_TX_DESC_IE | GRSPW2_TX_DESC_EN;
+	p_elem->desc->pkt_ctrl |= GRSPW2_TX_DESC_EN;
 }
 
 
@@ -1253,6 +1289,75 @@ static void grspw2_rx_desc_set_wrap(struct grspw2_rx_desc_ring_elem *p_elem)
 static void grspw2_tx_desc_set_wrap(struct grspw2_tx_desc_ring_elem *p_elem)
 {
 	p_elem->desc->pkt_ctrl |= GRSPW2_TX_DESC_WR;
+}
+
+
+/**
+ * @brief	clear rx descriptor wrap bit
+ * @note	always set before EN bit
+ */
+
+__attribute__((unused))
+static void grspw2_rx_desc_clear_wrap(struct grspw2_rx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl &= ~GRSPW2_RX_DESC_WR;
+}
+
+
+/**
+ * @brief	clear tx descriptor wrap bit
+ * @note	always set before EN bit
+ */
+
+__attribute__((unused))
+static void grspw2_tx_desc_clear_wrap(struct grspw2_tx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl &= ~GRSPW2_TX_DESC_WR;
+}
+
+
+/**
+ * @brief set per-packet interrupt; enable rx irq in dma control register
+ *	  to have them actually fire
+ */
+
+static void grspw2_rx_desc_set_irq(struct grspw2_rx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl |= GRSPW2_RX_DESC_IE;
+}
+
+
+/**
+ * @brief set per-packet interrupt; enable tx irq in dma control register
+ *	  to have them actually fire
+ */
+
+__attribute__((unused))
+static void grspw2_tx_desc_set_irq(struct grspw2_tx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl |= GRSPW2_TX_DESC_IE;
+}
+
+
+/**
+ * @brief clear per-packet interrupt; enable rx irq in dma control register
+ *	  to have them actually fire
+ */
+
+static void grspw2_rx_desc_clear_irq(struct grspw2_rx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl &= ~GRSPW2_RX_DESC_IE;
+}
+
+
+/**
+ * @brief clear per-packet interrupt; enable tx irq in dma control register
+ *	  to have them actually fire
+ */
+__attribute__((unused))
+static void grspw2_tx_desc_clear_irq(struct grspw2_tx_desc_ring_elem *p_elem)
+{
+	p_elem->desc->pkt_ctrl &= ~GRSPW2_TX_DESC_IE;
 }
 
 
@@ -1336,14 +1441,16 @@ static int32_t grspw2_rx_desc_add(struct grspw2_core_cfg *cfg)
 
 	if (!grspw2_rx_desc_avail(cfg))
 		return -1;
-	/* 
-	   The case p_elem == NULL is taken care for by the above check. 
+	/*
+	   The case p_elem == NULL is taken care for by the above check.
 	   Also see the note in the function description.
 	*/
 	p_elem = grspw2_rx_desc_get_next_free(cfg);
 
 	if (grspw2_rx_desc_is_last(cfg, p_elem))
 		grspw2_rx_desc_set_wrap(p_elem);
+
+	p_elem->desc->pkt_size = 0;
 
 	grspw2_rx_desc_set_active(p_elem);
 
@@ -1689,6 +1796,10 @@ int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
 	if (n_desc > route->tx_n_desc)
 		n_desc = route->tx_n_desc;
 
+	/* set IRQ flag on all rx descriptors */
+	for (i = 0; i < cfg->rx_n_desc; i++)
+		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[i]);
+
 	for (i = 0; i < n_desc; i++)
 		grspw2_rx_desc_add(cfg);
 
@@ -1719,7 +1830,14 @@ int32_t grspw2_enable_routing_noirq(struct grspw2_core_cfg *cfg,
 
 int32_t grspw2_disable_routing(struct grspw2_core_cfg *cfg)
 {
+	int i;
+
+
 	irq_free(cfg->core_irq, grspw2_route_call, (void *)cfg->route[0]);
+
+	/* clear IRQ flag on rx descriptors */
+	for (i = 0; i < cfg->rx_n_desc; i++)
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[i]);
 
 	grspw2_unset_promiscuous(cfg);
 	grspw2_rx_interrupt_disable(cfg);
@@ -1806,7 +1924,6 @@ int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
 	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EN)
 		return 0;
 
-
 	/* EEP is set */
 	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EP)
 		return 1;
@@ -1814,6 +1931,137 @@ int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
 	return 0;
 }
 
+
+
+static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
+{
+	int i;
+	int idx;
+
+	struct grspw2_core_cfg *cfg;
+	struct grspw2_rx_desc_ring_elem *p_elem;
+
+
+
+	cfg = (struct grspw2_core_cfg *) userdata;
+
+
+	/* clear irq on the previous IE descriptor  */
+	grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
+
+	/* move IE flag forward */
+	idx = cfg->idx_drop + cfg->n_drop;
+	if (idx >= cfg->rx_n_desc)
+		idx = idx - cfg->rx_n_desc;
+
+	/* set flag on new */
+	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+	cfg->idx_drop = idx;
+
+	/* drop the stale packets */
+	for (i = 0; i < cfg->n_drop; i++) {
+
+		p_elem = grspw2_rx_desc_get_next_used(cfg);
+		if (!p_elem)
+			break; /* should never happen */
+
+		cfg->rx_bytes += p_elem->desc->pkt_size;
+		/* re-add the descriptor of the packet we just dropped */
+		grspw2_rx_desc_readd(cfg, p_elem);
+	}
+
+
+
+	return 0;
+}
+
+
+/**
+ * @brief enable auto-drop of the oldest packet from the descriptor table
+ *	  in situations where the RX table runs full
+ *
+ * @param n_drop the number of packets to drop at once
+ *
+ * @note the actual number of packets to be dropped depends on the configured
+ *	 number of RX descriptors for the particular link; if n_drop is larger
+ *	 or equal the number of descriptors, it will be clamped to (n_drop - 1)
+ *
+ * @warn There is no guard against setting n_drop too low; in situations where
+ *	 CONFIG_IRQ_RATE_PROTECT is enabled and CONFIG_IRQ_MIN_INTER_US is
+ *	 set too low this could lead to IRQs being lost when n_drop is set too
+ *	 low as well. This does not actually interfere with the proper SpW
+ *	 operation and will self-correct as long as packets are fetched by
+ *	 calling grspw2_get_pkt(). Note that this feature was only introduced
+ *	 as a mitigation of malfunctioning HW such as the SMILE FEE which
+ *	 appears to permanently stop functioning without the ability to recover
+ *	 during the acquisition cycle in certain modes where the packet
+ *	 generation rate is at the limit of its own SpW device and all of its
+ *	 packet buffers are full.
+ *
+ * @returns the number of n_drop, < 0 on error
+ */
+
+int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
+{
+	int ret;
+	uintptr_t idx;
+
+	struct grspw2_rx_desc_ring_elem *p_elem;
+
+
+	if (!cfg)
+		return -1;
+
+	if (cfg->auto_drop)
+		return -1;
+
+	p_elem = grspw2_rx_desc_get_next_used(cfg);
+
+	/* clamp, we want to have at least one useable slot */
+	if ((uint32_t)n_drop >= cfg->rx_n_desc)
+		n_drop = (uint8_t)(cfg->rx_n_desc - 1);
+	cfg->n_drop = (int)n_drop;
+
+	/* set IE bit relative to current  head of the list */
+	idx = (uintptr_t)p_elem->desc - (uintptr_t)cfg->rx_desc_ring[0].desc;
+	idx /= sizeof(struct grspw2_rx_desc);
+	idx += cfg->n_drop;
+	if (idx >= cfg->rx_n_desc)
+		idx = idx - cfg->rx_n_desc;
+
+
+	cfg->auto_drop = 1;
+	cfg->idx_drop = idx;
+	grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+
+	ret = irq_request(cfg->core_irq, ISR_PRIORITY_NOW, grspw2_auto_drop_call, (void *)cfg);
+	grspw2_rx_interrupt_enable(cfg);
+
+	return ret;
+}
+
+
+/**
+ * @brief disable auto-drop of the oldest packet from the descriptor table
+ *	  in situations where the table runs full
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
+{
+	if (!cfg)
+		return -1;
+
+	if (!cfg->auto_drop)
+		return -1;
+
+	grspw2_rx_interrupt_disable(cfg);
+
+	cfg->auto_drop = 0;
+
+	return irq_free(cfg->core_irq, grspw2_auto_drop_call, (void *)cfg);
+}
 
 
 /**
@@ -1852,24 +2100,32 @@ uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg)
 
 uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 {
-	uint32_t pkt_size;
+	uint32_t pkt_size = 0;
 
 	struct grspw2_rx_desc_ring_elem *p_elem;
 
 
-	p_elem = grspw2_rx_desc_get_next_used(cfg);
+	/*
+	 * XXX we have no locks at this time, so there is a non-zero possibility
+	 * of interference between the IRL and a user call when auto_drop is
+	 * enable
+	 * for now we just disable the RX interrupt here in case we are
+	 * preempted
+	 */
+	if (cfg->auto_drop)
+		grspw2_rx_interrupt_disable(cfg);
 
+	p_elem = grspw2_rx_desc_get_next_used(cfg);
 	if (!p_elem)
-		return 0;
+		goto exit;
 
 	/* still active */
 	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EN)
-		return 0;
+		goto exit;
 
 	pkt_size = p_elem->desc->pkt_size - cfg->strip_hdr_bytes;
-
 	if (!pkt)
-		return pkt_size;
+		goto exit;
 
 	cfg->rx_bytes += p_elem->desc->pkt_size;
 
@@ -1878,6 +2134,24 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 	       pkt_size);
 
 	grspw2_rx_desc_readd(cfg, p_elem);
+
+
+	if (cfg->auto_drop) {
+		int idx;
+
+		/* we picked up one packet move the IE flag by one */
+		idx = cfg->idx_drop + 1;
+		if (idx >= cfg->rx_n_desc)
+			idx = idx - cfg->rx_n_desc;
+
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
+		cfg->idx_drop = idx;
+		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+	}
+
+exit:
+	if (cfg->auto_drop)
+		grspw2_rx_interrupt_enable(cfg);
 
 	return pkt_size;
 }
@@ -1892,6 +2166,10 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 	struct grspw2_rx_desc_ring_elem *p_elem;
 
 
+	/* see grspw2_get_pkt() */
+	if (cfg->auto_drop)
+		grspw2_rx_interrupt_disable(cfg);
+
 	p_elem = grspw2_rx_desc_get_next_used(cfg);
 
 	if (!p_elem)
@@ -1904,6 +2182,24 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 	cfg->rx_bytes += p_elem->desc->pkt_size;
 
 	grspw2_rx_desc_readd(cfg, p_elem);
+
+
+	if (cfg->auto_drop) {
+		int idx;
+
+		/* we picked up one packet move the IE flag by one */
+		idx = cfg->idx_drop + 1;
+		if (idx >= cfg->rx_n_desc)
+			idx = idx - cfg->rx_n_desc;
+
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
+		cfg->idx_drop = idx;
+		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+
+		grspw2_rx_interrupt_enable(cfg);
+	}
+
+
 
 	return 1;
 }

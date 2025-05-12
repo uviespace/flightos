@@ -12,7 +12,8 @@
 #define GRSPW2_OP_DROP_PKT		5
 #define GRSPW2_OP_GET_PKT		6
 #define GRSPW2_OP_GET_NEXT_PKT_EEP	7
-
+#define GRSPW2_OP_AUTO_DROP_ENABLE	8
+#define GRSPW2_OP_AUTO_DROP_DISABLE	9
 
 /* XXX to transfer */
 struct grspw2_data{
@@ -25,6 +26,7 @@ struct grspw2_data{
 	void *data;
 	uint32_t data_size;
 	uint8_t *pkt;
+	uint8_t n_drop
 };
 
 
@@ -42,6 +44,8 @@ uint32_t grspw2_get_pkt(uint8_t link, uint8_t *pkt);
 
 int grspw2_get_next_pkt_eep(uint8_t link);
 
+uint32_t grspw2_auto_drop_enable(uint8_t link, uint8_t n_drop);
+uint32_t grspw2_auto_drop_disable(uint8_t link);
 
 
 #endif /* GRSPW2_H */
