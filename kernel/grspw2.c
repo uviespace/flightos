@@ -1456,7 +1456,6 @@ static int32_t grspw2_rx_desc_add(struct grspw2_core_cfg *cfg)
 
 	grspw2_rx_desc_move_busy(cfg, p_elem);
 
-	grspw2_rx_desc_new_avail(cfg);
 
 	return 0;
 }
@@ -1470,6 +1469,7 @@ static void grswp2_rx_desc_add_all(struct grspw2_core_cfg *cfg)
 		if (grspw2_rx_desc_add(cfg))
 			break;
 	}
+	grspw2_rx_desc_new_avail(cfg);
 }
 
 
@@ -1803,6 +1803,8 @@ int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
 	for (i = 0; i < n_desc; i++)
 		grspw2_rx_desc_add(cfg);
 
+	grspw2_rx_desc_new_avail(cfg);
+
 	return 0;
 }
 
@@ -1942,7 +1944,6 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 	struct grspw2_rx_desc_ring_elem *p_elem;
 
 
-
 	cfg = (struct grspw2_core_cfg *) userdata;
 
 
@@ -1970,6 +1971,7 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 		grspw2_rx_desc_readd(cfg, p_elem);
 	}
 
+	grspw2_rx_desc_new_avail(cfg);
 
 
 	return 0;
@@ -2149,6 +2151,7 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
 	}
 
+	grspw2_rx_desc_new_avail(cfg);
 exit:
 	if (cfg->auto_drop)
 		grspw2_rx_interrupt_enable(cfg);
@@ -2200,6 +2203,7 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 	}
 
 
+	grspw2_rx_desc_new_avail(cfg);
 
 	return 1;
 }
