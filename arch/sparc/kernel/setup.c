@@ -94,28 +94,38 @@ static void mem_init(void)
 
 
 #ifdef CONFIG_PROJECT_ARIEL
-	/* XXX as above... */
-	sp_banks[0].base_addr = 0x40000000;
-	sp_banks[0].num_bytes = 0x00800000;	/* first 8 MiB */
+	/* The ARIEL BSW is weird in that it reserves the first 2 MiB
+	 * of SRAM for whatever reason and therefore cannot load
+	 * an application to this location. In order not to lose memory,
+	 * bank0 should always coincide with the start of the OS image.
+	 * We therefore split the first 8 MiB of ram to allow for a
+	 * separate 2 MiB bank1
+	 * */
+	sp_banks[0].base_addr = 0x40200000;
+	sp_banks[0].num_bytes = 0x00600000;	/* 2nd 6 MiB */
+
+
+	sp_banks[1].base_addr = 0x40000000;
+	sp_banks[1].num_bytes = 0x00200000;	/* first 2 MiB */
 
 #if (SPARC_PHYS_BANKS > 0)
-	sp_banks[1].base_addr = 0x40800000;
-	sp_banks[1].num_bytes = 0x00400000;	/* next 4 MiB */
+	sp_banks[2].base_addr = 0x40800000;
+	sp_banks[2].num_bytes = 0x00400000;	/* next 4 MiB */
 #endif
 
 #if (SPARC_PHYS_BANKS > 1)
-	sp_banks[2].base_addr = 0x40C00000;
-	sp_banks[2].num_bytes = 0x00200000;	/* next 2 MiB */
+	sp_banks[3].base_addr = 0x40C00000;
+	sp_banks[3].num_bytes = 0x00200000;	/* next 2 MiB */
 #endif
 
 #if (SPARC_PHYS_BANKS > 2)
-	sp_banks[3].base_addr = 0x40E00000;
-	sp_banks[3].num_bytes = 0x00100000;	/* next 1 MiB */
+	sp_banks[4].base_addr = 0x40E00000;
+	sp_banks[4].num_bytes = 0x00100000;	/* next 1 MiB */
 #endif
 
 #if (SPARC_PHYS_BANKS > 3)
-	sp_banks[4].base_addr = 0x40F00000;
-	sp_banks[4].num_bytes = 0x00080000;	/* next 512 kiB */
+	sp_banks[5].base_addr = 0x40F00000;
+	sp_banks[5].num_bytes = 0x00080000;	/* next 512 kiB */
 #endif
 	/* ignore the remaing unused space, it is the location of the ASW */
 #elif CONFIG_PROJECT_SMILE
