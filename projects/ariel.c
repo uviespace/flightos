@@ -23,6 +23,9 @@ struct spw_user_cfg spw_cfg[6];
 #define SPW_CLCKDIV_FEE_RUN	2
 #define GR712_IRL1_AHBSTAT	1
 
+#define HDR_PROTO_BYTE		0x1
+#define HDR_PROTO_ID		0x2
+
 #define HDR_SIZE		0x4
 #define STRIP_HDR_BYTES		0x4
 
@@ -166,6 +169,9 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, ARIEL_MTU_TM);
+
+
+	grspw2_protocol_id_drop_enable(&cfg->spw, HDR_PROTO_BYTE, HDR_PROTO_ID);
 }
 
 
