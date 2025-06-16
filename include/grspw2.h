@@ -476,6 +476,10 @@ struct grspw2_core_cfg {
 
 	uint32_t strip_hdr_bytes; /* bytes to strip from the RX packets */
 
+	uint8_t hdr_proto_id_byte;	/* position of protocol ID byte in header */
+	uint8_t hdr_proto_id;		/* value or protcool ID */
+	int inv_proto_drop;		/* drop packets with mismatching protocold */
+
 	uint32_t rx_bytes;
 	uint32_t tx_bytes;
 
@@ -554,6 +558,10 @@ uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg);
 int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg);
 int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop);
 int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg);
+
+void grspw2_protocol_id_drop_enable(struct grspw2_core_cfg *cfg, uint8_t idx, uint8_t id);
+void grspw2_protocol_id_drop_disable(struct grspw2_core_cfg *cfg);
+
 
 void grspw2_tick_in(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_timecnt(struct grspw2_core_cfg *cfg);

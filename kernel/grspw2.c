@@ -1703,6 +1703,26 @@ uint32_t grspw2_get_link_status(struct grspw2_core_cfg *cfg)
 }
 
 
+static int grspw2_protocol_invalid(struct grspw2_core_cfg *cfg,
+				   struct grspw2_rx_desc *desc)
+{
+	uint8_t *pkt = (uint8_t *)desc->pkt_addr;
+
+
+	if (!cfg->inv_proto_drop)
+		return 0;
+
+	if (desc->pkt_size <= cfg->hdr_proto_id_byte)
+		return 1;	/* no protocol byte, hence invalid */
+
+	if (pkt[cfg->hdr_proto_id_byte] == cfg->hdr_proto_id)
+		return 0;
+
+	return 1;
+}
+
+
+
 
 /**
  * @brief transmit a SpW time code; there should be at least 4 system
@@ -2067,6 +2087,33 @@ int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
 
 
 /**
+ * enable dropping of packets with a mismatching protocol byte
+ *
+ * @param idx the index of the protocol byte in the header
+ * @param id  the protocol identifier
+ */
+
+void grspw2_protocol_id_drop_enable(struct grspw2_core_cfg *cfg, uint8_t idx, uint8_t id)
+{
+
+	cfg->hdr_proto_id_byte = idx;
+	cfg->hdr_proto_id = id;
+	cfg->inv_proto_drop = 1;
+}
+
+
+/**
+ * disable dropping of packets with a mismatching protocol byte
+ *
+ */
+
+void grspw2_protocol_id_drop_disable(struct grspw2_core_cfg *cfg)
+{
+	cfg->inv_proto_drop = 0;
+}
+
+
+/**
  * @brief retrieve the size of the next packet
  */
 
@@ -2088,10 +2135,14 @@ uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg)
 
 	pkt_size = p_elem->desc->pkt_size - cfg->strip_hdr_bytes;
 
+	if (grspw2_protocol_invalid(cfg, p_elem->desc)) {
+		grspw2_rx_desc_readd(cfg, p_elem);
+		grspw2_rx_desc_new_avail(cfg);
+		pkt_size = 0;
+	}
+
 	return pkt_size;
 }
-
-
 
 /**
  * @brief retrieve a packet
@@ -2131,9 +2182,14 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 
 	cfg->rx_bytes += p_elem->desc->pkt_size;
 
-	memcpy((void *) pkt,
-	       (void *) (p_elem->desc->pkt_addr + cfg->strip_hdr_bytes),
-	       pkt_size);
+
+	if (!grspw2_protocol_invalid(cfg, p_elem->desc)) {
+		memcpy((void *) pkt,
+		       (void *) (p_elem->desc->pkt_addr + cfg->strip_hdr_bytes),
+		       pkt_size);
+	} else {
+		pkt_size = 0;
+	}
 
 	grspw2_rx_desc_readd(cfg, p_elem);
 
