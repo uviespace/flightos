@@ -1572,11 +1572,11 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 
 	/* XXX need extra sanity checks somewhere in the interface,
 	 * could be that no headers are alloced! or data size is too small! */
-	if (hdr_buf != NULL) 
-		memcpy((void *) p_elem->desc->hdr_addr,  hdr_buf,  hdr_size);
+	if (hdr_buf && p_elem->desc->hdr_addr)
+		memcpy((void *)p_elem->desc->hdr_addr,  hdr_buf,  hdr_size);
 
-	if (data_buf != NULL)
-		memcpy((void *) p_elem->desc->data_addr, data_buf, data_size);
+	if (data_buf && p_elem->desc->data_addr)
+		memcpy((void *)p_elem->desc->data_addr, data_buf, data_size);
 
 	/* XXX why is this needed? seems to be an issue with the SXI DPU
 	 * apparently sometimes parts of old packets (longer ones)
