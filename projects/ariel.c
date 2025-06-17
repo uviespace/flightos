@@ -201,7 +201,7 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  GRSPW2_TX_DESC_SIZE *  5,
-				  cfg->tx_hdr, 0,
+				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, ARIEL_MTU_DCU);
 }
 
@@ -318,7 +318,7 @@ static int ariel_init(void)
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
 	/* setup routing between dcu and debug link 5 */
-	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
+	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, HDR_SIZE, 5, 5);
 	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
 
 	spw_init_core_dcu(&spw_cfg[2]);
