@@ -476,6 +476,8 @@ struct grspw2_core_cfg {
 
 	uint32_t strip_hdr_bytes; /* bytes to strip from the RX packets */
 
+	uint32_t max_hdr_size;	/* maximum size of tx header */
+
 	uint8_t hdr_proto_id_byte;	/* position of protocol ID byte in header */
 	uint8_t hdr_proto_id;		/* value or protcool ID */
 	int inv_proto_drop;		/* drop packets with mismatching protocold */

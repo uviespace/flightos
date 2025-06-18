@@ -1010,6 +1010,8 @@ int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
 	INIT_LIST_HEAD(&cfg->tx_desc_ring_used);
 	INIT_LIST_HEAD(&cfg->tx_desc_ring_free);
 
+	cfg->max_hdr_size = hdr_size;
+
 	cfg->tx_n_desc = tbl_size / GRSPW2_TX_DESC_SIZE;
 	if (!cfg->tx_n_desc)
 		return -1;
@@ -1551,6 +1553,14 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 		return -1;
 	}
 
+	if (hdr_size > cfg->max_hdr_size) {
+#if 0		/* XXX kalarm() */
+		errno = EINVAL;
+#endif
+		return -1;
+	}
+
+
 	if (data_size && !data_buf) {
 #if 0		/* XXX kalarm() */
 		errno = EINVAL;
@@ -1570,8 +1580,6 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 		return -1;
 	}
 
-	/* XXX need extra sanity checks somewhere in the interface,
-	 * could be that no headers are alloced! or data size is too small! */
 	if (hdr_buf && p_elem->desc->hdr_addr)
 		memcpy((void *)p_elem->desc->hdr_addr,  hdr_buf,  hdr_size);
 
