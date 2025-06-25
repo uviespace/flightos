@@ -24,8 +24,6 @@
 
 static struct spinlock edf_spinlock;
 
-extern struct thread_info *current_set[];	/* XXX meh... */
-
 
 /**
  * @brief lock critical edf section
@@ -709,7 +707,12 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	edf_unlock();
 
 	if (first->state == TASK_RUN) {
+
+		if (first->signal) /* switch to signal subtask */
+			first->active = first->sig;
+
 		first->state = TASK_BUSY;
+
 		return first;
 	}
 

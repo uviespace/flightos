@@ -26,9 +26,6 @@
 #define MSG "SCHEDULER: "
 
 
-/* XXX: per-cpu... */
-extern struct thread_info *current_set[];
-
 static LIST_HEAD(kernel_schedulers);
 static bool sched_enabled[CONFIG_SMP_CPUS_MAX];
 static uint8_t cpu_load[CONFIG_SMP_CPUS_MAX];
@@ -120,10 +117,10 @@ entry_found:
 		return sprintf(buf, "%d", tsk->attr.policy);
 
 	if (!strcmp(sattr->name, "stack_top"))
-		return sprintf(buf, "0x%p", tsk->stack_top);
+		return sprintf(buf, "0x%p", tsk->active->stack_top);
 
 	if (!strcmp(sattr->name, "stack_bottom"))
-		return sprintf(buf, "0x%p", tsk->stack_bottom);
+		return sprintf(buf, "0x%p", tsk->active->stack_bottom);
 
 	return 0;
 }

@@ -152,7 +152,7 @@ SYSCALL_DEFINE2(nanosleep, int, flags, struct timespec *, t)
 	printk("sleep for %g ms\n", 0.001 * (double)  ktime_ms_delta(wake, ktime_get()));
 #endif
 	/* just busy-wait for now */
-	while (ktime_after(wake, ktime_get()));
+	while (!ktime_after(ktime_get(), wake));
 
 	return 0;
 }

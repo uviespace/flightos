@@ -51,11 +51,11 @@ static void th_starter(void)
 
 	t0 = ktime_get();
 
-	task->thread_fn(task->data);
+	task->active->thread_fn(task->active->data);
 
 	t1 = ktime_get();
 
-	pr_info("thread: %p returned after %ld ms\n", task->stack, ktime_ms_delta(t1, t0));
+	pr_info("thread: %p returned after %ld ms\n", task->active->stack, ktime_ms_delta(t1, t0));
 
 	flags = arch_local_irq_save();
 	task->state = TASK_DEAD;
@@ -79,7 +79,8 @@ static void th_starter(void)
  * @brief initialise a task structure
  */
 
-void arch_init_task(struct task_struct *task,
+void arch_init_task(struct task_core *core,
+		    struct task_struct *task,
 		    int (*thread_fn)(void *data),
 		    void *data)
 {
@@ -87,14 +88,14 @@ void arch_init_task(struct task_struct *task,
 #define STACKFRAME_SZ	96
 #define PTREG_SZ	80
 #define PSR_CWP     0x0000001f
-	task->thread_info.ksp = (unsigned long) task->stack_top - (STACKFRAME_SZ + PTREG_SZ);
-	task->thread_info.kpc = (unsigned long) th_starter - 8;
-	task->thread_info.kpsr = get_psr();
-	task->thread_info.kwim = 1 << (((get_psr() & PSR_CWP) + 1) % 8);
-	task->thread_info.task = task;
+	core->thread_info.ksp = (unsigned long) core->stack_top - (STACKFRAME_SZ + PTREG_SZ);
+	core->thread_info.kpc = (unsigned long) th_starter - 8;
+	core->thread_info.kpsr = get_psr();
+	core->thread_info.kwim = 1 << (((get_psr() & PSR_CWP) + 1) % 8);
+	core->thread_info.task = task;
 
-	task->thread_fn = thread_fn;
-	task->data      = data;
+	core->thread_fn = thread_fn;
+	core->data      = data;
 }
 EXPORT_SYMBOL(arch_init_task);
 
@@ -105,33 +106,33 @@ EXPORT_SYMBOL(arch_init_task);
  * @note we use this to move our main thread to the task list
  */
 
-void arch_promote_to_task(struct task_struct *task)
+void arch_promote_to_task(struct task_core *core, struct task_struct *task)
 {
 #define PSR_CWP     0x0000001f
 
 __diag_push();
 __diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_return_address can be problematic");
 
-	task->thread_info.ksp = (unsigned long) leon_get_fp();
-	task->thread_info.kpc = (unsigned long) __builtin_return_address(1) - 8;
-	task->thread_info.kpsr = get_psr();
-	task->thread_info.kwim = 1 << (((get_psr() & PSR_CWP) + 1) % 8);
-	task->thread_info.task = task;
+	core->thread_info.ksp = (unsigned long) leon_get_fp();
+	core->thread_info.kpc = (unsigned long) __builtin_return_address(1) - 8;
+	core->thread_info.kpsr = get_psr();
+	core->thread_info.kwim = 1 << (((get_psr() & PSR_CWP) + 1) % 8);
+	core->thread_info.task = task;
 
-	task->thread_fn = NULL;
-	task->data      = NULL;
+	core->thread_fn = NULL;
+	core->data      = NULL;
 
 __diag_pop();
 
 
 	pr_debug(MSG "kernel stack %x %x\n", leon_get_fp(), leon_get_sp());
 
-	pr_debug(MSG "is next at %p stack %p\n", &task->thread_info, task->stack);
+	pr_debug(MSG "is next at %p stack %p\n", &task->active->thread_info, task->active->stack);
 
 
 	/* and set the new thread as current */
 	__asm__ __volatile__("mov	%0, %%g6\n\t"
-			     :: "r"(&(task->thread_info)) : "memory");
+			     :: "r"(&(core->thread_info)) : "memory");
 
 
 }

@@ -108,7 +108,10 @@ void kthread_free(struct task_struct *task)
 	if (task->flags & TASK_NO_CLEAN) /* delete from list as well */
 		return;
 
-	kfree(task->stack);
+
+	ksignal_drop_task(task);
+
+	kfree(task->tsk.stack);
 	kfree(task->name);
 	kfree(task);
 }
@@ -182,18 +185,20 @@ struct task_struct *kthread_init_main(void)
 		return ERR_PTR(-ENOMEM);
 
 
+	task->active = &task->tsk;
+
 	sched_set_policy_default(task);
 
 	task->state  = TASK_NEW;
 	task->name   = strdup("KERNEL");
 	task->on_cpu = cpu;
 
-	arch_promote_to_task(task);
+	arch_promote_to_task(task->active, task);
 
 	flags = arch_local_irq_save();
 	kthread_lock();
 
-	current_set[cpu] = &task->thread_info;
+	current_set[cpu] = &task->active->thread_info;
 
 	sched_enqueue(task);
 	sched_wake(task, ktime_get());
@@ -205,6 +210,33 @@ struct task_struct *kthread_init_main(void)
 
 	return task;
 }
+
+
+
+/**
+ * @brief create the core setup of a new thread
+ */
+
+static int kthread_setup_core(struct task_struct *task,
+			      struct task_core *core,
+			      int (*thread_fn)(void *data), void *data)
+{
+
+	core->stack = kmalloc(CONFIG_STACK_SIZE);
+	if (!core->stack)
+		return -1;
+
+	/* initialise stack with pattern, makes detection of errors easier */
+	memset32(core->stack, 0xdeadbeef, CONFIG_STACK_SIZE / sizeof(uint32_t));
+
+	core->stack_bottom = core->stack;
+	core->stack_top    = (void *)((uint8_t *)core->stack + CONFIG_STACK_SIZE);
+
+	arch_init_task(core, task, thread_fn, data);
+
+	return 0;
+}
+
 
 
 /**
@@ -228,17 +260,13 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	 * (which is typically 64 bits)
 	 */
 
-	task->stack = kmalloc(CONFIG_STACK_SIZE);
-	if (!task->stack) {
+	task->active = &task->tsk;
+
+	if (kthread_setup_core(task, task->active, thread_fn, data)) {
 		kfree(task);
 		return ERR_PTR(-ENOMEM);
 	}
 
-	/* initialise stack with pattern, makes detection of errors easier */
-	memset32(task->stack, 0xdeadbeef, CONFIG_STACK_SIZE / sizeof(uint32_t));
-
-	task->stack_bottom = task->stack;
-	task->stack_top    = (void *)((uint8_t *)task->stack + CONFIG_STACK_SIZE);
 
 	task->name = kmalloc(TASK_NAME_LEN + 1);
 	vsnprintf(task->name, TASK_NAME_LEN, namefmt, args);
@@ -249,19 +277,40 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 		return NULL;
 	}
 
+	INIT_LIST_HEAD(&task->ksig_node);
+	INIT_LIST_HEAD(&task->ksig_queue);
+	INIT_LIST_HEAD(&task->ksig_handlers);
+
 	task->create = ktime_get();
 	task->total  = 0;
 	task->slices = 0;
 	task->on_cpu = cpu;
 	task->state  = TASK_NEW;
 
-	arch_init_task(task, thread_fn, data);
 	pr_info("task at %p, stack %08x - %08x name %s\n", task,
-							   task->stack_bottom,
-							   task->stack_top,
+							   task->active->stack_bottom,
+							   task->active->stack_top,
 							   task->name);
 
 	return task;
+}
+
+
+/**
+ * @brief create a signal subtask
+ */
+
+int kthread_sigstack_create(struct task_struct *task,
+			   int (*thread_fn)(void *data))
+{
+	if (task->sig)
+		return 0;
+
+	task->sig = kzalloc(sizeof(*task->sig));
+	if(!task->sig)
+		return -ENOMEM;
+
+	return kthread_setup_core(task, task->sig, thread_fn, task);
 }
 
 

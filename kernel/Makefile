@@ -18,6 +18,7 @@ obj-y += edac.o
 obj-y += memscrub.o
 
 obj-y += grspw2.o
+obj-y += signals.o
 
 obj-$(CONFIG_KERNEL_PRINTK) += printk.o
 obj-$(CONFIG_SYSCTL) += sysctl.o

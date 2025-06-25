@@ -195,7 +195,7 @@ __asm__ __volatile__(							\
 	"here:\n\t"						\
 	:							\
 	: "r" (&(current_set[smp_cpu_id()])),			\
-	  "r" (&(next->thread_info)),				\
+	  "r" (&(next->active->thread_info)),			\
 	  "i" (TI_KSP),						\
 	  "i" (TI_KPC),						\
 	  "i" (TI_KPSR)						\

@@ -19,13 +19,15 @@
 
 #include <asm/thread.h>
 
+struct task_core;
 struct task_struct;
 
-void arch_init_task(struct task_struct *task,
+void arch_init_task(struct task_core *core,
+		    struct task_struct *task,
 		    int (*thread_fn)(void *data),
 		    void *data);
 
-void arch_promote_to_task(struct task_struct *task);
+void arch_promote_to_task(struct task_core *core, struct task_struct *task);
 
 #endif /* _ASM_GENERIC_THREAD_H_ */
 

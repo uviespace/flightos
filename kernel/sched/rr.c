@@ -31,7 +31,6 @@
 
 static struct spinlock rr_spinlock;
 
-extern struct thread_info *current_set[];	/* XXX meh... */
 
 /**
  * @brief lock critical rr section
@@ -107,7 +106,12 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	if (next)
 		next->state = TASK_BUSY;
 
+	if (next->signal) /* switch to signal subtask */
+		next->active = next->sig;
+
 	rr_unlock();
+
+
 
 	return next;
 }
