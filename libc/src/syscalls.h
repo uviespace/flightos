@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <grspw2.h>
 #include <thread.h>
+#include <signals.h>
 
 int sys_write(int fd, void *buf, size_t count);
 int sys_read(int fd, void *buf, size_t count);
@@ -21,6 +22,8 @@ int sys_sched_prog_seg(void *addr, int argc, char *argv[]);
 
 int sys_sysctl_show_attr(const char *path, const char *name, char *buf);
 int sys_sysctl_store_attr(const char *path, const char *name, const char *buf, size_t len);
+
+int sys_sigaction(int signal, const struct xsigaction *act, struct xsigaction *oact);
 
 #if 0
 void *sbrk(intptr_t incremen);

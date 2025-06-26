@@ -22,5 +22,6 @@
 #define __NR_sched_prog_seg	10
 #define __NR_sysctl_show_attr	11
 #define __NR_sysctl_store_attr	12
+#define __NR_sigaction		13
 
 #endif /* _ASM_GENERIC_UNISTD_H */

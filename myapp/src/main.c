@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <thread.h>
+#include <signals.h>
 #include <time.h>
 #include <sysctl.h>
 
@@ -129,6 +130,7 @@ static int compress(void *data)
 	uint32_t heap_free, heap_used, chunks;
 
 
+	printf("I R COMPRESS THREAD\n");
 
 	buf = (unsigned char *) data;
 
@@ -217,6 +219,21 @@ static int asw_cycle(void *arg __attribute__((unused)))
 	return 0;
 }
 
+/* XXX to show that this works, an emitter for signal 12 must be
+ * setup in the OS;
+ * TODO add
+ *	int sigqueue(pid_t pid, int sig, const union sigval value);
+ * to libc
+ */
+
+static void mysigactionhandler(int signal, xsiginfo_t *nfo, void *ucontext)
+{
+	(void)nfo;
+	(void)ucontext;
+
+	printf("SIGNAL %d received\n", signal);
+}
+
 
 /* the default EDF thread configuration for the ASW */
 #define ASW_PERIOD_MS		500/8
@@ -225,10 +242,18 @@ static int asw_cycle(void *arg __attribute__((unused)))
 
 int main(void)
 {
+	struct xsigaction act = {0};
+
+	printf("I R APP!\n");
+
+	act.sa_sigaction = mysigactionhandler;
+	xsigaction(12, &act, NULL);
+
 	launch_cyclical_activities(asw_cycle,
 				   ASW_PERIOD_MS,
 				   ASW_RUNTIME_MS,
 				   ASW_DEADLINE_MS);
+
 
         while (1)
                 sched_yield();

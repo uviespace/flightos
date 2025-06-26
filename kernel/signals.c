@@ -244,5 +244,6 @@ void ksignal_drop_task(struct task_struct *task)
 		kfree(hdl);
 	}
 
-	kfree(task->sig->stack);
+	if (task->sig)
+		kfree(task->sig->stack);
 }

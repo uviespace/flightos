@@ -18,8 +18,8 @@
  * signals -> more sensible I think
  */
 
-#ifndef _KERNEL_SIGNAL_H_
-#define _KERNEL_SIGNAL_H_
+#ifndef _KERNEL_SIGNALS_H_
+#define _KERNEL_SIGNALS_H_
 
 #include <stdint.h>
 #include <list.h>
@@ -43,14 +43,17 @@ typedef sigset_t uint32_t;
 
 #define SIG_DFL	NULL	/* XXX meh, but good enough for now */
 
+union sigval {
+  int    sival_int;
+  void  *sival_ptr;
+};
 
-
+/* we want to be compatible to P1003.1b-1993 signals */
 typedef struct {
         int si_signo;
-        int si_errno;
 	int si_code;
+        union sigval si_value;
 } siginfo_t;
-
 
 /* XXX we just go with the void pointer for sa_sigaction instead of
  * the newer ucontext_t for now
@@ -87,4 +90,4 @@ int ksigaction(int signal, const struct ksig_action *act, struct ksig_action *oa
 
 void ksignal_drop_task(struct task_struct *task);
 
-#endif /* _KERNEL_SIGNAL_H_ */
+#endif /* _KERNEL_SIGNALS_H_ */

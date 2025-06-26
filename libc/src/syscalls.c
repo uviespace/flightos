@@ -96,3 +96,9 @@ int sys_sysctl_store_attr(const char *path, const char *name, const char *buf, s
 {
 	return SYSCALL4(__NR_sysctl_store_attr, path, name, buf, len);
 }
+
+__attribute__((noinline))
+int sys_sigaction(int signal, const struct xsigaction *act, struct xsigaction *oact)
+{
+	return SYSCALL3(__NR_sigaction, signal, act, oact);
+}

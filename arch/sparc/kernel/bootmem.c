@@ -221,7 +221,7 @@ void bootmem_init(void)
 				pr_warn("BOOTMEM: image start (0x%lx) does not "
 					"coincide with start of memory "
 					"bank (0x%lx), using start of bank.\n",
-					sp_banks[i].base_addr, start_img_pfn);
+					start_img_pfn, sp_banks[i].base_addr);
 
 				base_pfn =  sp_banks[i].base_addr;
 			}

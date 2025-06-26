@@ -26,7 +26,7 @@ struct grspw2_data{
 	void *data;
 	uint32_t data_size;
 	uint8_t *pkt;
-	uint8_t n_drop
+	uint8_t n_drop;
 };
 
 

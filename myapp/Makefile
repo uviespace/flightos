@@ -7,8 +7,8 @@ CFLAGS		+= -mhard-float
 CFLAGS		+= -O2
 CFLAGS		+= -nostartfiles
 CFLAGS		+= -std=gnu89
-CFLAGS		+= -W -Wall -Wextra -Wshadow -Wuninitialized
-CFLAGS		+= -pedantic
+#CFLAGS		+= -W -Wall -Wextra -Wshadow -Wuninitialized
+#CFLAGS		+= -pedantic
 CFLAGS		+= -Wcast-qual -Wformat=2
 CFLAGS		+= -fdiagnostics-show-option
 CFLAGS		+= -Werror
@@ -17,12 +17,12 @@ CFLAGS          += -D_POSIX_CLOCK_SELECTION     #
 CFLAGS          += -D_POSIX_MONOTONIC_CLOCK     # clock_gettime, _nanosleep()
 CFLAGS          += -D_POSIX_TIMERS              #
 CFLAGS          += -DDPU_TARGET
-CFLAGS          += -D__sparc__
+CFLAGS          += -D__sparc__ -g
 #CFLAGS		+= --coverage
 
 LDFLAGS         := -nostartfiles -nostdlib -Wl,-T linker.lds
 LDFLAGS		+= -Ttext=0x64000000
-LDFLAGS		+= -Wl,--unresolved-symbols=ignore-in-object-files
+##LDFLAGS		+= -Wl,--unresolved-symbols=ignore-in-object-files
 #LDFLAGS	+= --coverage
 
 SOURCEDIR	= src

@@ -21,8 +21,9 @@ SECTIONS
 	.cdtors : {
                ___CTOR_LIST__ = .;
 	       LONG((___CTOR_END__ - ___CTOR_LIST__) / 4 - 2)
-               *(SORT(.ctors.*))
-               *(.ctors)
+	       KEEP (*(.ctors));
+	       KEEP (*(.ctor));
+	       KEEP (*(SORT_BY_INIT_PRIORITY(.ctors.*)));
                ___CTOR_END__ = .;
                LONG(-1)
 	}
@@ -107,4 +108,3 @@ SECTIONS
 	.debug_macro		0 : { *(.debug_macro) }
 	.debug_addr		0 : { *(.debug_addr) }
 }
-

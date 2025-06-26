@@ -316,6 +316,13 @@ SYSCALL_DEFINE4(sysctl_store_attr, const char *, path, const char *, name, const
 	return 0;
 }
 
+
+SYSCALL_DEFINE3(sigaction, int, signal, const struct ksig_action *, act, struct ksig_action *, oact)
+{
+	return ksigaction(signal, act, oact);
+}
+
+
 #include <kernel/syscall.h>
 __attribute__((noinline))
 int syscall_sched_yield(void)
@@ -345,5 +352,6 @@ void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	__SYSCALL(__NR_sched_prog_seg,		sys_sched_prog_seg)
 	__SYSCALL(__NR_sysctl_show_attr,	sys_sysctl_show_attr)
 	__SYSCALL(__NR_sysctl_store_attr,	sys_sysctl_store_attr)
+	__SYSCALL(__NR_sigaction,		sys_sigaction)
 };
 
