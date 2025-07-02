@@ -265,7 +265,7 @@ void mm_mmu_trap(void)
 	case SRMMU_FLT_AT_W__U_DATA:
 		pr_debug("Write to User data\n"); break;
 	case SRMMU_FLT_AT_W__S_DATA:
-		pr_debug("Write to SuperUser instruction\n"); break;
+		pr_debug("Write to SuperUser data\n"); break;
 	case SRMMU_FLT_AT_W__U_INST:
 		pr_debug("Write to User instruction\n"); break;
 	case SRMMU_FLT_AT_W__S_INST:
