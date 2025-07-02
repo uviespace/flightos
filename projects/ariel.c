@@ -146,7 +146,7 @@ static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_
  * @brief perform basic initialisation of the spw core
  */
 
-static void spw_init_core_obc(struct spw_user_cfg *cfg)
+static void spw_init_core_obc_nominal(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc)
 {
 	ariel_set_gr712_spw_clock();
 
@@ -160,13 +160,46 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
 				  ARIEL_MTU_TC);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
+				  cfg->tx_hdr, HDR_SIZE,
+				  cfg->tx_data, ARIEL_MTU_TM);
+
+
+	grspw2_protocol_id_drop_enable(&cfg->spw, HDR_PROTO_BYTE, HDR_PROTO_ID);
+}
+
+
+/**
+ * @brief perform basic initialisation of the spw core
+ */
+
+static void spw_init_core_obc_redundant(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc)
+{
+	ariel_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW1);
+
+	/* configure for spw core0 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
+			 ARIEL_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE1,
+			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
+
+	grspw2_rx_desc_table_init(&cfg->spw,
+				  cfg->rx_desc,
+				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
+				  cfg->rx_data,
+				  ARIEL_MTU_TC);
+
+	grspw2_tx_desc_table_init(&cfg->spw,
+				  cfg->tx_desc,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, ARIEL_MTU_TM);
 
@@ -176,11 +209,13 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 
 
 
+
+
 /**
  * @brief perform basic initialisation of the spw core
  */
 
-static void spw_init_core_dcu(struct spw_user_cfg *cfg)
+static void spw_init_core_dcu(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc, uint32_t hdr_size)
 {
 	ariel_set_gr712_spw_clock();
 
@@ -194,14 +229,14 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_RX_DESC_SIZE * 5,
+				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
 				  ARIEL_MTU_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_TX_DESC_SIZE *  5,
-				  cfg->tx_hdr, HDR_SIZE,
+				  n_tx_desc * GRSPW2_RX_DESC_SIZE,
+				  cfg->tx_hdr, hdr_size,
 				  cfg->tx_data, ARIEL_MTU_DCU);
 }
 
@@ -210,7 +245,7 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg)
 /**
  * @brief perform basic initialisation of the spw core
  */
-
+__attribute__((unused))
 static void spw_init_core_debug(struct spw_user_cfg *cfg)
 {
 	ariel_set_gr712_spw_clock();
@@ -309,27 +344,38 @@ static int ariel_init(void)
 	void *addr;
 
 
-	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, GRSPW2_RX_DESCRIPTORS, GRSPW2_TX_DESCRIPTORS);
-	spw_init_core_obc(&spw_cfg[0]);
+	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, 8, GRSPW2_TX_DESCRIPTORS);
+	spw_init_core_obc_nominal(&spw_cfg[0], 8, GRSPW2_TX_DESCRIPTORS);
 
+	spw_alloc_desc_table(&spw_cfg[1], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, 8, GRSPW2_TX_DESCRIPTORS);
+	spw_init_core_obc_redundant(&spw_cfg[1], 8, GRSPW2_TX_DESCRIPTORS);
 
 	grspw2_core_start(&spw_cfg[0].spw, 1, 1);
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
+	grspw2_set_promiscuous(&spw_cfg[0].spw);
 
-	/* setup routing between dcu and debug link 5 */
-	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, HDR_SIZE, 5, 5);
-	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
+	grspw2_core_start(&spw_cfg[1].spw, 1, 1);
+	grspw2_set_time_rx(&spw_cfg[1].spw);
+	grspw2_tick_out_interrupt_enable(&spw_cfg[1].spw);
+	grspw2_set_promiscuous(&spw_cfg[1].spw);
 
-	spw_init_core_dcu(&spw_cfg[2]);
-	spw_init_core_debug(&spw_cfg[4]);
 
+	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 40, 5, 5);
+	spw_init_core_dcu(&spw_cfg[2], 5, 5, 40);
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
+	grspw2_set_promiscuous(&spw_cfg[2].spw);
+
+#if 0
+	/* setup routing between dcu and debug link 5 */
+	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
+	spw_init_core_debug(&spw_cfg[4]);
 	grspw2_core_start(&spw_cfg[4].spw, 1, 1);
 
 	grspw2_enable_routing(&spw_cfg[4].spw, &spw_cfg[2].spw);
 	grspw2_enable_routing(&spw_cfg[2].spw, &spw_cfg[4].spw);
-#if 1
+#endif
+#if 0
 	/* attempt to empty link */
 
 	while (grspw2_get_num_pkts_avail(&spw_cfg[2].spw)) {
