@@ -165,6 +165,7 @@
 #include <kernel/time.h>
 #include <kernel/string.h>
 #include <kernel/printk.h>
+#include <kernel/signals.h>
 
 
 #ifdef CONFIG_SYSCTL
@@ -324,7 +325,7 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 		return 0;
 
 	if (status & GRSPW2_STATUS_TO) {
-
+#if 0
 		static ktime p;
 
 		ktime c;
@@ -339,12 +340,15 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 		c = ktime_get();
 		drift = c - p - cnt * 1000000000ULL - 1000000000ULL;
 		cnt++;
-
-
-		status &= GRSPW2_STATUS_TO;
 #if 0
 		printk("abs:: %lld ns;\n", drift);
 #endif
+#endif
+
+		status &= GRSPW2_STATUS_TO;
+
+		ksignal_send_info(42, NULL);
+
 	}
 exit:
 
