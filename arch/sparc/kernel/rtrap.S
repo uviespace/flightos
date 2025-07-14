@@ -33,6 +33,7 @@
 	.globl	ret_trap_entry
 ret_trap_entry:
 
+	wr	%t_psr, %g0, %psr
 
 ret_trap_kernel:
 
