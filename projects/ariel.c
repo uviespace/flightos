@@ -19,7 +19,7 @@
 struct spw_user_cfg spw_cfg[6];
 
 #define SPW_CLCKDIV_START	6
-#define SPW_CLCKDIV_PLM_RUN	1
+#define SPW_CLCKDIV_OBC_RUN	1
 #define SPW_CLCKDIV_FEE_RUN	2
 #define GR712_IRL1_AHBSTAT	1
 
@@ -29,7 +29,8 @@ struct spw_user_cfg spw_cfg[6];
 #define HDR_SIZE		0x4
 #define STRIP_HDR_BYTES		0x4
 
-#define ARIEL_DPU_ADDR_TO_OBC	0x53
+#define ARIEL_DPU_ADDR_TO_OBC_NOM	0x52
+#define ARIEL_DPU_ADDR_TO_OBC_RED	0x53
 
 #define ARIEL_MTU_TM		4096			/* no idea, just took this from BSW ICD */
 #define ARIEL_MTU_TC		GRSPW2_DEFAULT_MTU	/* Table 1.0, ARIEL-SPW-858 according to BSW ICD + 4byte header */
@@ -38,7 +39,8 @@ struct spw_user_cfg spw_cfg[6];
 
 
 #define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
-#define ARIEL_DPU_ADDR_TO_DCU	0x77	/* link 3, used for routing to DCU XXX fix address (maybew not needed due to promisc routing mode */
+#define ARIEL_DPU_ADDR_TO_DCU_NOM 0x77  /* XXX unsure if we are supposed to use a specific address here */
+#define ARIEL_DPU_ADDR_TO_DCU_RED 0x88
 
 
 
@@ -59,11 +61,11 @@ struct spw_user_cfg spw_cfg[6];
 #define CLKGATE_BASE		0x80000D00
 
 __attribute__((unused))
-	static struct gr712_clkgate {
-		uint32_t unlock;
-		uint32_t clk_enable;
-		uint32_t core_reset;
-	} *clkgate = (struct gr712_clkgate *) CLKGATE_BASE;
+static struct gr712_clkgate {
+	uint32_t unlock;
+	uint32_t clk_enable;
+	uint32_t core_reset;
+} *clkgate = (struct gr712_clkgate *) CLKGATE_BASE;
 
 
 static void gr712_clkgate_enable(uint32_t gate)
@@ -141,7 +143,6 @@ static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_
 
 
 
-
 /**
  * @brief perform basic initialisation of the spw core
  */
@@ -154,7 +155,7 @@ static void spw_init_core_obc_nominal(struct spw_user_cfg *cfg, uint32_t n_rx_de
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_0,
-			 ARIEL_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_DPU_ADDR_TO_OBC_NOM, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
 			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE0,
 			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
 
@@ -187,7 +188,7 @@ static void spw_init_core_obc_redundant(struct spw_user_cfg *cfg, uint32_t n_rx_
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
-			 ARIEL_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_DPU_ADDR_TO_OBC_RED, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
 			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE1,
 			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
 
@@ -208,14 +209,11 @@ static void spw_init_core_obc_redundant(struct spw_user_cfg *cfg, uint32_t n_rx_
 }
 
 
-
-
-
 /**
  * @brief perform basic initialisation of the spw core
  */
 
-static void spw_init_core_dcu(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc, uint32_t hdr_size)
+static void spw_init_core_dcu_nom(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc, uint32_t hdr_size)
 {
 	ariel_set_gr712_spw_clock();
 
@@ -223,8 +221,38 @@ static void spw_init_core_dcu(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_2,
-			 ARIEL_DPU_ADDR_TO_DCU, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_DPU_ADDR_TO_DCU_NOM, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
 			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE2,
+			 GR712_IRL1_AHBSTAT, 0);
+
+	grspw2_rx_desc_table_init(&cfg->spw,
+				  cfg->rx_desc,
+				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
+				  cfg->rx_data,
+				  ARIEL_MTU_DCU);
+
+	grspw2_tx_desc_table_init(&cfg->spw,
+				  cfg->tx_desc,
+				  n_tx_desc * GRSPW2_RX_DESC_SIZE,
+				  cfg->tx_hdr, hdr_size,
+				  cfg->tx_data, ARIEL_MTU_DCU);
+}
+
+
+/**
+ * @brief perform basic initialisation of the spw core
+ */
+
+static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc, uint32_t hdr_size)
+{
+	ariel_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW2);
+
+	/* configure for spw core0 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_3,
+			 ARIEL_DPU_ADDR_TO_DCU_RED, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
+			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE3,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -254,7 +282,7 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_4,
-			 ARIEL_DPU_ADDR_TO_DEBUG, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 ARIEL_DPU_ADDR_TO_DEBUG, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
 			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE4,
 			 GR712_IRL1_AHBSTAT, 0);
 
@@ -271,73 +299,6 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 				  cfg->tx_data, ARIEL_MTU_DCU);
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-__attribute__((unused))
-static void ariel_edac_reset(void *data)
-{
-#if 0
-	/* overwrite dbit error */
-	iowrite32be(0, (void *) 0x61000000);
-#endif
-}
-
-
-__attribute__((unused))
-static void ariel_check_edac(void)
-{
-#if 0
-	edac_set_reset_callback(ariel_edac_reset, NULL);
-
-	sysset_show_tree(NULL);
-
-	edac_critical_segment_add((void *) 0x61000000, (void *) 0x61000004);
-	edac_inject_fault((void *) 0x61000000, 0x0, 0x1);
-
-
-	{
-		char buf[256];
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "singlefaults", buf);
-		printk("single: %s\n", buf);
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "lastsingleaddr", buf);
-		printk("last: %s\n", buf);
-	}
-
-
-	printk("I read %d\n", ioread32be((void *) 0x61000000));
-	{
-		char buf[256];
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "singlefaults", buf);
-		printk("single: %s\n", buf);
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "lastsingleaddr", buf);
-		printk("last: %s\n", buf);
-	}
-
-
-	edac_inject_fault((void *) 0x61000000, 0x0, 0x3);
-	printk("I read %d\n", ioread32be((void *) 0x61000000));
-	{
-		char buf[256];
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "doublefaults", buf);
-		printk("single: %s\n", buf);
-	}
-
-	memscrub_seg_add(0x60000000, 0x62000000, 256);
-#endif
-}
-
 
 static int ariel_init(void)
 {
@@ -362,42 +323,24 @@ static int ariel_init(void)
 
 
 	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 40, 5, 5);
-	spw_init_core_dcu(&spw_cfg[2], 5, 5, 40);
+	spw_init_core_dcu_nom(&spw_cfg[2], 5, 5, 40);
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[2].spw);
 
-#if 0
-	/* setup routing between dcu and debug link 5 */
-	spw_alloc_desc_table(&spw_cfg[4], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 0, 5, 5);
-	spw_init_core_debug(&spw_cfg[4]);
-	grspw2_core_start(&spw_cfg[4].spw, 1, 1);
 
-	grspw2_enable_routing(&spw_cfg[4].spw, &spw_cfg[2].spw);
-	grspw2_enable_routing(&spw_cfg[2].spw, &spw_cfg[4].spw);
-#endif
-#if 0
-	/* attempt to empty link */
+	spw_alloc_desc_table(&spw_cfg[3], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 40, 5, 5);
+	spw_init_core_dcu_red(&spw_cfg[3], 5, 5, 40);
+	grspw2_core_start(&spw_cfg[3].spw, 1, 1);
+	grspw2_set_promiscuous(&spw_cfg[3].spw);
 
-	while (grspw2_get_num_pkts_avail(&spw_cfg[2].spw)) {
-		grspw2_drop_pkt(&spw_cfg[2].spw);
-		printk(".");
+
+	if (CONFIG_EMBED_APPLICATION) {
+		/* load ARIEL ASW */
+		addr = module_read_embedded("asw");
+		printk(MSG "test executable address is %p\n", addr);
+		if (addr)
+			application_load(addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
 	}
-
-
-	while (grspw2_get_num_pkts_avail(&spw_cfg[4].spw)) {
-		grspw2_drop_pkt(&spw_cfg[4].spw);
-		printk(".");
-	}
-#endif
-
-
-#ifdef CONFIG_EMBED_APPLICATION
-	/* load ARIEL ASW */
-	addr = module_read_embedded("asw");
-	printk(MSG "test executable address is %p\n", addr);
-	if (addr)
-		application_load(addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
-#endif /* CONFIG_EMBED_APPLICATION */
 
 	return 0;
 }
