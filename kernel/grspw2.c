@@ -348,9 +348,10 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 		status &= GRSPW2_STATUS_TO;
 
 		ksignal_send_info(42, NULL);
-
 	}
+#if 0
 exit:
+#endif
 
 	if (status & GRSPW2_STATUS_IA) {
 #if 0		/* XXX kalarm() */
@@ -1467,7 +1468,7 @@ static int32_t grspw2_rx_desc_add(struct grspw2_core_cfg *cfg)
 }
 
 
-static void grswp2_rx_desc_add_all(struct grspw2_core_cfg *cfg)
+static void grspw2_rx_desc_add_all(struct grspw2_core_cfg *cfg)
 {
 	size_t i;
 
@@ -1571,6 +1572,10 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 #endif
 		return -1;
 	}
+
+	/* reject if disconnected, this is in principle optional */
+	if (!(grspw2_get_link_status(cfg) & GRSPW2_STATUS_LS_RUN))
+		return -ENOLINK;
 
 	grspw2_tx_desc_move_free_all(cfg);
 
@@ -2339,7 +2344,7 @@ int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
 
 void grspw2_core_start(struct grspw2_core_cfg *cfg, int link_start, int auto_start)
 {
-	grswp2_rx_desc_add_all(cfg);
+	grspw2_rx_desc_add_all(cfg);
 	grspw2_clear_status(cfg);
 
 	grspw2_unset_linkstart(cfg);
@@ -2353,7 +2358,7 @@ void grspw2_core_start(struct grspw2_core_cfg *cfg, int link_start, int auto_sta
 
 
 /**
- * @brief (re)initialise a grswp2 core
+ * @brief (re)initialise a grspw2 core
  */
 #define SYSCTL_STRING_SIZE 8
 
