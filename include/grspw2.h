@@ -607,6 +607,8 @@ void grspw2_set_link_error_irq(struct grspw2_core_cfg *cfg);
 void grspw2_unset_link_error_irq(struct grspw2_core_cfg *cfg);
 void grspw2_spw_hardreset(struct grspw2_regs *regs);
 
+void grspw2_rx_interrupt_enable(struct grspw2_core_cfg *cfg);
+void grspw2_rx_interrupt_disable(struct grspw2_core_cfg *cfg);
 
 
 

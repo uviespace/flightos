@@ -766,10 +766,13 @@ static void grspw2_clear_status(struct grspw2_core_cfg *cfg)
  * @brief set Receive Interrupt enable bit in the DMA register
  */
 
-__attribute__((unused))
-static void grspw2_rx_interrupt_enable(struct grspw2_core_cfg *cfg)
+void grspw2_rx_interrupt_enable(struct grspw2_core_cfg *cfg)
 {
 	uint32_t flags;
+
+
+	if (!cfg)
+		return;
 
 	flags  = ioread32be(&cfg->regs->dma[0].ctrl_status);
 	flags |= GRSPW2_DMACONTROL_RI;
@@ -781,10 +784,13 @@ static void grspw2_rx_interrupt_enable(struct grspw2_core_cfg *cfg)
  * @brief clear Receive Interrupt enable bit in the DMA register
  */
 
-__attribute__((unused))
-static void grspw2_rx_interrupt_disable(struct grspw2_core_cfg *cfg)
+void grspw2_rx_interrupt_disable(struct grspw2_core_cfg *cfg)
 {
 	uint32_t flags;
+
+
+	if (!cfg)
+		return;
 
 	flags  = ioread32be(&cfg->regs->dma[0].ctrl_status);
 	flags &= ~GRSPW2_DMACONTROL_RI;
