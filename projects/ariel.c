@@ -7,6 +7,8 @@
 #include <kernel/edac.h>
 #include <kernel/memscrub.h>
 #include <kernel/user.h>
+#include <kernel/irq.h>
+#include <kernel/signals.h>
 
 #include <grspw2.h>
 #include <asm-generic/io.h>
@@ -300,6 +302,19 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 
 }
 
+/* emit signals 101 and 102 to indicate packet on a DCU link */
+static irqreturn_t emit_irq_dcu1(unsigned int irq, void *userdata)
+{
+	ksignal_send_info(101, NULL);
+	return 0;
+}
+
+static irqreturn_t emit_irq_dcu2(unsigned int irq, void *userdata)
+{
+	ksignal_send_info(102, NULL);
+	return 0;
+}
+
 static int ariel_init(void)
 {
 	void *addr;
@@ -326,12 +341,15 @@ static int ariel_init(void)
 	spw_init_core_dcu_nom(&spw_cfg[2], 5, 5, 40);
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[2].spw);
-
+	grspw2_rx_interrupt_enable(&spw_cfg[2].spw);
+	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 
 	spw_alloc_desc_table(&spw_cfg[3], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 40, 5, 5);
 	spw_init_core_dcu_red(&spw_cfg[3], 5, 5, 40);
 	grspw2_core_start(&spw_cfg[3].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[3].spw);
+	grspw2_rx_interrupt_enable(&spw_cfg[3].spw);
+	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 
 
 	if (CONFIG_EMBED_APPLICATION) {
