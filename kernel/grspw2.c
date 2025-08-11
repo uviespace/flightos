@@ -1778,6 +1778,9 @@ int32_t grspw2_route(void *userdata)
 
 	cfg = (struct grspw2_core_cfg *) userdata;
 
+
+	grspw2_tx_desc_move_free_all(cfg->route[0]);
+
 	list_for_each_entry_safe(p_elem, p_tmp, &cfg->rx_desc_ring_used, node) {
 
 		if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EN)
@@ -1795,10 +1798,9 @@ int32_t grspw2_route(void *userdata)
 		if (unlikely(ret))
 			break;
 
+		grspw2_rx_desc_set_irq(p_elem);
 		grspw2_rx_desc_readd(cfg, p_elem);
 	}
-
-	grspw2_tx_desc_move_free_all(cfg->route[0]);
 
 	return 0;
 }
