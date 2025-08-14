@@ -13,9 +13,7 @@
 
 
 /* d'oh! -.- */
-#if defined(CONFIG_LEON2) || defined(CONFIG_LEON3)
 #define __BIG_ENDIAN_BITFIELD __BIG_ENDIAN_BITFIELD
-#endif
 
 
 /* BCC is at least 4.4.2 */

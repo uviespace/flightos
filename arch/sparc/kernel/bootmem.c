@@ -278,7 +278,7 @@ void bootmem_init(void)
 
 	/* reserve all space up to the end of the image, so mapping starts
 	 * from the first free page following that section */
-	BUG_ON(!page_map_reserve_chunk(start_pfn - base_pfn));
+	BUG_ON(page_map_reserve_chunk(start_pfn - base_pfn) == (void *)-1);
 
 
 	/* our image has been reserved, now set up the boot memory allocator */

@@ -22,7 +22,7 @@ config PROJECT_ARIEL
 
 config PROJECT_MYAPP
 	bool "MYAPP_DEMO"
-	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
+	depends on (LEON3 || LEON4) && ARCH_CUSTOM_BOOT_CODE
 	help
 	 Demonstrate loading of an application software
 

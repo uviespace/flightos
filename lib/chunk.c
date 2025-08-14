@@ -124,7 +124,7 @@ static void chunk_setup(struct chunk_pool *pool, struct chunk *c)
  *
  * @param size the requested minimum size of the chunk
  *
- * @return a struct chunk or NULL on error
+ * @return a struct chunk or (void *)-1 on error
  */
 
 static struct chunk *chunk_grab_new(struct chunk_pool *pool, size_t size)
@@ -132,22 +132,21 @@ static struct chunk *chunk_grab_new(struct chunk_pool *pool, size_t size)
 	struct chunk *c;
 
 
-	c = (struct chunk *) pool->alloc(size);
-
-	if (!c)
-		return NULL;
+	c = (struct chunk *)pool->alloc(size);
+	if (c == (void *)-1)
+		return (void *)-1;
 
 
 	/* if set, get actual chunk size */
 	if (pool->real_alloc_size) {
 
-		c->size = pool->real_alloc_size((void *) c);
+		c->size = pool->real_alloc_size((void *)c);
 
 		if (c->size < size) {
 			pr_warn("CHUNK: got less bytes than expected from "
 				"higher-tier memory manager\n");
 			pool->free((void *) c);
-			return NULL;
+			return (void *)-1;
 		}
 
 	} else {
@@ -272,7 +271,7 @@ void *chunk_alloc(struct chunk_pool *pool, size_t size)
 
 		c = chunk_grab_new(pool, alloc_sz);
 
-		if (!c) {
+		if (c == (void *)-1) {
 			pr_err("CHUNK: error, got no memory from allocator \n");
 			return NULL;
 		}

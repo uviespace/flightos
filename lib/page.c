@@ -165,9 +165,9 @@ int page_map_init(struct page_map_node **pg_map,
 	if (end < start)
 		goto error;
 
-	mem_size = (size_t) end - start;
+	mem_size = (size_t)end - start;
 
-	if (mm_init(pg->pool, (void *) start, mem_size, page_size))
+	if (mm_init(pg->pool, (void *)start, mem_size, page_size))
 		goto error;
 
 	pg->mem_start = start;
@@ -210,7 +210,7 @@ error:
 
 void *page_map_reserve_chunk(size_t size)
 {
-	void *mem = NULL;
+	void *mem = (void *)-1;
 
 	struct page_map_node **pg = page_mem;
 
@@ -225,7 +225,7 @@ void *page_map_reserve_chunk(size_t size)
 	do {
 		mem = mm_alloc((*pg)->pool, size);
 
-		if (mem)
+		if (mem != (void *)-1)
 			break;
 	} while ((*(++pg)));
 
@@ -255,8 +255,8 @@ unsigned long page_map_get_chunk_size(void *addr)
 		goto exit;
 	}
 
-	if (!addr) {
-		pr_info("PAGE MEM: NULL pointer in call to %s from %p\n",
+	if (addr == (void *)-1) {
+		pr_info("PAGE MEM: invalid pointer in call to %s from %p\n",
 			__func__, __caller(0));
 		goto exit;
 	}
@@ -292,7 +292,7 @@ exit:
 
 void *page_alloc(void)
 {
-	void *page = NULL;
+	void *page = (void *)-1;
 
 	struct page_map_node *p_elem;
 	struct page_map_node *p_tmp;
@@ -307,7 +307,7 @@ void *page_alloc(void)
 
 		page = mm_alloc(p_elem->pool, PG_SIZE(p_elem));
 
-		if (!page) {
+		if (page == (void *)-1) {
 			list_move_tail(&p_elem->node, &page_map_list_empty);
 			pr_debug("PAGE MEM: mapping %p move to empty list\n",
 				 p_elem);
@@ -326,7 +326,7 @@ void *page_alloc(void)
 		pr_err("PAGE MAP: page at %p allocated from memory manager %p "
 		       "is not aligned to the configured page size");
 		mm_free(p_elem->pool, page);
-		page = NULL;
+		page = (void *)-1;
 	}
 #endif
 
@@ -354,8 +354,8 @@ void page_free(void *page)
 		return;
 	}
 
-	if (!page) {
-		pr_info("PAGE MEM: NULL pointer in call to page_free from %p\n",
+	if (page == (void *)-1) {
+		pr_info("PAGE MEM: invalid pointer in call to page_free from %p\n",
 			__caller(0));
 			return;
 	}

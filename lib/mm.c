@@ -469,10 +469,12 @@ __diag_pop(); /* -Wframe-address */
  *
  *
  * @return success: pointer to the start of the allocated memory block,
- *	   failure: NULL
+ *	   failure: (void *)-1;
  *
  * @note the allocated block will really be the next order 2^n the requested
  *	 size fits
+ * @note we have to return (void *)-1 here rather than NULL, since the RAM in
+ * 	 some platforms starts at address 0x0
  */
 
 void *mm_alloc(struct mm_pool *mp, size_t size)
@@ -480,17 +482,17 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	unsigned long i;
 	unsigned long order;
 
-	struct mm_blk_lnk *blk = NULL;
+	struct mm_blk_lnk *blk = (void *)-1;
 	struct list_head *list = NULL;
 
 	unsigned int flags;
 
 
 	if (!mp)
-		return NULL;
+		return (void *)-1;
 
 	if (!size)
-		return NULL;
+		return (void *)-1;
 
 	order = ilog2(roundup_pow_of_two(size));
 
@@ -500,7 +502,7 @@ void *mm_alloc(struct mm_pool *mp, size_t size)
 	order = mm_fixup_validate(mp, NULL, order);
 
 	if (IS_ERR_VALUE(order))
-	       return NULL;
+		return (void *)-1;
 
 
 	/* allocate first fit, by locating the first free block of the lowest
@@ -587,9 +589,7 @@ void mm_free(struct mm_pool *mp, const void *addr)
 	unsigned long order;
 
 
-	/* free() on NULL is fine */
-	if (!addr)
-		goto exit;
+	/* NOTE: addr 0x0 aka NULL may be a valid memory address ! */
 
 	if (!mm_blk_addr_valid(mp, (struct mm_blk_lnk *) addr))
 		goto error;

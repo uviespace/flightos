@@ -8,52 +8,8 @@
 #include <time.h>
 #include <sysctl.h>
 
-unsigned int busy;
 
-
-static unsigned long asw_get_num_used_pages(void)
-{
-	char buf[32];
-
-	/* block size == page size */
-	sysctl_show_attr("/sys/mm", "used_blocks", buf);
-	return strtol(buf, NULL, 10);
-}
-
-static unsigned long asw_get_num_free_pages(void)
-{
-	char buf[32];
-
-	/* block size == page size */
-	sysctl_show_attr("/sys/mm", "free_blocks", buf);
-	return strtol(buf, NULL, 10);
-}
-
-static unsigned long asw_get_num_free_mem_chunks(void)
-{
-	char buf[32];
-
-	/* bytes free within the currently assigned heap */
-	sysctl_show_attr("/sys/kmem", "bytes_free", buf);
-	return strtol(buf, NULL, 10);
-}
-
-
-static inline unsigned long leon3_cpuid(void)
-{
-        unsigned long cpuid;
-
-        __asm__ __volatile__ (
-                        "rd     %%asr17, %0     \n\t"
-                        "srl    %0, 28, %0      \n\t"
-                        :"=r" (cpuid)
-                        :
-                        :"l1");
-        return cpuid;
-}
-
-
-static int launch_cyclical_activities(int (*cyc_func)(void *arg),
+static int create_realtime_thread(int (*cyc_func)(void *arg),
 				      unsigned int period_ms,
 				      unsigned int runtime_ms,
 				      unsigned int deadline_ms)
@@ -64,7 +20,7 @@ static int launch_cyclical_activities(int (*cyc_func)(void *arg),
 	if (!cyc_func)
 		return -1;
 
-	thread_create(&th, cyc_func, NULL, 0, "CYC_ACT");
+	thread_create(&th, cyc_func, NULL, 0, "RT_THREAD");
 
 	thread_set_sched_edf(&th, period_ms   * 1000,
 				  runtime_ms  * 1000,
@@ -91,7 +47,7 @@ static struct timespec diff_timespec(const struct timespec *t1,
 	return delta;
 }
 
-static uint32_t diff_timespec_ms(const struct timespec *t1,
+uint32_t diff_timespec_ms(const struct timespec *t1,
 				 const struct timespec *t0)
 {
 	struct timespec delta;
@@ -102,161 +58,54 @@ static uint32_t diff_timespec_ms(const struct timespec *t1,
 	return delta.tv_nsec / 1000000 + delta.tv_sec * 1000;
 }
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
-static unsigned char call_depth(unsigned char value, size_t level, int sp)
+
+uint32_t diff_timespec_us(const struct timespec *t1,
+				 const struct timespec *t0)
 {
-	register int sp_local asm("%sp");
-
-	if (!level) {
-		printf("d_sp: %4d ", sp - sp_local);
-		return 0;
-	}
-
-	return value + call_depth(value, level - 1, sp);
-}
-#pragma GCC pop_options
-
-static int compress(void *data)
-{
-	size_t r;
-
-	unsigned int i;
-
-	register int sp_local asm("%sp");
-
-	unsigned char *buf;
-
-	uint32_t heap_free, heap_used, chunks;
+	struct timespec delta;
 
 
-	printf("I R COMPRESS THREAD\n");
+	delta = diff_timespec(t1, t0);
 
-	buf = (unsigned char *) data;
-
-	for (i = 0; i < 1024*10 + (busy - 1); i++) {
-		if (buf[i] != (i & 0xff))
-			printf("NO MATCH! %d %d\n", i, buf[i]);
-	}
-
-	r = (rand() + busy) % 22;
-
-	printf("%d/%3d lvl %2d (CPU %ld) ", busy, call_depth(buf[i - 1], r, sp_local), r, leon3_cpuid());
-
-	free(data);
-
-
-	/* we have a 4kiB page size */
-	heap_free = asw_get_num_free_pages() * 4096;
-	heap_used = asw_get_num_used_pages() * 4096;
-	/* correct by currently free chunks within the assigned heap */
-	chunks = asw_get_num_free_mem_chunks();
-
-	printf("F: %lu, U %lu, C: %lu\n", heap_free, heap_used, chunks);
-
-
-	busy = 0;
-
-	return 0;
+	return delta.tv_nsec / 1000 + delta.tv_sec * 1000000;
 }
 
 
-static int asw_cycle(void *arg __attribute__((unused)))
+
+static int thread_func(void *arg __attribute__((unused)))
 {
 	struct timespec t1;
-	struct timespec t0 = {0};
-
-	thread_t th;
-
-	char *buf1;
-	char *buf;
-	int i;
-	int cnt = 0;
+	struct timespec t0;
 
 
 	while (1) {
 
-		if (busy)
-			sched_yield();
-
-		clock_gettime(CLOCK_REALTIME, &t1);
-
-		printf("dt %03lu ms, up %.5f s CPU %ld ", diff_timespec_ms(&t1, &t0),
-			(double) t1.tv_sec + (double) t1.tv_nsec * 1e-9, leon3_cpuid());
-
-		buf1 = malloc(1024*1024);
-		if (buf1) {
-			for (i = 0; i < 1024*1024; i++)
-				buf1[i] = i & 0xff;
-		}
-
-
-		buf = malloc(1024*10 + cnt);
-		if (buf) {
-			for (i = 0; i < 1024*10 + cnt; i++)
-				buf[i] = i & 0xff;
-			free(buf1);
-			buf1 = NULL;
-			cnt++;
-		}
-
-		if (!busy && buf) {
-			busy = cnt;
-
-			th.attr.policy = KSCHED_RR;
-			th.attr.priority = 10000;
-			thread_create(&th, compress, buf, 1, "SCI_COMPR");
-			thread_wake_up(&th);
-			buf = NULL;
-		} else {
-			printf("STILL BUSY %d\n", busy);
-		}
-
 		clock_gettime(CLOCK_REALTIME, &t0);
+#if 0
+		execute_test_function_here();
+#endif
+		clock_gettime(CLOCK_REALTIME, &t1);
+		printf("took %lu us\n", diff_timespec_us(&t1, &t0));
+
+#if 0		/* can just quit here */
+		return 0;
+#endif
+		/* we always yield remaining RT for more accurate timings */
 		sched_yield();
 	}
-
-	return 0;
-}
-
-/* XXX to show that this works, an emitter for signal 12 must be
- * setup in the OS;
- * TODO add
- *	int sigqueue(pid_t pid, int sig, const union sigval value);
- * to libc
- */
-
-static void mysigactionhandler(int signal, xsiginfo_t *nfo, void *ucontext)
-{
-	(void)nfo;
-	(void)ucontext;
-
-	printf("SIGNAL %d received\n", signal);
 }
 
 
-/* the default EDF thread configuration for the ASW */
-#define ASW_PERIOD_MS		500/8
-#define ASW_RUNTIME_MS		400/8	/* the WCET */
-#define ASW_DEADLINE_MS		490/8
+/* RT thread configuration: 90% of CPU WCET */
+#define PERIOD_MS	1000
+#define RUNTIME_MS	 900
+#define DEADLINE_MS	 999
 
 int main(void)
 {
-	struct xsigaction act = {0};
+	create_realtime_thread(thread_func, PERIOD_MS, RUNTIME_MS, DEADLINE_MS);
 
-	printf("I R APP!\n");
-
-	act.sa_sigaction = mysigactionhandler;
-	xsigaction(12, &act, NULL);
-
-	launch_cyclical_activities(asw_cycle,
-				   ASW_PERIOD_MS,
-				   ASW_RUNTIME_MS,
-				   ASW_DEADLINE_MS);
-
-
-        while (1)
-                sched_yield();
+	/* thread started, we can exit */
 
 	return EXIT_SUCCESS;
 }

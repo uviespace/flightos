@@ -6,7 +6,7 @@ LD		= $(CCPREFIX)gcc
 AR              = $(CCPREFIX)ar
 ARFLAGS         = crs
 
-CFLAGS		:= -mcpu=leon3 -mfix-gr712rc
+CFLAGS		:= -mcpu=leon3
 CFLAGS		+= -O2
 CFLAGS		+= -mhard-float
 # make sure to disable incorrect recursion/inlining optimisation

@@ -2,9 +2,9 @@ CC		= sparc-gaisler-elf-gcc
 # we use gcc for linking, as it appears to pass extra stuff to ld which we don't know about
 LD		= sparc-gaisler-elf-gcc
 
-CFLAGS		:= -mcpu=leon3 -mfix-gr712rc
+CFLAGS		:= -mcpu=leon3
 CFLAGS		+= -mhard-float
-CFLAGS		+= -O2
+CFLAGS		+= -O2 -g
 CFLAGS		+= -nostartfiles
 CFLAGS		+= -std=gnu89
 #CFLAGS		+= -W -Wall -Wextra -Wshadow -Wuninitialized
@@ -21,7 +21,7 @@ CFLAGS          += -D__sparc__ -g
 #CFLAGS		+= --coverage
 
 LDFLAGS         := -nostartfiles -nostdlib -Wl,-T linker.lds
-LDFLAGS		+= -Ttext=0x64000000
+LDFLAGS		+= -Ttext=0x0F000000
 ##LDFLAGS		+= -Wl,--unresolved-symbols=ignore-in-object-files
 #LDFLAGS	+= --coverage
 

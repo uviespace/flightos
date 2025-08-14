@@ -336,7 +336,6 @@ int kmem_bg_release_init(void)
 device_initcall(kmem_bg_release_init);
 #endif /* CONFIG_KMEM_RELEASE_BACKGROUND */
 
-#endif /* CONFIG_MMU */
 
 
 #ifdef CONFIG_SYSCTL
@@ -367,6 +366,7 @@ static int kmem_init_sysctl(void)
 }
 late_initcall(kmem_init_sysctl);
 #endif /* CONFIG_SYSCTL */
+#endif /* CONFIG_MMU */
 
 
 /**

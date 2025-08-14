@@ -47,9 +47,13 @@
  *	    up by a stage 1 loader, which then copies and starts the kernel
  *	    from some location.
  */
-
+#if defined (CONFIG_LEON4)
+#define HIGHMEM_START	0x20000000 /* XXX need iommu or lowmem area.. (for SXI, FPGA ADDR. */
+#define LOWMEM_RESERVED 0x10000000
+#else /* CONFIG_LEON4 */
 #define HIGHMEM_START	0x10000000 /* XXX need iommu or lowmem area.. (for SXI, FPGA ADDR. */
 #define LOWMEM_RESERVED 0x01000000
+#endif /* CONFIG_LEON4 */
 
 #define VMALLOC_START	(LOWMEM_RESERVED)
 #define VMALLOC_END	(HIGHMEM_START - 1)

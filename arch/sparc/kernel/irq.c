@@ -60,6 +60,7 @@
 #include <asm/spinlock.h>
 #include <asm/irq.h>
 #include <asm/irqflags.h>
+#include <asm/time.h>
 
 
 struct irl_vector_elem {
@@ -124,9 +125,9 @@ static struct irl_vector_elem *irl_queue_pool;
 static unsigned int leon_eirq;
 
 
-/* XXX testing, add to kbuild */
+/* XXX testing, add to kbuild (note: 10k cycles is pretty conservative */
 #define CONFIG_IRQ_RATE_PROTECT 1
-#define CONFIG_IRQ_MIN_INTER_US 200
+#define CONFIG_IRQ_MIN_INTER_US (CPU_CYCLES_TO_NS(10000) / 1000)
 
 #ifdef CONFIG_IRQ_RATE_PROTECT
 

@@ -87,7 +87,19 @@ static void mem_init(void)
 
 #ifdef CONFIG_LEON4
 	sp_banks[0].base_addr = 0x00000000;
-	sp_banks[0].num_bytes = 0x10000000;
+	sp_banks[0].num_bytes = 0x08000000;
+#if (SPARC_PHYS_BANKS > 0)
+	sp_banks[1].base_addr = 0x08000000;
+	sp_banks[1].num_bytes = 0x04000000;
+#endif
+#if (SPARC_PHYS_BANKS > 1)
+	sp_banks[2].base_addr = 0x0C000000;
+	sp_banks[2].num_bytes = 0x02000000;
+#endif
+#if (SPARC_PHYS_BANKS > 2)
+	sp_banks[3].base_addr = 0x0E000000;
+	sp_banks[3].num_bytes = 0x01000000;
+#endif
 #endif
 
 #ifdef CONFIG_LEON3
@@ -225,6 +237,7 @@ static void boot_cpus(void)
  * we use the LEON3 debug support unit for this
  */
 #include <leon3_dsu.h>
+__attribute__((unused))
 static void sxi_dpu_setup_cpu_entry(void)
 {
 	uint32_t tmp;
@@ -406,8 +419,10 @@ void setup_arch(void)
 
 	sparc_clockevent_init();
 
+#if !defined(CONFIG_LEON4)
 	/* XXX */
 	sxi_dpu_setup_cpu_entry();
+#endif
 
 	smp_init();
 

@@ -76,12 +76,41 @@ static void mm_init_leon(void)
 	trap_handler_install(0x9, data_access_exception_trap);
 	srmmu_init(&bootmem_alloc, &bootmem_free);
 
-	/* 1:1 map full range of highmem */
-	srmmu_do_large_mapping_range(0, HIGHMEM_START, HIGHMEM_START,
-				(0xFFFFFFFF - HIGHMEM_START) /
-				SRMMU_LARGE_PAGE_SIZE + 1,
+
+#if defined(CONFIG_LEON4)
+	/* 1:1 map full range of memory (0 - LOWMEM_RESERVED */
+	srmmu_do_large_mapping_range(0, 0, 0,
+				LOWMEM_RESERVED / SRMMU_LARGE_PAGE_SIZE,
 				(SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
 
+	/* GR740 prom address */
+	srmmu_do_large_mapping_range(0, 0xC0000000, 0xC0000000,
+				(0xD0000000 - 0xC0000000) /
+				SRMMU_LARGE_PAGE_SIZE,
+				(SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
+
+	/* GR740 uncacheable register/amba areas */
+	srmmu_do_large_mapping_range(0, 0x80000000 , 0x80000000,
+				(0xC0000000 - 0x80000000) /
+				SRMMU_LARGE_PAGE_SIZE,
+				(SRMMU_ACC_S_RWX_2));
+
+	srmmu_do_large_mapping_range(0, 0xD0000000, 0xD0000000,
+				(0xFFFFFFFF - 0xD0000000 + 1) /
+				SRMMU_LARGE_PAGE_SIZE,
+				(SRMMU_ACC_S_RWX_2));
+
+#else
+	/* 1:1 map full range of highmem
+	 * NOTE: I have not checked if the AHB/APB area on the GR712
+	 * is non-cacheable, but I have never observed a related issue,
+	 * so I leave it as-is for now
+	 */
+	srmmu_do_large_mapping_range(0, HIGHMEM_START, HIGHMEM_START,
+				(0xFFFFFFFF - HIGHMEM_START + 1) /
+				SRMMU_LARGE_PAGE_SIZE,
+				(SRMMU_CACHEABLE | SRMMU_ACC_S_RWX_2));
+#endif
 	mm_set_mmu_ctx(0);
 
 	srmmu_enable_mmu();
@@ -326,7 +355,7 @@ __diag_pop();
 
 			if (addr < mm_proc_mem[ctx].sbrk) {
 				alloc = (unsigned long) page_alloc();
-				if (!alloc) {
+				if (alloc == -1) {
 					pr_crit("MM:\t Out of physical memory %lx\n", last);
 					BUG();
 				}
