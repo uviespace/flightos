@@ -9,6 +9,7 @@
 #include <kernel/user.h>
 #include <kernel/irq.h>
 #include <kernel/signals.h>
+#include <kernel/string.h>
 
 #include <grspw2.h>
 #include <asm-generic/io.h>
@@ -20,8 +21,8 @@
 /* a spacewire core configuration (0 = obc,  1...N = ...TODO... */
 struct spw_user_cfg spw_cfg[6];
 
-#define SPW_CLCKDIV_START	6
-#define SPW_CLCKDIV_OBC_RUN	1
+#define SPW_CLCKDIV_START	10
+#define SPW_CLCKDIV_OBC_RUN	2
 #define SPW_CLCKDIV_FEE_RUN	2
 #define GR712_IRL1_AHBSTAT	1
 
@@ -37,7 +38,14 @@ struct spw_user_cfg spw_cfg[6];
 #define ARIEL_MTU_TM		4096			/* no idea, just took this from BSW ICD */
 #define ARIEL_MTU_TC		GRSPW2_DEFAULT_MTU	/* Table 1.0, ARIEL-SPW-858 according to BSW ICD + 4byte header */
 
-#define ARIEL_MTU_DCU		(32 * 1024)
+#define ARIEL_MTU_TX_DCU	( 2 * 1024)
+#define ARIEL_MTU_RX_DCU	(32 * 1024)
+
+#define ARIEL_SC_TX_NDESC	16
+#define ARIEL_SC_RX_NDESC	8
+#define ARIEL_DCU_NDESC		5
+
+#define ARIEL_DCU_HDR_SIZE	40
 
 
 #define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
@@ -101,46 +109,6 @@ static void ariel_set_gr712_spw_clock(void)
 
 
 	(*gpreg) = (ioread32be(gpreg) & (0xFFFFFFF8));
-}
-
-
-static void spw_alloc_desc_table(struct spw_user_cfg *cfg, size_t tc_size, size_t tm_size, size_t hdr_size, size_t rx_desc, size_t tx_desc)
-{
-	uint32_t mem;
-
-
-	/*
-	 * malloc a rx and tx descriptor table buffer and align to
-	 * 1024 bytes (GR712UMRC, p. 111)
-	 *
-	 * dynamically allocate memory + 1K for alignment (worst case)
-	 * 1 buffer per dma channel (GR712 cores only implement one channel)
-	 *
-	 * NOTE: we don't care about calling free(), because this is a
-	 * bare-metal demo, so we just discard the original pointer
-	 */
-
-	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
-				  + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-	cfg->rx_desc = (uint32_t *)
-		((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
-		 & ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-
-	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
-				  + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-	cfg->tx_desc = (uint32_t *)
-		((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
-		 & ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-
-	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kpcalloc(1, rx_desc * tc_size);
-	cfg->tx_data = (uint8_t *) kpcalloc(1, tx_desc * tm_size);
-
-	cfg->tx_hdr = (uint8_t *) kpcalloc(1, tx_desc * hdr_size);
 }
 
 
@@ -231,13 +199,13 @@ static void spw_init_core_dcu_nom(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 				  cfg->rx_desc,
 				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
-				  ARIEL_MTU_DCU);
+				  ARIEL_MTU_RX_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  n_tx_desc * GRSPW2_RX_DESC_SIZE,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, hdr_size,
-				  cfg->tx_data, ARIEL_MTU_DCU);
+				  cfg->tx_data, ARIEL_MTU_RX_DCU);
 }
 
 
@@ -261,13 +229,13 @@ static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 				  cfg->rx_desc,
 				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
-				  ARIEL_MTU_DCU);
+				  ARIEL_MTU_RX_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  n_tx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->tx_hdr, hdr_size,
-				  cfg->tx_data, ARIEL_MTU_DCU);
+				  cfg->tx_data, ARIEL_MTU_RX_DCU);
 }
 
 
@@ -292,13 +260,13 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 				  cfg->rx_desc,
 				  GRSPW2_RX_DESC_SIZE * 5,
 				  cfg->rx_data,
-				  ARIEL_MTU_DCU);
+				  ARIEL_MTU_RX_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  GRSPW2_TX_DESC_SIZE * 5,
 				  cfg->tx_hdr, 0,
-				  cfg->tx_data, ARIEL_MTU_DCU);
+				  cfg->tx_data, ARIEL_MTU_RX_DCU);
 
 }
 
@@ -315,16 +283,82 @@ static irqreturn_t emit_irq_dcu2(unsigned int irq, void *userdata)
 	return 0;
 }
 
+/* we want to use the last 512 kiB of memory for the SpW buffers */
+#define ARIEL_SRAM_START	0x40000000
+#define ARIEL_SRAM_SIZE		  0x800000	/* eval board */
+#define SPW_AREA_START		(ARIEL_SRAM_START + ARIEL_SRAM_SIZE - 512 * 1024)
+
 static int ariel_init(void)
 {
-	void *addr;
+	uint8_t *addr;
 
 
-	spw_alloc_desc_table(&spw_cfg[0], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, 8, GRSPW2_TX_DESCRIPTORS);
-	spw_init_core_obc_nominal(&spw_cfg[0], 8, GRSPW2_TX_DESCRIPTORS);
+	memset((void *)SPW_AREA_START, 0, 512 * 1024);
 
-	spw_alloc_desc_table(&spw_cfg[1], ARIEL_MTU_TC, ARIEL_MTU_TM, HDR_SIZE, 8, GRSPW2_TX_DESCRIPTORS);
-	spw_init_core_obc_redundant(&spw_cfg[1], 8, GRSPW2_TX_DESCRIPTORS);
+	/* we require 1kiB tables which are also aligned to 1kiB */
+	spw_cfg[0].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 0);
+	spw_cfg[0].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 1);
+	spw_cfg[1].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 2);
+	spw_cfg[1].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 3);
+	spw_cfg[2].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 4);
+	spw_cfg[2].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
+	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 6);
+	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 7);
+
+	/* note: the addresses for the header and data buffers may be byte aligned */
+	addr = (uint8_t *)(SPW_AREA_START + 1024 * 8);
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	/* nominal and redundant S/C links */
+	spw_cfg[0].rx_data = addr;
+	addr += ARIEL_MTU_TC * ARIEL_SC_RX_NDESC;
+	spw_cfg[0].tx_data = addr;
+	addr += ARIEL_MTU_TM * ARIEL_SC_TX_NDESC;
+	spw_cfg[0].tx_hdr = addr;
+	addr += HDR_SIZE * ARIEL_SC_TX_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	spw_cfg[1].rx_data = addr;
+	addr += ARIEL_MTU_TC * ARIEL_SC_RX_NDESC;
+	spw_cfg[1].tx_data = addr;
+	addr += ARIEL_MTU_TM * ARIEL_SC_TX_NDESC;
+	spw_cfg[1].tx_hdr = addr;
+	addr += HDR_SIZE * ARIEL_SC_TX_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	/* links to DCU1 and DCU2, note: we use 32 kiB incoming but only 1kiB outgoing */
+	spw_cfg[2].rx_data = addr;
+	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	spw_cfg[2].tx_data = addr;
+	addr += ARIEL_MTU_TX_DCU * ARIEL_DCU_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	spw_cfg[2].tx_hdr = addr;
+	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	spw_cfg[3].rx_data = addr;
+	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	spw_cfg[3].tx_data = addr;
+	addr += ARIEL_MTU_TX_DCU * ARIEL_DCU_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+	spw_cfg[3].tx_hdr = addr;
+	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
+	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+
+
+	/* final sanity check */
+	BUG_ON((uintptr_t)addr > (ARIEL_SRAM_START + ARIEL_SRAM_SIZE));
+
+
+	/* configure and start S/C links */
+	spw_init_core_obc_nominal(&spw_cfg[0], ARIEL_SC_RX_NDESC, ARIEL_SC_TX_NDESC);
+	spw_init_core_obc_redundant(&spw_cfg[1], ARIEL_SC_RX_NDESC, ARIEL_SC_TX_NDESC);
 
 	grspw2_core_start(&spw_cfg[0].spw, 1, 1);
 	grspw2_set_time_rx(&spw_cfg[0].spw);
@@ -337,21 +371,22 @@ static int ariel_init(void)
 	grspw2_set_promiscuous(&spw_cfg[1].spw);
 
 
-	spw_alloc_desc_table(&spw_cfg[2], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 40, 5, 5);
-	spw_init_core_dcu_nom(&spw_cfg[2], 5, 5, 40);
+	/* DCU1 and DCU2 */
+	spw_init_core_dcu_nom(&spw_cfg[2], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
+	spw_init_core_dcu_red(&spw_cfg[3], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
+
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[2].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[2].spw);
 	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 
-	spw_alloc_desc_table(&spw_cfg[3], ARIEL_MTU_DCU, ARIEL_MTU_DCU, 40, 5, 5);
-	spw_init_core_dcu_red(&spw_cfg[3], 5, 5, 40);
 	grspw2_core_start(&spw_cfg[3].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[3].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[3].spw);
 	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 
-
+	printk(MSG "ARIEL SETUP LOADED\n");
+#if 1
 	if (CONFIG_EMBED_APPLICATION) {
 		/* load ARIEL ASW */
 		addr = module_read_embedded("asw");
@@ -359,7 +394,7 @@ static int ariel_init(void)
 		if (addr)
 			application_load(addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
 	}
-
+#endif
 	return 0;
 }
 lvl1_usercall(ariel_init)

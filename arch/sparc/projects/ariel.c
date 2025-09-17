@@ -217,15 +217,6 @@ late_initcall(ariel_cfg_reset_traps)
 
 static int ariel_mem_cfg(void)
 {
-	/* memcfg settings are still tbd, so we'll just set the magic number
-	 * from ARIEL-CBK-INST-ICD-005 here
-	 */
-
-	iowrite32be(0x10880033, (void *)0x80000000);
-	iowrite32be(0x00001665, (void *)0x80000004);
-	iowrite32be(0x08000200, (void *)0x80000008);
-	iowrite32be(0x00000000, (void *)0x8000000C);
-
 	return 0;
 }
 core_initcall(ariel_mem_cfg)

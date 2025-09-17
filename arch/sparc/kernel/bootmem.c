@@ -330,7 +330,7 @@ void bootmem_init(void)
 				   PAGE_SIZE);
 
 		if (ret == -ENOMEM) {	/* we ignore -EINVAL */
-			pr_emerg("BOOTMEM: cannot add page map node\n");
+			pr_emerg("BOOTMEM: cannot add page map node %d\n", i);
 			BUG();
 		}
 
