@@ -217,7 +217,7 @@ static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 {
 	ariel_set_gr712_spw_clock();
 
-	gr712_clkgate_enable(CLKGATE_GRSPW2);
+	gr712_clkgate_enable(CLKGATE_GRSPW3);
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_3,
