@@ -1465,6 +1465,9 @@ static int32_t grspw2_rx_desc_add(struct grspw2_core_cfg *cfg)
 
 	p_elem->desc->pkt_size = 0;
 
+	/* enable by default, will be turned off on auto_drop enable */
+	grspw2_rx_desc_set_irq(p_elem);
+
 	grspw2_rx_desc_set_active(p_elem);
 
 	grspw2_rx_desc_move_busy(cfg, p_elem);
@@ -2050,6 +2053,8 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
 
 int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 {
+	size_t i;
+
 	int ret;
 	uintptr_t idx;
 
@@ -2061,6 +2066,10 @@ int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 
 	if (cfg->auto_drop)
 		return -1;
+
+
+	for (i = 0; i < cfg->rx_n_desc; i++)
+		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[i]);
 
 	p_elem = grspw2_rx_desc_get_next_used(cfg);
 
@@ -2097,6 +2106,9 @@ int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
 
 int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
 {
+	size_t i;
+
+
 	if (!cfg)
 		return -1;
 
@@ -2104,6 +2116,10 @@ int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
 		return -1;
 
 	grspw2_rx_interrupt_disable(cfg);
+
+	/* re-enable IRQ flag on all, so user can re-enable IRQ later */
+	for (i = 0; i < cfg->rx_n_desc; i++)
+		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[i]);
 
 	cfg->auto_drop = 0;
 
@@ -2230,6 +2246,11 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 		grspw2_rx_desc_clear_irq(&cfg->rx_desc_ring[cfg->idx_drop]);
 		cfg->idx_drop = idx;
 		grspw2_rx_desc_set_irq(&cfg->rx_desc_ring[idx]);
+	} else {
+		/* always enable for non-autodrop, so user can control IRQ mode
+		 * via grspw2_rx_interrupt_enable();
+		 */
+		grspw2_rx_desc_set_irq(p_elem);
 	}
 
 	grspw2_rx_desc_new_avail(cfg);
