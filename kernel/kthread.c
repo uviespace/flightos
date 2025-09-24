@@ -251,7 +251,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	struct task_struct *task;
 
 
-	task = kzalloc(sizeof(*task));
+	task = kmalloc(sizeof(*task));
 	if (!task)
 		return ERR_PTR(-ENOMEM);
 
@@ -277,7 +277,6 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 		return NULL;
 	}
 
-	INIT_LIST_HEAD(&task->ksig_node);
 	INIT_LIST_HEAD(&task->ksig_queue);
 	INIT_LIST_HEAD(&task->ksig_handlers);
 

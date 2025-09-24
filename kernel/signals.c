@@ -29,7 +29,7 @@ static int ksig_exec(void *data)
 
 
 	while (1) {
-		if (!tsk->signal || list_empty(&tsk->ksig_queue)) {
+		if (!tsk->sig_cnt || list_empty(&tsk->ksig_queue)) {
 			/* switch back; atomicity should not be a problem here,
 			 * as worst-case, we will land back here...I hope...
 			 */
@@ -52,16 +52,13 @@ static int ksig_exec(void *data)
 				break;
 			}
 		}
-
-		tsk->signal--;
+		tsk->sig_cnt--;
 	}
 	return 0;
 }
 
 
-static int ksignal_add_task_node(int signal,
-				 struct ksig_handler *hdl,
-				 struct task_struct *tsk)
+static int ksignal_add_task_node(struct ksig_handler *hdl)
 {
 	struct ksig_reg *ktmp;
 	struct ksig_reg *ksig = NULL;
@@ -69,7 +66,7 @@ static int ksignal_add_task_node(int signal,
 
 	list_for_each_entry(ktmp, &ksignals, node) {
 
-		if (ktmp->signal == signal) {
+		if (ktmp->signal == hdl->signal) {
 			ksig = ktmp;
 			break;
 		}
@@ -79,25 +76,21 @@ static int ksignal_add_task_node(int signal,
 		goto success;
 
 
-	ksig = kmalloc(sizeof(*ksig));
+	ksig = kzalloc(sizeof(*ksig));
 	if (!ksig)
 		goto error;
 
-	ksig->signal = signal;
-	INIT_LIST_HEAD(&ksig->node);
+	ksig->signal = hdl->signal;
 	INIT_LIST_HEAD(&ksig->tasks);
-	list_move_tail(&ksig->node, &ksignals);
+	list_add_tail(&ksig->node, &ksignals);
 
 success:
-	list_move_tail(&tsk->ksig_node, &ksig->tasks);
-	list_move_tail(&hdl->node, &tsk->ksig_handlers);
+	list_add_tail(&hdl->task_node, &ksig->tasks);
+	list_add_tail(&hdl->node, &hdl->tsk->ksig_handlers);
 
 	return 0;
 
 error:
-	list_del(&hdl->node);
-	list_del(&tsk->ksig_node);
-
 	return -ENOMEM;
 }
 
@@ -152,7 +145,6 @@ int ksigaction(int signal, const struct ksig_action *act, struct ksig_action *oa
 			return -ENOMEM;
 
 		hdl->signal = signal;
-		INIT_LIST_HEAD(&hdl->node);
 	}
 
 	memcpy(&hdl->action, act, sizeof(*act));
@@ -160,7 +152,9 @@ int ksigaction(int signal, const struct ksig_action *act, struct ksig_action *oa
 	if (!tsk->sig)
 		kthread_sigstack_create(tsk, ksig_exec);
 
-	return ksignal_add_task_node(signal, hdl, tsk);
+	hdl->tsk = tsk;
+
+	return ksignal_add_task_node(hdl);
 }
 
 
@@ -176,8 +170,8 @@ int ksignal_send_info(int signal, siginfo_t *info)
 	struct ksig_reg *ktmp;
 	struct ksig_reg *ksig = NULL;
 
-	struct task_struct *tsk;
-	struct task_struct *ttmp;
+	struct ksig_handler *hdl;
+	struct ksig_handler *htmp;
 
 	struct ksig_info *nfo;
 
@@ -195,22 +189,22 @@ int ksignal_send_info(int signal, siginfo_t *info)
 		return -ENOENT;
 	}
 
-	list_for_each_entry_safe(tsk, ttmp, &ksig->tasks, ksig_node) {
 
-		nfo = kmalloc(sizeof(*nfo));
+	list_for_each_entry_safe(hdl, htmp, &ksig->tasks, task_node) {
+
+		nfo = kzalloc(sizeof(*nfo));
 		if (!nfo)
 			return -ENOMEM;
 
-		INIT_LIST_HEAD(&nfo->node);
 		nfo->signal = signal;
 		if (info)
 			memcpy(&nfo->info, info, sizeof(*info));
 
-		list_add_tail(&nfo->node, &tsk->ksig_queue);
-		tsk->signal++;
-
+		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
+		hdl->tsk->sig_cnt++;
 		schedule();
 	}
+
 
 	return 0;
 }
@@ -232,8 +226,6 @@ void ksignal_drop_task(struct task_struct *task)
 
 
 
-	list_del(&task->ksig_node);
-
 	list_for_each_entry_safe(nfo, ntmp, &task->ksig_queue, node) {
 		list_del(&nfo->node);
 		kfree(nfo);
@@ -241,6 +233,7 @@ void ksignal_drop_task(struct task_struct *task)
 
 	list_for_each_entry_safe(hdl, htmp, &task->ksig_handlers, node) {
 		list_del(&hdl->node);
+		list_del(&hdl->task_node);
 		kfree(hdl);
 	}
 

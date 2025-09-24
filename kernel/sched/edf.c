@@ -708,7 +708,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 
 	if (first->state == TASK_RUN) {
 
-		if (first->signal) /* switch to signal subtask */
+		if (first->sig_cnt) /* switch to signal subtask */
 			first->active = first->sig;
 
 		first->state = TASK_BUSY;

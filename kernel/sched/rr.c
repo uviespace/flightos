@@ -106,7 +106,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	if (next)
 		next->state = TASK_BUSY;
 
-	if (next->signal) /* switch to signal subtask */
+	if (next->sig_cnt) /* switch to signal subtask */
 		next->active = next->sig;
 
 	rr_unlock();

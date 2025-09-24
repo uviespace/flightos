@@ -73,8 +73,10 @@ struct ksig_action {
 
 struct ksig_handler {
 	int signal;
-        struct ksig_action action;
+	struct task_struct *tsk;
+	struct ksig_action action;
 	struct list_head node;
+	struct list_head task_node;
 };
 
 struct ksig_info {

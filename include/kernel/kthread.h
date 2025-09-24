@@ -158,10 +158,9 @@ struct task_struct {
 	struct list_head		siblings;
 	struct list_head		children;
 
-	struct list_head		ksig_node;
 	struct list_head		ksig_queue;
 	struct list_head		ksig_handlers;
-	int				signal;
+	size_t				sig_cnt;
 
 
 }  __attribute__ ((aligned (8)));
