@@ -49,8 +49,8 @@ struct spw_user_cfg spw_cfg[6];
 
 
 #define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
-#define ARIEL_DPU_ADDR_TO_DCU_NOM 0x77  /* XXX unsure if we are supposed to use a specific address here */
-#define ARIEL_DPU_ADDR_TO_DCU_RED 0x88
+#define ARIEL_DPU_ADDR_TO_DCU1 0x77  /* XXX unsure if we are supposed to use a specific address here */
+#define ARIEL_DPU_ADDR_TO_DCU2 0x88
 
 
 
@@ -191,8 +191,8 @@ static void spw_init_core_dcu_nom(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_2,
-			 ARIEL_DPU_ADDR_TO_DCU_NOM, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
-			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE2,
+			 ARIEL_DPU_ADDR_TO_DCU1, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
+			 ARIEL_MTU_TX_DCU, GRSPW2_IRQ_CORE2,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -205,7 +205,7 @@ static void spw_init_core_dcu_nom(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 				  cfg->tx_desc,
 				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, hdr_size,
-				  cfg->tx_data, ARIEL_MTU_RX_DCU);
+				  cfg->tx_data, ARIEL_MTU_TX_DCU);
 }
 
 
@@ -221,8 +221,8 @@ static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_3,
-			 ARIEL_DPU_ADDR_TO_DCU_RED, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
-			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE3,
+			 ARIEL_DPU_ADDR_TO_DCU2, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
+			 ARIEL_MTU_TX_DCU, GRSPW2_IRQ_CORE3,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -235,7 +235,7 @@ static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 				  cfg->tx_desc,
 				  n_tx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->tx_hdr, hdr_size,
-				  cfg->tx_data, ARIEL_MTU_RX_DCU);
+				  cfg->tx_data, ARIEL_MTU_TX_DCU);
 }
 
 
