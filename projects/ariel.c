@@ -372,13 +372,17 @@ static int ariel_init(void)
 	grspw2_set_promiscuous(&spw_cfg[1].spw);
 
 
-	/* DCU1 and DCU2 */
+	/* DCU1 and DCU2; note: we also attach the AHB IRQ to the signal
+	 * emission as a workaround of erratum
+	 * "GRSPW2: interrupt can be lost" (see GR712RC UM)
+	 */
 	spw_init_core_dcu_nom(&spw_cfg[2], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
 
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[2].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[2].spw);
 	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 
 
 	spw_init_core_dcu_red(&spw_cfg[3], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
@@ -386,6 +390,7 @@ static int ariel_init(void)
 	grspw2_set_promiscuous(&spw_cfg[3].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[3].spw);
 	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 
 	printk(MSG "ARIEL SETUP LOADED\n");
 #if 1
