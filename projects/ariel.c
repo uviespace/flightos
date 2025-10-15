@@ -233,7 +233,7 @@ static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  n_tx_desc * GRSPW2_RX_DESC_SIZE,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, hdr_size,
 				  cfg->tx_data, ARIEL_MTU_TX_DCU);
 }
@@ -302,6 +302,8 @@ static int ariel_init(void)
 	spw_cfg[1].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 3);
 	spw_cfg[2].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 4);
 	spw_cfg[2].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
+	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 4);
+	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
 #if 0
 	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 6);
 	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 7);
@@ -339,7 +341,7 @@ static int ariel_init(void)
 	spw_cfg[2].tx_hdr = addr;
 	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
 	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
-#if 0
+
 	spw_cfg[3].rx_data = addr;
 	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
 	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
@@ -351,7 +353,6 @@ static int ariel_init(void)
 	spw_cfg[3].tx_hdr = addr;
 	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
 	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
-#endif
 
 	/* final sanity check */
 	BUG_ON((uintptr_t)addr > (ARIEL_SRAM_START + ARIEL_SRAM_SIZE));
