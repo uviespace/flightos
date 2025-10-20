@@ -302,12 +302,10 @@ static int ariel_init(void)
 	spw_cfg[1].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 3);
 	spw_cfg[2].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 4);
 	spw_cfg[2].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
-	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 4);
-	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
-#if 0
 	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 6);
 	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 7);
-#endif
+
+
 	/* note: the addresses for the header and data buffers may be byte aligned */
 	addr = (uint8_t *)(SPW_AREA_START + 1024 * 8);
 	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
@@ -376,20 +374,26 @@ static int ariel_init(void)
 	/* DCU1 and DCU2; note: we also attach the AHB IRQ to the signal
 	 * emission as a workaround of erratum
 	 * "GRSPW2: interrupt can be lost" (see GR712RC UM)
+	 *
+	 * note: we set SpW ISR affinity to core0 so critical RT AOCS
+	 * interruptions are kept to a minimum
 	 */
 	spw_init_core_dcu_nom(&spw_cfg[2], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
 
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[2].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[2].spw);
+	irq_set_affinity(spw_cfg[2].spw.core_irq, 0);
 	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 
 
 	spw_init_core_dcu_red(&spw_cfg[3], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
+
 	grspw2_core_start(&spw_cfg[3].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[3].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[3].spw);
+	irq_set_affinity(spw_cfg[3].spw.core_irq, 0);
 	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 
