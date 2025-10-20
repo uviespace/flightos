@@ -25,7 +25,8 @@
 
 
 /* use IRQMP for inter-processor interrupt */
-#define LEON3_IPIRQ		12
+#define LEON3_EXTIRQ		12
+#define LEON3_IPIRQ		LEON3_EXTIRQ
 
 
 #define ASI_LEON3_SYSCTRL	0x02

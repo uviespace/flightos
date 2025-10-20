@@ -450,6 +450,11 @@ static void leon_unmask_irq(unsigned int irq, int cpu)
 
 
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+
+	/* always enabled */
+	if (irq == LEON3_EXTIRQ)
+		return;
+
 	mask = ioread32be(&leon_irqctrl_regs->irq_mpmask[cpu]);
 	mask |= (1 << irq);
 	iowrite32be(mask, &leon_irqctrl_regs->irq_mpmask[cpu]);
@@ -482,10 +487,12 @@ static void leon_mask_irq(unsigned int irq, int cpu)
 
 
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
+	/* always enabled */
+	if (irq == LEON3_EXTIRQ)
+		return;
+
 	mask = ioread32be(&leon_irqctrl_regs->irq_mpmask[cpu]);
-
 	mask &= ~(1 << irq);
-
 	iowrite32be(mask, &leon_irqctrl_regs->irq_mpmask[cpu]);
 #endif /* CONFIG_LEON3 */
 
@@ -555,8 +562,7 @@ static int leon_irq_prot_restore(void *data)
 				continue;
 
 			/* delay-execute the associated ISRs */
-			list_for_each_entry_safe(p_elem, p_tmp, &irl_vector[i],
-						 handler_node) {
+			list_for_each_entry_safe(p_elem, p_tmp, &irl_vector[i], handler_node) {
 
 				/* deferred ISRs are executed immediately if
 				 * queueing fails
@@ -824,7 +830,8 @@ int leon_irq_dispatch(unsigned int irq)
 
 #ifdef CONFIG_IRQ_RATE_PROTECT
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-	leon_check_irq_rate(irq, leon3_cpuid());
+	if (irq != LEON3_EXTIRQ)
+		leon_check_irq_rate(irq, leon3_cpuid());
 #endif /* CONFIG_LEON2 */
 	leon_check_irq_rate(irq, 0);
 #endif /* CONFIG_IRQ_RATE_PROTECT */
@@ -865,78 +872,49 @@ static int leon_eirq_dispatch(unsigned int irq)
 #endif /* CONFIG_LEON3 */
 
 
-	/* keep acknowleding pending EIRQs */
-	/* XXX this is a potential death trap :) */
-	while (1) {
 
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-		eirq = leon_irqctrl_regs->extended_irq_id[cpu];
+	eirq = ioread32be(&leon_irqctrl_regs->extended_irq_id[cpu]);
 #endif /* CONFIG_LEON3 */
 
 #ifdef CONFIG_LEON2
-		eirq = leon_eirqctrl_regs->eirq_status;
+	eirq = leon_eirqctrl_regs->eirq_status;
 
 
-		if (!(eirq & 0x20)) /* no pending EIRQs remain */
-			break;
+	if (!(eirq & 0x20)) /* no pending EIRQs remain */
+		goto exit;
 #endif /* CONFIG_LEON2 */
 
-		if (!eirq)
-			break;
+	if (!eirq)
+		goto exit;
 
-		eirq &= 0x1F;	/* get the actual EIRQ number */
-
-		leon_clear_irq(LEON_WANT_EIRQ(eirq));
-
-
-#ifdef CONFIG_IRQ_RATE_PROTECT
-#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-		/* stop loop-processing if an IRL is throwing a tantrunm */
-		if (leon_check_eirq_rate(eirq, cpu))
-			break;
-#else /* CONFIG_LEON3 */
-		if (leon_check_eirq_rate(eirq, 0))
-			break;
-#endif /* CONFIG_LEON3 */
-#endif /* CONFIG_IRQ_RATE_PROTECT */
+	eirq &= 0x1F;	/* get the actual EIRQ number */
 
 
 #ifdef CONFIG_IRQ_STATS_COLLECT
-		irqstat.eirl++;
-		irqstat.eirl_irq[eirq]++;
+	irqstat.eirl++;
+	irqstat.eirl_irq[eirq]++;
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
-		list_for_each_entry_safe(p_elem, p_tmp, &eirl_vector[eirq],
-					 handler_node) {
+	list_for_each_entry_safe(p_elem, p_tmp, &eirl_vector[eirq], handler_node) {
 
-			/* deferred ISRs are executed immediately if
-			 * queueing fails
-			 */
-			if (likely(p_elem->priority == ISR_PRIORITY_NOW))
-				p_elem->handler(eirq, p_elem->data);
-			else if (leon_irq_queue(p_elem) < 0)
-				p_elem->handler(eirq, p_elem->data);
-		}
-
-
-#if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-		/* XXX this appears to never contain anything */
-		/* no pending EIRQs remain */
-		if (!(leon_irqctrl_regs->irq_pending >> IRL_SIZE))
-			break;
-#endif /* CONFIG_LEON3 */
+		/* deferred ISRs are executed immediately if
+		 * queueing fails
+		 */
+		if (likely(p_elem->priority == ISR_PRIORITY_NOW))
+			p_elem->handler(eirq, p_elem->data);
+		else if (leon_irq_queue(p_elem) < 0)
+			p_elem->handler(eirq, p_elem->data);
 	}
-
-
-	leon_clear_irq(irq);
 
 #ifdef CONFIG_IRQ_RATE_PROTECT
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
-	leon_check_irq_rate(irq, cpu);
+	leon_check_eirq_rate(irq, cpu);
 #endif /* CONFIG_LEON3 */
-	leon_check_irq_rate(irq, 0);
+	leon_check_eirq_rate(irq, 0);
 #endif /* CONFIG_IRQ_RATE_PROTECT */
 
+exit:
 	return 0;
 }
 
@@ -1112,8 +1090,7 @@ static int irl_deregister_handler(unsigned int irq,
 	if (irq > 0xF)
 		return -EINVAL;
 
-	list_for_each_entry_safe(p_elem, p_tmp,
-				 &irl_vector[irq], handler_node) {
+	list_for_each_entry_safe(p_elem, p_tmp, &irl_vector[irq], handler_node) {
 
 		if (p_elem->handler == handler) {
 			if (p_elem->data == data) {
@@ -1484,13 +1461,13 @@ void leon_irq_init(void)
 	leon_irqctrl_regs = (struct leon4_irqctrl_registermap *)
 						LEON4_BASE_ADDRESS_IRQAMP;
 
-	/* mask all interrupts on this (boot) CPU */
-	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[leon3_cpuid()]); /*XXX leon3_ */
-
-	/* XXX MASK FOR ALL CPUS CONFIGURED FOR THE SYSTEM (dummy for N==4)*/
-	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[1]);
-	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[2]);
-	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[3]);
+	/* mask all interrupts except EXTIRQ
+	 * XXX LEON4 is currently hardcoded to 4 CPUs
+	 */
+	iowrite32be((1 << LEON3_EXTIRQ), &leon_irqctrl_regs->irq_mpmask[0]);
+	iowrite32be((1 << LEON3_EXTIRQ), &leon_irqctrl_regs->irq_mpmask[1]);
+	iowrite32be((1 << LEON3_EXTIRQ), &leon_irqctrl_regs->irq_mpmask[2]);
+	iowrite32be((1 << LEON3_EXTIRQ), &leon_irqctrl_regs->irq_mpmask[3]);
 
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON3
@@ -1498,11 +1475,11 @@ void leon_irq_init(void)
 	leon_irqctrl_regs = (struct leon3_irqctrl_registermap *)
 						LEON3_BASE_ADDRESS_IRQMP;
 
-	/* mask all interrupts on this (boot) CPU */
-	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[leon3_cpuid()]);
-
-	/* XXX MASK FOR ALL CPUS CONFIGURED FOR THE SYSTEM (dummy for N==2)*/
-	iowrite32be(0, &leon_irqctrl_regs->irq_mpmask[1]);
+	/* mask all interrupts except EXTIRQ
+	 * XXX LEON3 is currently hardcoded to 2 CPUs
+	 */
+	iowrite32be((1 << LEON3_EXTIRQ), &leon_irqctrl_regs->irq_mpmask[0]);
+	iowrite32be((1 << LEON3_EXTIRQ), &leon_irqctrl_regs->irq_mpmask[1]);
 
 #endif /* CONFIG_LEON3 */
 #ifdef CONFIG_LEON2
