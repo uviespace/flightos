@@ -20,6 +20,8 @@
 
 #define MSG "KSCHED_EDF: "
 
+#define CONFIG_EDF_DELAYED_CLEANUP 1	/* experimental */
+
 #define UTIL_MAX 0.98 /* XXX should be config option, also should be adaptive depending on RT load */
 
 static struct spinlock edf_spinlock;
@@ -61,7 +63,7 @@ void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now)
 
 
 	printk("\nktime: %lld CPU %d\n", ktime_to_us(now), cpu);
-	printk("S\tDeadline\tWakeup\t\tt_rem\ttotal\tslices\tName\t\twcet\tavg(us)\n");
+	printk("S\tCPU\tDeadline\tWakeup\t\tt_rem\ttotal\tslices\tName\t\twcet\tavg(us)\n");
 	printk("------------------------------------------------------------------\n");
 	list_for_each_entry_safe(tsk, tmp, &tq->run, node) {
 
@@ -84,8 +86,8 @@ void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now)
 		wcet = ktime_to_us(tsk->attr.wcet);
 		avg  = ktime_to_us(tsk->total/tsk->slices);
 
-		printk("%c\t%lld\t\t%lld\t\t%lld\t%lld\t%d\t%s\t|\t%lld\t%lld\n",
-		       state, wake, dead,
+		printk("%c\%d\t%lld\t\t%lld\t\t%lld\t%lld\t%d\t%s\t|\t%lld\t%lld\n",
+		       state,tsk->on_cpu, wake, dead,
 		       rt, tot,
 		       tsk->slices, tsk->name,
 		       wcet,
@@ -162,7 +164,7 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 	/* XXX this task never ran, we're in serious trouble */
 	if (tsk->runtime == tsk->attr.wcet) {
 		printk("T == WCET!! %s\n", tsk->name);
-		__asm__ __volatile__ ("ta 0\n\t");
+		BUG();
 	}
 
 
@@ -182,24 +184,14 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 					      tsk->on_cpu, now);
 
 		/* XXX raise kernel alarm and attempt to recover wakeup */
-		__asm__ __volatile__ ("ta 0\n\t");
+		BUG();
 	}
 
 
-	if (tsk->flags & TASK_RUN_ONCE) {
-		tsk->state = TASK_DEAD;
-		return;
-	}
-
-
-	tsk->state = TASK_IDLE;
-
-	tsk->wakeup = new_wake;
-
+	tsk->state    = TASK_IDLE;
+	tsk->wakeup   = new_wake;
 	tsk->deadline = ktime_add(tsk->wakeup, tsk->attr.deadline_rel);
-
-	tsk->runtime = tsk->attr.wcet;
-
+	tsk->runtime  = tsk->attr.wcet;
 	tsk->slices++;
 }
 
@@ -286,9 +278,13 @@ static double edf_utilisation(struct task_queue tq[], int cpu,
 	list_for_each_entry_safe(t, tmp, &tq[cpu].wake, node)
 		u += (double) t->attr.wcet / (double) t->attr.period;
 
+
 	/* add all running */
-	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node)
+	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
+		if (t->state == TASK_DEAD)
+			continue;
 		u += (double) t->attr.wcet / (double) t->attr.period;
+	}
 
 	return u;
 }
@@ -348,6 +344,10 @@ edf_longest_period_task(struct task_queue tq[], int cpu,
 	}
 
 	list_for_each_entry_safe(t, tmp, &tq[cpu].run, node) {
+
+		if (t->state == TASK_DEAD)
+			continue;
+
 		if (t->attr.period > max) {
 			t0 = t;
 			max = t->attr.period;
@@ -439,6 +439,9 @@ static int edf_test_slot_utilisation(struct task_queue tq[], int cpu,
 	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
 		if (tsk == t0)
+			continue;
+
+		if (tsk->state == TASK_DEAD)
 			continue;
 
 		if (tsk->attr.deadline_rel <= t0->attr.deadline_rel) {
@@ -551,6 +554,7 @@ static int edf_test_slot_utilisation(struct task_queue tq[], int cpu,
 
 static int edf_schedulable(struct task_queue tq[], const struct task_struct *task)
 {
+	int i;
 	int cpu = -ENODEV;
 
 
@@ -562,41 +566,48 @@ static int edf_schedulable(struct task_queue tq[], const struct task_struct *tas
 
 	} else {
 		cpu = task->on_cpu;
+
+		if(edf_test_slot_utilisation(tq, cpu, task))
+			return -ENODEV;
+
+		if (edf_utilisation(tq, cpu, task) > UTIL_MAX)
+			return -ENODEV;
+
+		return cpu;
 	}
 
 
-
-	/* try to locate a CPU which could fit the task
+	/* perform a more complex check for the guessed CPU and
+	 * try to locate a CPU which could fit the task if the current one
+	 * will not work
 	 *
 	 * XXX this needs some rework, also we must consider only
 	 * cpus which are actually online
+	 * TODO check utilisation against projected interrupt rate
+	 *
 	 */
-	if (edf_test_slot_utilisation(tq, cpu, task)) {
-
-		int i;
-
-		for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
-
-			if (i == cpu)
-				continue;
-
-			if (edf_utilisation(tq, cpu, task) > UTIL_MAX)
-				continue;
-
-			if (edf_test_slot_utilisation(tq, i, task))
-				continue;
-
-			return i; /* found one */
-		}
-
+	if (!edf_test_slot_utilisation(tq, cpu, task)) {
+		if (edf_utilisation(tq, cpu, task) <= UTIL_MAX)
+			return cpu;
 	}
 
-	if (edf_utilisation(tq, cpu, task) > UTIL_MAX)
-		return -ENODEV;
 
-	/* TODO check utilisation against projected interrupt rate */
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
 
-	return cpu;
+		if (i == cpu)
+			continue;
+
+		if (edf_utilisation(tq, cpu, task) > UTIL_MAX)
+			continue;
+
+		if (edf_test_slot_utilisation(tq, i, task))
+			continue;
+
+		return i; /* found one */
+	}
+
+
+	return -ENODEV;
 }
 
 
@@ -614,18 +625,14 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	struct task_struct *tmp;
 	struct task_struct *first;
 
-	struct task_struct *this = current_set[smp_cpu_id()]->task;
-
 
 	if (list_empty(&tq[cpu].run))
 		return NULL;
-
 
 	/* we use twice the tick period as minimum time to a wakeup */
 	tick = (ktime) tick_get_period_min_ns() << 1;
 
 	edf_lock();
-
 
 	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
@@ -691,30 +698,34 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 		}
 
 		if (tsk->state == TASK_DEAD){ /* XXX need other mechanism */
-			if (tsk == this)
-				continue;
-
+#if CONFIG_EDF_DELAYED_CLEANUP
+			list_move_tail(&tsk->node, &tq[tsk->on_cpu].dead);
+#else
 			list_del(&tsk->node);
 			kthread_free(tsk);
+#endif /* CONFIG_EDF_DELAYED_CLEANUP */
 			continue;
 		}
 	}
 
+	if (list_empty(&tq[cpu].run))
+		goto no_task;
 
 	first = list_first_entry(&tq[cpu].run, struct task_struct, node);
+	if (first->state != TASK_RUN)
+		goto no_task;
 
+	if (first->sig_cnt) /* switch to signal subtask */
+		first->active = first->sig;
+
+	first->state = TASK_BUSY;
 
 	edf_unlock();
+	return first;
 
-	if (first->state == TASK_RUN) {
 
-		if (first->sig_cnt) /* switch to signal subtask */
-			first->active = first->sig;
-
-		first->state = TASK_BUSY;
-
-		return first;
-	}
+no_task:
+	edf_unlock();
 
 	return NULL;
 }
@@ -945,6 +956,7 @@ static int edf_wake(struct task_struct *task, ktime now)
  * @brief enqueue a task
  *
  * @returns 0 if the task can be scheduled, ENOSCHED otherwise
+ *
  */
 
 static int edf_enqueue(struct task_struct *task)
@@ -956,8 +968,12 @@ static int edf_enqueue(struct task_struct *task)
 
 
 	if (!task->attr.period) {
+		/* XXX we currently just take twice the deadline for
+		 * the period so we can analyse the schedulability
+		 * must replace this by a better strategy...
+		 */
 		task->flags |= TASK_RUN_ONCE;
-		task->attr.period = task->attr.deadline_rel;
+		task->attr.period = task->attr.deadline_rel * 2;
 	} else
 		task->flags &= ~TASK_RUN_ONCE;
 
@@ -1106,6 +1122,60 @@ ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)
 }
 
 
+#if CONFIG_EDF_DELAYED_CLEANUP
+static int edf_cleanup(void *data)
+{
+	int cpu;
+
+	struct task_struct *tsk;
+	struct task_struct *tmp;
+	unsigned long flags;
+
+	struct task_queue *tq;
+
+
+	cpu = smp_cpu_id();
+
+	tq = ((struct scheduler *)data)->tq;
+
+	while (1) {
+
+		/* always explicitly yield here; this ensures that a DEAD
+		 * task has been removed and its stack is no longer in use
+		 * when we next encounter it on the to-clean list
+		 */
+
+		sched_yield();
+
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].clean, node) {
+			list_del(&tsk->node);
+			kthread_free(tsk);
+		}
+
+		/* the scheduler moves any task encounter to the "dead"
+		 * list if the next task it encounters is so marked;
+		 * we then briefly lock the dead list and move the
+		 * task to the to-clean list; this allows us to keep
+		 * locking time at a minimum and also ensures
+		 * consistency because we are the only users
+		 * of the clean list in this particular function
+		 */
+
+		flags = arch_local_irq_save();
+		edf_lock();
+
+		list_for_each_entry_safe(tsk, tmp, &tq[cpu].dead, node)
+			list_move_tail(&tsk->node, &tq[cpu].clean);
+
+
+		edf_unlock();
+		arch_local_irq_restore(flags);
+	}
+
+	return 0;
+}
+#endif /* CONFIG_EDF_DELAYED_CLEANUP */
+
 struct scheduler sched_edf = {
 	.policy           = KSCHED_EDF,
 	.pick_next_task   = edf_pick_next,
@@ -1128,6 +1198,7 @@ static int sched_edf_init(void)
 		INIT_LIST_HEAD(&sched_edf.tq[i].wake);
 		INIT_LIST_HEAD(&sched_edf.tq[i].run);
 		INIT_LIST_HEAD(&sched_edf.tq[i].dead);
+		INIT_LIST_HEAD(&sched_edf.tq[i].clean);
 	}
 
 	sched_register(&sched_edf);
@@ -1135,3 +1206,23 @@ static int sched_edf_init(void)
 	return 0;
 }
 postcore_initcall(sched_edf_init);
+
+
+#if CONFIG_EDF_DELAYED_CLEANUP
+static int sched_edf_cleanup_init(void)
+{
+	int i;
+
+	struct task_struct *t;
+
+	/* need one cleanup per cpu */
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+		t = kthread_create(edf_cleanup, &sched_edf, i, "EDF_CLEAN");
+		BUG_ON(!t);
+		BUG_ON(kthread_wake_up(t) < 0);
+	}
+
+	return 0;
+}
+late_initcall(sched_edf_cleanup_init);
+#endif /* CONFIG_EDF_DELAYED_CLEANUP */

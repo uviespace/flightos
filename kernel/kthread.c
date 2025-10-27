@@ -221,13 +221,18 @@ static int kthread_setup_core(struct task_struct *task,
 			      struct task_core *core,
 			      int (*thread_fn)(void *data), void *data)
 {
-
+#ifdef CONFIG_PAINT_KERNEL_STACK
 	core->stack = kmalloc(CONFIG_STACK_SIZE);
+#else
+	core->stack = kzalloc(CONFIG_STACK_SIZE);
+#endif /* CONFIG_PAINT_KERNEL_STACK */
 	if (!core->stack)
 		return -1;
 
+#ifdef CONFIG_PAINT_KERNEL_STACK
 	/* initialise stack with pattern, makes detection of errors easier */
 	memset32(core->stack, 0xdeadbeef, CONFIG_STACK_SIZE / sizeof(uint32_t));
+#endif /* CONFIG_PAINT_KERNEL_STACK */
 
 	core->stack_bottom = core->stack;
 	core->stack_top    = (void *)((uint8_t *)core->stack + CONFIG_STACK_SIZE);
@@ -251,7 +256,7 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	struct task_struct *task;
 
 
-	task = kmalloc(sizeof(*task));
+	task = kzalloc(sizeof(*task));
 	if (!task)
 		return ERR_PTR(-ENOMEM);
 
@@ -281,8 +286,6 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 	INIT_LIST_HEAD(&task->ksig_handlers);
 
 	task->create = ktime_get();
-	task->total  = 0;
-	task->slices = 0;
 	task->on_cpu = cpu;
 	task->state  = TASK_NEW;
 

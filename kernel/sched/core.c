@@ -210,6 +210,12 @@ static void sched_update_runtime(struct task_struct *task, ktime now)
 
 	if (task->state == TASK_BUSY)
 		task->state  = TASK_RUN;
+
+
+	if (task->flags & TASK_RUN_ONCE) {
+		if (task->runtime < (ktime) (2 * tick_get_period_min_ns()))
+			task->state = TASK_DEAD;
+	}
 }
 
 /**

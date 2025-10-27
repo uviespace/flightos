@@ -67,6 +67,9 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 
 
+	/* note: this will only happen early during boot, there
+	 * will always be an OS RR task for each core
+	 */
 	if (list_empty(&tq[0].run))
 		return NULL;
 
@@ -103,15 +106,12 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 				list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
 
-	if (next)
-		next->state = TASK_BUSY;
+	next->state = TASK_BUSY;
 
 	if (next->sig_cnt) /* switch to signal subtask */
 		next->active = next->sig;
 
 	rr_unlock();
-
-
 
 	return next;
 }
