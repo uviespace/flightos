@@ -209,7 +209,7 @@ static void spw_alloc_fee(struct spw_user_cfg *cfg)
 	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS
 					    * GRSPW2_DEFAULT_MTU);
 
-	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
+	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * 36);
 }
 /**
  * @brief perform basic initialisation of the spw core
@@ -237,7 +237,7 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
-				  cfg->tx_hdr, HDR_SIZE,
+				  cfg->tx_hdr, 36,
 				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
 	grspw2_set_promiscuous(&cfg->spw);
 }
