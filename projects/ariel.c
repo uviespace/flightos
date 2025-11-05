@@ -39,13 +39,13 @@ struct spw_user_cfg spw_cfg[6];
 #define ARIEL_MTU_TC		GRSPW2_DEFAULT_MTU	/* Table 1.0, ARIEL-SPW-858 according to BSW ICD + 4byte header */
 
 #define ARIEL_MTU_TX_DCU	( 2 * 1024)
-#define ARIEL_MTU_RX_DCU	(32 * 1024)
+#define ARIEL_MTU_RX_DCU	(32 * 1024 + 41)	/* +41 to account for data header and footer, DCU pkt size setting apparently sets payload, not total size */
 
 #define ARIEL_SC_TX_NDESC	16
 #define ARIEL_SC_RX_NDESC	8
 #define ARIEL_DCU_NDESC		5
 
-#define ARIEL_DCU_HDR_SIZE	40
+#define ARIEL_DCU_HDR_SIZE	40	/* for RMAP cmds */
 
 
 #define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
