@@ -123,7 +123,7 @@ static void mem_init(void)
 	 * the SpW descriptors
 	 */
 
-#elif CONFIG_PROJECT_SMILE
+#elif defined(CONFIG_PROJECT_SMILE) || defined(CONFIG_PROJECT_RAMSES)
 	/* XXX need something like CONFIG_SOC_SMILE_SXI */
 	/* XXX the base address is defined by the requirements
 	 * (DBS RAM + exchange area).

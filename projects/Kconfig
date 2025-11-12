@@ -19,6 +19,11 @@ config PROJECT_ARIEL
 	help
 	 Configure DPU-specific setup for ARIEL
 
+config PROJECT_RAMSES
+	bool "RAMSES DPU"
+	depends on LEON3 && ARCH_CUSTOM_BOOT_CODE
+	help
+	 Configure DPU-specific setup for RAMSES
 
 config PROJECT_MYAPP
 	bool "MYAPP_DEMO"
