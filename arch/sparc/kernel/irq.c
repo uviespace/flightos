@@ -125,8 +125,10 @@ static struct irl_vector_elem *irl_queue_pool;
 static unsigned int leon_eirq;
 
 
-/* XXX testing, add to kbuild (note: 10k cycles is pretty conservative */
+/* XXX EXPERIMENTAL!; add to kbuild (note: 10k cycles is pretty conservative */
+#if 0
 #define CONFIG_IRQ_RATE_PROTECT 1
+#endif
 #define CONFIG_IRQ_MIN_INTER_US (CPU_CYCLES_TO_NS(10000) / 1000)
 
 #ifdef CONFIG_IRQ_RATE_PROTECT
@@ -139,11 +141,15 @@ static struct {
 
 	int need_restore;
 
+	struct spinlock spinlock;
+
 	/* 0 = UNBLOCKED, otherwise CPU_ID-1 */
 	uint8_t irq_blocked[IRL_SIZE];
 	uint8_t eirq_blocked[EIRL_SIZE];
 
 } irq_rate_prot;
+
+
 
 #endif /* CONFIG_IRQ_RATE_PROTECT */
 
@@ -551,16 +557,18 @@ static int leon_irq_prot_restore(void *data)
 		}
 
 		now = ktime_get();
+		spin_lock_raw(&irq_rate_prot.spinlock);
 		psr_flags = spin_lock_save_irq();
 
 		for (i = 0; i < IRL_SIZE; i++) {
 			if (!irq_rate_prot.irq_blocked[i])
-				continue;
+				goto unlock;
 
 			earlier = irq_rate_prot.last_irq[i];
 			if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US)
-				continue;
+				goto unlock;
 
+#if 1
 			/* delay-execute the associated ISRs */
 			list_for_each_entry_safe(p_elem, p_tmp, &irl_vector[i], handler_node) {
 
@@ -572,6 +580,7 @@ static int leon_irq_prot_restore(void *data)
 				else if (leon_irq_queue(p_elem) < 0)
 					p_elem->handler(i, p_elem->data);
 			}
+#endif
 
 			leon_unmask_irq(i, irq_rate_prot.irq_blocked[i] - 1);
 			irq_rate_prot.irq_blocked[i] = 0;
@@ -580,12 +589,12 @@ static int leon_irq_prot_restore(void *data)
 
 		for (i = 0; i < EIRL_SIZE; i++) {
 			if (!irq_rate_prot.eirq_blocked[i])
-				continue;
+				goto unlock;
 
 			earlier = irq_rate_prot.last_eirq[i];
 			if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US)
-				continue;
-
+				goto unlock;
+#if 1
 			/* delay-execute the associated ISRs */
 			list_for_each_entry_safe(p_elem, p_tmp, &eirl_vector[i],
 						 handler_node) {
@@ -598,6 +607,7 @@ static int leon_irq_prot_restore(void *data)
 				else if (leon_irq_queue(p_elem) < 0)
 					p_elem->handler(i, p_elem->data);
 			}
+#endif
 
 			leon_unmask_irq(i, irq_rate_prot.eirq_blocked[i] - 1);
 			irq_rate_prot.eirq_blocked[i] = 0;
@@ -605,8 +615,9 @@ static int leon_irq_prot_restore(void *data)
 		}
 
 		/* TODO EIRL */
-
+unlock:
 		spin_lock_restore_irq(psr_flags);
+		spin_unlock(&irq_rate_prot.spinlock);
 
 		sched_yield();
 	}
@@ -631,9 +642,11 @@ static void leon_check_irq_rate(unsigned int irq, int cpu)
 	irq_rate_prot.last_eirq[irq] = now;
 
 	if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US) {
+		spin_lock_raw(&irq_rate_prot.spinlock);
 		leon_mask_irq(irq, cpu);
 		irq_rate_prot.irq_blocked[irq] = cpu + 1;
 		irq_rate_prot.need_restore++;
+		spin_unlock(&irq_rate_prot.spinlock);
 	}
 }
 
@@ -649,9 +662,11 @@ static int leon_check_eirq_rate(unsigned int irq, int cpu)
 
 	if (ktime_to_us(ktime_delta(now, earlier)) < CONFIG_IRQ_MIN_INTER_US) {
 
+		spin_lock_raw(&irq_rate_prot.spinlock);
 		leon_disable_irq(irq, cpu);
 		irq_rate_prot.eirq_blocked[irq] = cpu + 1;
 		irq_rate_prot.need_restore++;
+		spin_unlock(&irq_rate_prot.spinlock);
 
 		return 1;
 	}
