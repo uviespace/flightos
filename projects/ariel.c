@@ -17,13 +17,20 @@
 
 #define MSG "ARIEL: "
 
+#define EVAL_BOARD 0
 
 /* a spacewire core configuration (0 = obc,  1...N = ...TODO... */
 struct spw_user_cfg spw_cfg[6];
 
+#if EVAL_BOARD
 #define SPW_CLCKDIV_START	10
 #define SPW_CLCKDIV_OBC_RUN	2
-#define SPW_CLCKDIV_FEE_RUN	2
+#else
+#define SPW_CLCKDIV_START	6
+#define SPW_CLCKDIV_OBC_RUN	1
+#endif
+
+
 #define GR712_IRL1_AHBSTAT	1
 
 #define HDR_PROTO_BYTE		0x1
@@ -49,8 +56,8 @@ struct spw_user_cfg spw_cfg[6];
 
 
 #define ARIEL_DPU_ADDR_TO_DEBUG	0x66	/* debug link 5, used for routing to DCU */
-#define ARIEL_DPU_ADDR_TO_DCU1 0x77  /* XXX unsure if we are supposed to use a specific address here */
-#define ARIEL_DPU_ADDR_TO_DCU2 0x88
+#define ARIEL_DPU_ADDR_TO_DCU1	0x77	/* XXX unsure if we are supposed to use a specific address here */
+#define ARIEL_DPU_ADDR_TO_DCU2	0x88
 
 
 
@@ -285,7 +292,13 @@ static irqreturn_t emit_irq_dcu2(unsigned int irq, void *userdata)
 
 /* we want to use the last 512 kiB of memory for the SpW buffers */
 #define ARIEL_SRAM_START	0x40000000
+
+#if EVAL_BOARD
 #define ARIEL_SRAM_SIZE		  0x800000	/* eval board */
+#else
+#define ARIEL_SRAM_SIZE		  0x1000000	/* dpu */
+#endif /* EVAL_BOARD */
+
 #define SPW_AREA_START		(ARIEL_SRAM_START + ARIEL_SRAM_SIZE - 512 * 1024)
 
 static int ariel_init(void)
@@ -308,7 +321,9 @@ static int ariel_init(void)
 
 	/* note: the addresses for the header and data buffers may be byte aligned */
 	addr = (uint8_t *)(SPW_AREA_START + 1024 * 8);
+#if 0
 	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+#endif
 
 	/* nominal and redundant S/C links */
 	spw_cfg[0].rx_data = addr;
@@ -317,7 +332,9 @@ static int ariel_init(void)
 	addr += ARIEL_MTU_TM * ARIEL_SC_TX_NDESC;
 	spw_cfg[0].tx_hdr = addr;
 	addr += HDR_SIZE * ARIEL_SC_TX_NDESC;
+#if 0
 	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
+#endif
 
 	spw_cfg[1].rx_data = addr;
 	addr += ARIEL_MTU_TC * ARIEL_SC_RX_NDESC;
@@ -325,32 +342,25 @@ static int ariel_init(void)
 	addr += ARIEL_MTU_TM * ARIEL_SC_TX_NDESC;
 	spw_cfg[1].tx_hdr = addr;
 	addr += HDR_SIZE * ARIEL_SC_TX_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	/* links to DCU1 and DCU2, note: we use 32 kiB incoming but only 1kiB outgoing */
 	spw_cfg[2].rx_data = addr;
 	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	spw_cfg[2].tx_data = addr;
 	addr += ARIEL_MTU_TX_DCU * ARIEL_DCU_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	spw_cfg[2].tx_hdr = addr;
 	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	spw_cfg[3].rx_data = addr;
 	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	spw_cfg[3].tx_data = addr;
 	addr += ARIEL_MTU_TX_DCU * ARIEL_DCU_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	spw_cfg[3].tx_hdr = addr;
 	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
 
 	/* final sanity check */
 	BUG_ON((uintptr_t)addr > (ARIEL_SRAM_START + ARIEL_SRAM_SIZE));
@@ -396,8 +406,9 @@ static int ariel_init(void)
 	irq_set_affinity(spw_cfg[3].spw.core_irq, 0);
 	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
-
+#if 0
 	printk(MSG "ARIEL SETUP LOADED\n");
+#endif
 #if 1
 	if (CONFIG_EMBED_APPLICATION) {
 		/* load ARIEL ASW */
