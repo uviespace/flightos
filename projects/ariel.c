@@ -250,8 +250,7 @@ static void spw_init_core_dcu_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, 
 /**
  * @brief perform basic initialisation of the spw core
  */
-__attribute__((unused))
-static void spw_init_core_debug(struct spw_user_cfg *cfg)
+static void spw_init_core_debug(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc, uint32_t hdr_size)
 {
 	ariel_set_gr712_spw_clock();
 
@@ -259,23 +258,23 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg)
 
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_4,
-			 ARIEL_DPU_ADDR_TO_DEBUG, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
-			 ARIEL_MTU_TC, GRSPW2_IRQ_CORE4,
+			 ARIEL_DPU_ADDR_TO_DCU1, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
+			 ARIEL_MTU_RX_DCU, GRSPW2_IRQ_CORE4,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_RX_DESC_SIZE * 5,
+				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
 				  ARIEL_MTU_RX_DCU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_TX_DESC_SIZE * 5,
-				  cfg->tx_hdr, 0,
-				  cfg->tx_data, ARIEL_MTU_RX_DCU);
-
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
+				  cfg->tx_hdr, hdr_size,
+				  cfg->tx_data, ARIEL_MTU_TX_DCU);
 }
+
 
 /* emit signals 101 and 102 to indicate packet on a DCU link */
 static irqreturn_t emit_irq_dcu1(unsigned int irq, void *userdata)
@@ -317,13 +316,12 @@ static int ariel_init(void)
 	spw_cfg[2].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
 	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 6);
 	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 7);
+	spw_cfg[4].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 8);
+	spw_cfg[4].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 9);
 
 
 	/* note: the addresses for the header and data buffers may be byte aligned */
 	addr = (uint8_t *)(SPW_AREA_START + 1024 * 8);
-#if 0
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
-#endif
 
 	/* nominal and redundant S/C links */
 	spw_cfg[0].rx_data = addr;
@@ -332,9 +330,6 @@ static int ariel_init(void)
 	addr += ARIEL_MTU_TM * ARIEL_SC_TX_NDESC;
 	spw_cfg[0].tx_hdr = addr;
 	addr += HDR_SIZE * ARIEL_SC_TX_NDESC;
-#if 0
-	printk("AT:%d %p %d\n", __LINE__, addr, ARIEL_SRAM_START + ARIEL_SRAM_SIZE - (uint32_t)addr);
-#endif
 
 	spw_cfg[1].rx_data = addr;
 	addr += ARIEL_MTU_TC * ARIEL_SC_RX_NDESC;
@@ -346,21 +341,26 @@ static int ariel_init(void)
 	/* links to DCU1 and DCU2, note: we use 32 kiB incoming but only 1kiB outgoing */
 	spw_cfg[2].rx_data = addr;
 	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
-
 	spw_cfg[2].tx_data = addr;
 	addr += ARIEL_MTU_TX_DCU * ARIEL_DCU_NDESC;
-
 	spw_cfg[2].tx_hdr = addr;
 	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
 
 	spw_cfg[3].rx_data = addr;
 	addr += ARIEL_MTU_RX_DCU * ARIEL_DCU_NDESC;
-
 	spw_cfg[3].tx_data = addr;
 	addr += ARIEL_MTU_TX_DCU * ARIEL_DCU_NDESC;
-
 	spw_cfg[3].tx_hdr = addr;
 	addr += ARIEL_DCU_HDR_SIZE * ARIEL_DCU_NDESC;
+
+	/* we reuse the buffers from DCU1 for the debug link to save memory;
+	 * the high-level SW and the users must take care not to
+	 * use the links concurrently
+	 */
+	spw_cfg[4].rx_data = spw_cfg[2].rx_data;
+	spw_cfg[4].tx_data = spw_cfg[2].tx_data;
+	spw_cfg[4].tx_hdr  = spw_cfg[2].tx_hdr;
+
 
 	/* final sanity check */
 	BUG_ON((uintptr_t)addr > (ARIEL_SRAM_START + ARIEL_SRAM_SIZE));
@@ -406,9 +406,18 @@ static int ariel_init(void)
 	irq_set_affinity(spw_cfg[3].spw.core_irq, 0);
 	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
-#if 0
-	printk(MSG "ARIEL SETUP LOADED\n");
-#endif
+
+
+	spw_init_core_debug(&spw_cfg[4], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
+
+	grspw2_core_start(&spw_cfg[4].spw, 1, 1);
+	grspw2_set_promiscuous(&spw_cfg[4].spw);
+	grspw2_rx_interrupt_enable(&spw_cfg[4].spw);
+	irq_set_affinity(spw_cfg[4].spw.core_irq, 0);
+	irq_request(spw_cfg[4].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
+
+
 #if 1
 	if (CONFIG_EMBED_APPLICATION) {
 		/* load ARIEL ASW */
