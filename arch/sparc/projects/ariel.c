@@ -220,7 +220,7 @@ static int ariel_mem_cfg(void)
 
 #define EVAL_BOARD 0
 
-#if (EVAL_BOARD)
+#if !(EVAL_BOARD)
 	/* memcfg settings are still tbd, so we'll just set the magic number
 	 * from ARIEL-CBK-INST-ICD-005 here
 	 */
