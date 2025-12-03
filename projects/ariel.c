@@ -321,7 +321,7 @@ static int ariel_init(void)
 
 
 	/* note: the addresses for the header and data buffers may be byte aligned */
-	addr = (uint8_t *)(SPW_AREA_START + 1024 * 8);
+	addr = (uint8_t *)(SPW_AREA_START + 1024 * 10);
 
 	/* nominal and redundant S/C links */
 	spw_cfg[0].rx_data = addr;
