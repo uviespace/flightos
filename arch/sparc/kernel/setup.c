@@ -106,6 +106,10 @@ static void mem_init(void)
 
 
 #ifdef CONFIG_PROJECT_ARIEL
+
+#define EVAL_BOARD 0
+
+#if (EVAL_BOARD)
 	sp_banks[0].base_addr = 0x40000000;
 	sp_banks[0].num_bytes = 0x00400000;	/* first 4 MiB */
 
@@ -118,8 +122,30 @@ static void mem_init(void)
 	sp_banks[2].base_addr = 0x40600000;
 	sp_banks[2].num_bytes = 0x00100000;	/* next 1 MiB */
 #endif
+#else /* EVAL_BOARD */
 
-	/* ignore the remaing unused space, it is the location of the ASW and 
+	sp_banks[0].base_addr = 0x40000000;
+	sp_banks[0].num_bytes = 0x00800000;     /* first 8 MiB */
+
+#if (SPARC_PHYS_BANKS > 0)
+       sp_banks[1].base_addr = 0x40800000;
+       sp_banks[1].num_bytes = 0x00400000;     /* next 4 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 1)
+       sp_banks[2].base_addr = 0x40C00000;
+       sp_banks[2].num_bytes = 0x00200000;     /* next 2 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 2)
+       sp_banks[3].base_addr = 0x40E00000;
+       sp_banks[3].num_bytes = 0x00100000;     /* next 1 MiB */
+#endif
+
+
+#endif /* EVAL_BOARD */
+
+	/* ignore the remaing unused space, it is the location of the ASW and
 	 * the SpW descriptors
 	 */
 

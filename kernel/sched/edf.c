@@ -270,8 +270,8 @@ static double edf_utilisation(struct task_queue tq[], int cpu,
 	struct task_struct *tmp;
 
 
-	/* add new task */
-	if (task)
+	/* add new task, but do not count single-shots towards utilisation */
+	if (task && !(task->flags & TASK_RUN_ONCE))
 		u = (double)  task->attr.wcet / (double)  task->attr.period;
 
 	/* add tasks queued in wakeup */
@@ -387,12 +387,7 @@ static int edf_test_slot_utilisation(struct task_queue tq[], int cpu,
 
 	p = edf_hyperperiod(tq, cpu, task);
 
-	/* XXX don't know why h=1 would work, needs proper testing */
-#if 1
 	h = p / t0->attr.period; /* period factor */
-#else
-	h = 1;
-#endif
 
 
 	/* max available head and tail slots before and after deadline of
@@ -488,6 +483,7 @@ static int edf_test_slot_utilisation(struct task_queue tq[], int cpu,
 
 		/* slots after deadline of T0 */
 		st = h * task->attr.wcet * f1 / task->attr.period;
+
 		if (st < stmin)
 			stmin = st;
 
@@ -636,6 +632,18 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 
 	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
+		if (tsk->flags & TASK_RUN_ONCE) {
+			if (tsk->state == TASK_IDLE) {
+				tsk->state = TASK_RUN;
+				list_move(&tsk->node, &tq[cpu].run);
+				break;
+			}
+
+			if (tsk->state == TASK_RUN) {
+				list_move(&tsk->node, &tq[cpu].run);
+				break;
+			}
+		}
 
 		/* time to wake up yet? */
 		delta = ktime_delta(tsk->wakeup, now);
@@ -664,10 +672,10 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 			first = list_first_entry(&tq[cpu].run,
 						 struct task_struct, node);
 
-			if (ktime_before (now, tsk->wakeup))
+			if (ktime_before(now, tsk->wakeup))
 				continue;
 
-			if (ktime_before (tsk->deadline, first->deadline)) {
+			if (ktime_before(tsk->deadline, first->deadline)) {
 				tsk->state = TASK_RUN;
 				list_move(&tsk->node, &tq[cpu].run);
 			}
@@ -927,7 +935,7 @@ static int edf_wake(struct task_struct *task, ktime now)
 	/* if this is first task or a non-periodic task, run it asap, otherwise
 	 * we try to find a good insertion point
 	 */
-	if (!list_empty(&tq[cpu].run) || !(task->flags & TASK_RUN_ONCE)) {
+	if (!list_empty(&tq[cpu].run)) {
 		wakeup = edf_get_earliest_wakeup(tq, cpu, now);
 		edf_sort_queue_by_urgency(tq, cpu, now);
 		wakeup = edf_get_best_wakeup(task, wakeup, tq, cpu, now);
@@ -935,8 +943,8 @@ static int edf_wake(struct task_struct *task, ktime now)
 
 
 	/* shift wakeup by minimum tick period */
-	wakeup         = ktime_add(wakeup, tick_get_period_min_ns());
-	task->wakeup   = ktime_add(wakeup, task->attr.period);
+	wakeup       = ktime_add(wakeup, tick_get_period_min_ns());
+	task->wakeup = ktime_add(wakeup, task->attr.period);
 	task->deadline = ktime_add(task->wakeup, task->attr.deadline_rel);
 
 	/* reset runtime to full */
@@ -947,6 +955,9 @@ static int edf_wake(struct task_struct *task, ktime now)
 
 	edf_unlock();
 	arch_local_irq_restore(flags);
+
+	if (task->flags & TASK_RUN_ONCE)
+		smp_send_reschedule(cpu);
 
 	return 0;
 }
@@ -973,7 +984,7 @@ static int edf_enqueue(struct task_struct *task)
 		 * must replace this by a better strategy...
 		 */
 		task->flags |= TASK_RUN_ONCE;
-		task->attr.period = task->attr.deadline_rel * 2;
+		task->attr.period = 1;
 	} else
 		task->flags &= ~TASK_RUN_ONCE;
 
@@ -988,6 +999,8 @@ static int edf_enqueue(struct task_struct *task)
 	}
 
 	task->on_cpu = cpu;
+	if (task->flags & TASK_RUN_ONCE)
+		task->attr.period = 0;
 
 	list_add_tail(&task->node, &tq[cpu].wake);
 
