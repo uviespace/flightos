@@ -89,7 +89,11 @@ static void ramses_set_gr712_spw_clock(void)
 	uint32_t *gpreg = (uint32_t *) 0x80000600;
 
 
-	(*gpreg) = ((ioread32be(gpreg) & (0xFFFFFFF8))) | 0x6;
+	/* set 2x spw dll so we get to 100 MHz from the 50 MHz
+	 * base clock; this requires the DLL to be pulled out of
+	 * reset, since it is active low!
+	 */
+	(*gpreg) = ((ioread32be(gpreg) & (0xFFFFFFF8))) | 0x15;
 }
 
 
@@ -299,11 +303,10 @@ static int ramses_init(void)
 	void *addr;
 
 
-	/* XXX MEH, just hack this in for EMC test */
 	spw_alloc_obc(&spw_cfg[0]);
 	spw_init_core_obc(&spw_cfg[0]);
 
-	grspw2_core_start(&spw_cfg[0].spw, 0, 1);
+	grspw2_core_start(&spw_cfg[0].spw, 1, 1);
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
