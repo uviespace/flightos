@@ -12,27 +12,39 @@
 #include <asm-generic/io.h>
 #include <modules-image.h>
 
+#include <string.h>
+
 #define MSG "RAMSES: "
 
 
-/* a spacewire core configuration (0 = obc,  1 = fee */
+/* a spacewire core configuration (0 = obc,  1 = camera */
 struct spw_user_cfg spw_cfg[2];
 
-/* default dividers for GR712RC eval board: 10 Mbit start, 100 Mbit run */
-/* XXX: check if we have to set the link start/run speeds to 10 Mbit for
- * both states initally, and reconfigure later, as there will be a RMAP command
- * for the RDCU configuring it to 100 Mbit
- */
 #define SPW_CLCKDIV_START	10
-#define SPW_CLCKDIV_PLM_RUN	1
-#define SPW_CLCKDIV_FEE_RUN	2
+#define SPW_CLCKDIV_PLM_RUN	5		/* baseline is 20 Mbit */
+#define SPW_CLCKDIV_CAM_RUN	1
 #define GR712_IRL1_AHBSTAT	1
 
 #define HDR_SIZE		0x4
 #define STRIP_HDR_BYTES		0x4
 
+#define RAMSES_MTU_TM		4096		/* XXX check, this may be just 2 kiB */
+#define RAMSES_MTU_TC		GRSPW2_DEFAULT_MTU
+
+#define CAM_TX_NDESC		16
+#define CAM_RX_NDESC		104
+
 #define RAMSES_DPU_ADDR_TO_OBC	0xFE
-#define RAMSES_DPU_ADDR_TO_FEE   0x50
+#define RAMSES_DPU_ADDR_TO_CAM  0x50
+
+
+#define CAM_IMG_BUFFERS		104
+#define GRSPW2_CAM_RX_MTU	(2 * 1024*1024)
+
+/* the start of our image buffers */
+#define CAM_SPW_BUF_START	0x63000000
+/* we take 4 kiB for the SpW descs from the 1 MiB reserved for the ASW */
+#define SPW_DESC_START		(CAM_SPW_BUF_START - 4 * 1024)
 
 
 #define CLKGATE_GRETH		0x00000001
@@ -44,19 +56,14 @@ struct spw_user_cfg spw_cfg[2];
 #define CLKGATE_GRSPW5		0x00000040
 #define CLKGATE_CAN		0x00000080
 
-/* bit 8 is proprietary */
-#define CLKGATE_CCSDS_TM	0x00000200
-#define CLKGATE_CCSDS_TC	0x00000400
-#define CLKGATE_1553BRM		0x00000800
-
 #define CLKGATE_BASE		0x80000D00
 
 __attribute__((unused))
-	static struct gr712_clkgate {
-		uint32_t unlock;
-		uint32_t clk_enable;
-		uint32_t core_reset;
-	} *clkgate = (struct gr712_clkgate *) CLKGATE_BASE;
+static struct gr712_clkgate {
+	uint32_t unlock;
+	uint32_t clk_enable;
+	uint32_t core_reset;
+} *clkgate = (struct gr712_clkgate *)CLKGATE_BASE;
 
 
 static void gr712_clkgate_enable(uint32_t gate)
@@ -86,7 +93,7 @@ static void gr712_clkgate_enable(uint32_t gate)
 
 static void ramses_set_gr712_spw_clock(void)
 {
-	uint32_t *gpreg = (uint32_t *) 0x80000600;
+	uint32_t *gpreg = (uint32_t *)0x80000600;
 
 
 	/* set 2x spw dll so we get to 100 MHz from the 50 MHz
@@ -99,46 +106,14 @@ static void ramses_set_gr712_spw_clock(void)
 
 static void spw_alloc_obc(struct spw_user_cfg *cfg)
 {
-	uint32_t mem;
-
-
-	/*
-	 * malloc a rx and tx descriptor table buffer and align to
-	 * 1024 bytes (GR712UMRC, p. 111)
-	 *
-	 * dynamically allocate memory + 1K for alignment (worst case)
-	 * 1 buffer per dma channel (GR712 cores only implement one channel)
-	 *
-	 * NOTE: we don't care about calling free(), because this is a
-	 * bare-metal demo, so we just discard the original pointer
+	/* we have our descriptors already assigned, so
+	 * malloc rx and tx data buffers: decriptors * packet size
 	 */
-
-	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
-				  + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-	cfg->rx_desc = (uint32_t *)
-		((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
-		 & ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-
-	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
-				  + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-	cfg->tx_desc = (uint32_t *)
-		((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
-		 & ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-
-	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS
-					    * GRSPW2_DEFAULT_MTU);
-	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS
-					    * GRSPW2_DEFAULT_MTU);
+	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS * GRSPW2_DEFAULT_MTU);
+	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * GRSPW2_DEFAULT_MTU);
 
 	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
 }
-
-
 
 
 /**
@@ -161,58 +136,27 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 				  cfg->rx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->rx_data,
-				  GRSPW2_DEFAULT_MTU);
+				  RAMSES_MTU_TC);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
 				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
-				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
+				  cfg->tx_data, RAMSES_MTU_TC);
+
+	/* XXX check which of these we need */
+#if 1
 	grspw2_set_promiscuous(&cfg->spw);
+#endif
+#if 0
+	grspw2_protocol_id_drop_enable(&cfg->spw, HDR_PROTO_BYTE, HDR_PROTO_ID);
+#endif
 }
 
 
-/* the RAMSES FEE does not always honour the packet size settings,
- * so we increase the RX size
- */
-#define GRSPW2_FEE_RX_MTU	0x4004
-static void spw_alloc_fee(struct spw_user_cfg *cfg)
+static void spw_alloc_camera(struct spw_user_cfg *cfg)
 {
-	uint32_t mem;
-
-
-	/*
-	 * malloc a rx and tx descriptor table buffer and align to
-	 * 1024 bytes (GR712UMRC, p. 111)
-	 *
-	 * dynamically allocate memory + 1K for alignment (worst case)
-	 * 1 buffer per dma channel (GR712 cores only implement one channel)
-	 *
-	 * NOTE: we don't care about calling free(), because this is a
-	 * bare-metal demo, so we just discard the original pointer
-	 */
-
-	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
-				  + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-	cfg->rx_desc = (uint32_t *)
-		((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
-		 & ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-
-	mem = (uint32_t) kpcalloc(1, GRSPW2_DESCRIPTOR_TABLE_SIZE
-				  + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-	cfg->tx_desc = (uint32_t *)
-		((mem + GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN)
-		 & ~GRSPW2_DESCRIPTOR_TABLE_MEM_BLOCK_ALIGN);
-
-
-	/* malloc rx and tx data buffers: decriptors * packet size */
-	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS
-					    * GRSPW2_FEE_RX_MTU);
-	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS
-					    * GRSPW2_DEFAULT_MTU);
+	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * GRSPW2_DEFAULT_MTU);
 
 	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
 }
@@ -221,7 +165,7 @@ static void spw_alloc_fee(struct spw_user_cfg *cfg)
  */
 
 
-static void spw_init_core_fee(struct spw_user_cfg *cfg)
+static void spw_init_core_camera(struct spw_user_cfg *cfg)
 {
 	ramses_set_gr712_spw_clock();
 
@@ -229,72 +173,23 @@ static void spw_init_core_fee(struct spw_user_cfg *cfg)
 
 	/* configure for spw core1 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
-			 RAMSES_DPU_ADDR_TO_FEE, SPW_CLCKDIV_START, SPW_CLCKDIV_FEE_RUN,
-			 GRSPW2_FEE_RX_MTU, GRSPW2_IRQ_CORE1,
+			 RAMSES_DPU_ADDR_TO_CAM, SPW_CLCKDIV_START, SPW_CLCKDIV_CAM_RUN,
+			 GRSPW2_CAM_RX_MTU, GRSPW2_IRQ_CORE1,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  CAM_RX_NDESC * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
-				  GRSPW2_FEE_RX_MTU);
+				  GRSPW2_CAM_RX_MTU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  CAM_TX_NDESC * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
+
 	grspw2_set_promiscuous(&cfg->spw);
-}
-
-
-__attribute__((unused))
-static void ramses_edac_reset(void *data)
-{
-	/* overwrite dbit error */
-	iowrite32be(0, (void *) 0x61000000);
-}
-
-
-__attribute__((unused))
-static void ramses_check_edac(void)
-{
-	edac_set_reset_callback(ramses_edac_reset, NULL);
-
-	sysset_show_tree(NULL);
-
-	edac_critical_segment_add((void *) 0x61000000, (void *) 0x61000004);
-	edac_inject_fault((void *) 0x61000000, 0x0, 0x1);
-
-
-	{
-		char buf[256];
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "singlefaults", buf);
-		printk("single: %s\n", buf);
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "lastsingleaddr", buf);
-		printk("last: %s\n", buf);
-	}
-
-
-	printk("I read %d\n", ioread32be((void *) 0x61000000));
-	{
-		char buf[256];
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "singlefaults", buf);
-		printk("single: %s\n", buf);
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "lastsingleaddr", buf);
-		printk("last: %s\n", buf);
-	}
-
-
-	edac_inject_fault((void *) 0x61000000, 0x0, 0x3);
-	printk("I read %d\n", ioread32be((void *) 0x61000000));
-	{
-		char buf[256];
-		sysobj_show_attr(sysset_find_obj(NULL, "/sys/edac/"), "doublefaults", buf);
-		printk("single: %s\n", buf);
-	}
-
-	memscrub_seg_add(0x60000000, 0x62000000, 256);
 }
 
 
@@ -303,6 +198,18 @@ static int ramses_init(void)
 	void *addr;
 
 
+	memset((void *)CAM_SPW_BUF_START, 0, 4 * 1024);
+
+	/* we require 1kiB tables which are also aligned to 1kiB */
+	spw_cfg[0].rx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 0);
+	spw_cfg[0].tx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 1);
+	spw_cfg[1].rx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 2);
+	spw_cfg[1].tx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 3);
+
+
+	/* we assign only the camera RX buffers, everything else is malloc'd */
+	spw_cfg[1].rx_data = (uint8_t *)CAM_SPW_BUF_START;
+
 	spw_alloc_obc(&spw_cfg[0]);
 	spw_init_core_obc(&spw_cfg[0]);
 
@@ -310,27 +217,9 @@ static int ramses_init(void)
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
 
-	spw_alloc_fee(&spw_cfg[1]);
-	spw_init_core_fee(&spw_cfg[1]);
+	spw_alloc_camera(&spw_cfg[1]);
+	spw_init_core_camera(&spw_cfg[1]);
 	grspw2_core_start(&spw_cfg[1].spw, 1, 1);
-
-#if 0
-	/* empty link in case the mkII brick acts up again,
-	 * note that this does not work unless the power to the FEE psu
-	 * is ON for the SXI DPU, as the LVDS transceivers are not
-	 * powered otherwise; this is a devel workaround anyways
-	 */
-	iowrite32be((1 << 12), (void *) 0x20000420);
-	iowrite32be(0x9A000000, (void *) 0x20000428);
-
-	printk("status is %08x\n", ioread32be((void *) 0x2000042C) );
-
-	while (grspw2_get_num_pkts_avail(&spw_cfg[1].spw)) {
-		grspw2_drop_pkt(&spw_cfg[1].spw);
-		printk(".");
-	}
-	printk("\n");
-#endif
 
 
 #ifdef CONFIG_EMBED_APPLICATION

@@ -149,7 +149,7 @@ static void mem_init(void)
 	 * the SpW descriptors
 	 */
 
-#elif defined(CONFIG_PROJECT_SMILE) || defined(CONFIG_PROJECT_RAMSES)
+#elif defined(CONFIG_PROJECT_SMILE)
 	/* XXX need something like CONFIG_SOC_SMILE_SXI */
 	/* XXX the base address is defined by the requirements
 	 * (DBS RAM + exchange area).
@@ -195,6 +195,40 @@ static void mem_init(void)
 	sp_banks[7].num_bytes = 0x00100000;	/* next 1 MiB */
 #endif
 	/* ignore the remaing unused space */
+
+#elif defined(CONFIG_PROJECT_RAMSES)
+
+	/* in RAMSES, our baseline is 104 SpW RX buffers of 2 MiB each for
+	 * the camera frames. The remainder will be managed memory.
+	 * We have 256 MiB of SDRAM, so we have 48 MiB remaining, of which
+	 * we will reserve 1 MiB here for the run-time location of the
+	 * ASW (+ SpW descriptor tables);
+	 * the ASW start will be at 0x62F00000
+	 * the RX buffers will thus start at 0x63000000
+	 */
+	sp_banks[0].base_addr = 0x60000000;
+	sp_banks[0].num_bytes = 0x02000000;	/* first 32 MiB */
+
+#if (SPARC_PHYS_BANKS > 0)
+	sp_banks[1].base_addr = 0x62000000;
+	sp_banks[1].num_bytes = 0x00800000;	/* next one is only 8 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 1)
+	sp_banks[2].base_addr = 0x62800000;
+	sp_banks[2].num_bytes = 0x00400000;	/* next 4 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 2)
+	sp_banks[3].base_addr = 0x62C00000;
+	sp_banks[3].num_bytes = 0x00200000;	/* next 2 MiB */
+#endif
+
+#if (SPARC_PHYS_BANKS > 3)
+	sp_banks[4].base_addr = 0x62E00000;
+	sp_banks[4].num_bytes = 0x00100000;	/* next 1 MiB */
+#endif
+
 
 #else	/* e.g. GR712 eval */
 	sp_banks[0].base_addr = 0x40000000;
