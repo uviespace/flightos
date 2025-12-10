@@ -190,6 +190,8 @@ SYSCALL_DEFINE1(grspw2, struct grspw2_data *, spw)
 			return grspw2_auto_drop_enable(&spw_cfg[spw->link].spw, spw->n_drop);
 	case GRSPW2_OP_AUTO_DROP_DISABLE:
 			return grspw2_auto_drop_disable(&spw_cfg[spw->link].spw);
+	case GRSPW2_OP_GET_PKT_REF:
+			return grspw2_get_pkt_ref(&spw_cfg[spw->link].spw, &spw->pkt);
 
 	default:
 			printk("SPW ERROR: unknown OP %d\n", spw->op);

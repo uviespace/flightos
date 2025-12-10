@@ -2261,6 +2261,44 @@ exit:
 	return pkt_size;
 }
 
+
+/**
+ * @brief retrieve the reference to a packet buffer
+ *
+ * @param pkt the return reference pointer
+ *
+ * @returns the size if the packet
+ *
+ * @note this is a low level function; use with grspw2_get_next_pkt_size()
+ *	 to determine the size of the received buffer and grspw2_drop_pkt()
+ *	 to advance to the next descriptor
+ *
+ * @warn not recommended for use with auto-drop or similar features
+ */
+
+uint32_t grspw2_get_pkt_ref(struct grspw2_core_cfg *cfg, uint8_t **pkt)
+{
+	struct grspw2_rx_desc_ring_elem *p_elem;
+
+
+	(*pkt) = NULL;
+
+	p_elem = grspw2_rx_desc_get_next_used(cfg);
+	if (!p_elem)
+		return 0;
+
+	/* still active */
+	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EN)
+		return 0;
+
+	(*pkt) = (uint8_t *)(p_elem->desc->pkt_addr + cfg->strip_hdr_bytes);
+
+	return p_elem->desc->pkt_size - cfg->strip_hdr_bytes;
+}
+
+
+
+
 /**
  * @brief drop a packet
  * @return 1 if packet was dropped, 0 otherwise

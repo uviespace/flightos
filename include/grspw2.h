@@ -555,6 +555,7 @@ uint32_t grspw2_get_num_free_tx_desc_avail(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg);
 
 uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt);
+uint32_t grspw2_get_pkt_ref(struct grspw2_core_cfg *cfg, uint8_t **pkt);
 uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg);
 uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg);
 int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg);
@@ -623,6 +624,7 @@ void grspw2_rx_interrupt_disable(struct grspw2_core_cfg *cfg);
 #define GRSPW2_OP_GET_NEXT_PKT_EEP	7
 #define GRSPW2_OP_AUTO_DROP_ENABLE	8
 #define GRSPW2_OP_AUTO_DROP_DISABLE	9
+#define GRSPW2_OP_GET_PKT_REF		10
 
 
 /* a spacewire core configuration */

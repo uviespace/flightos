@@ -16,7 +16,7 @@ int32_t grspw2_add_pkt(uint8_t link,
 	spw.data          = data;
 	spw.data_size     = data_size;
 
-	return (int32_t) sys_grspw2((void *) &spw);
+	return (int32_t)sys_grspw2((void *)&spw);
 }
 
 int32_t grspw2_add_rmap(uint8_t link,
@@ -35,7 +35,7 @@ int32_t grspw2_add_rmap(uint8_t link,
 	spw.data          = data;
 	spw.data_size     = data_size;
 
-	return (int32_t) sys_grspw2((void *) &spw);
+	return (int32_t)sys_grspw2((void *)&spw);
 }
 
 
@@ -47,7 +47,7 @@ uint32_t grspw2_get_num_pkts_avail(uint8_t link)
 	spw.op   = GRSPW2_OP_GET_NUM_PKT_AVAIL;
 	spw.link = link;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return (uint32_t)sys_grspw2((void *)&spw);
 }
 
 uint32_t grspw2_get_next_pkt_size(uint8_t link)
@@ -58,7 +58,7 @@ uint32_t grspw2_get_next_pkt_size(uint8_t link)
 	spw.op   = GRSPW2_OP_GET_NEXT_PKT_SIZE;
 	spw.link = link;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return (uint32_t)sys_grspw2((void *)&spw);
 }
 
 uint32_t grspw2_drop_pkt(uint8_t link)
@@ -69,7 +69,7 @@ uint32_t grspw2_drop_pkt(uint8_t link)
 	spw.op   = GRSPW2_OP_DROP_PKT;
 	spw.link = link;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return (uint32_t)sys_grspw2((void *)&spw);
 }
 
 
@@ -82,7 +82,7 @@ uint32_t grspw2_get_pkt(uint8_t link, uint8_t *pkt)
 	spw.link = link;
 	spw.pkt  = pkt;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return (uint32_t)sys_grspw2((void *)&spw);
 }
 
 int grspw2_get_next_pkt_eep(uint8_t link)
@@ -93,7 +93,7 @@ int grspw2_get_next_pkt_eep(uint8_t link)
 	spw.op   = GRSPW2_OP_GET_NEXT_PKT_EEP;
 	spw.link = link;
 
-	return sys_grspw2((void *) &spw);
+	return sys_grspw2((void *)&spw);
 }
 
 uint32_t grspw2_auto_drop_enable(uint8_t link, uint8_t n_drop)
@@ -105,7 +105,7 @@ uint32_t grspw2_auto_drop_enable(uint8_t link, uint8_t n_drop)
 	spw.link = link;
 	spw.n_drop = n_drop;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return (uint32_t)sys_grspw2((void *)&spw);
 }
 
 uint32_t grspw2_auto_drop_disable(uint8_t link)
@@ -116,5 +116,24 @@ uint32_t grspw2_auto_drop_disable(uint8_t link)
 	spw.op   = GRSPW2_OP_AUTO_DROP_DISABLE;
 	spw.link = link;
 
-	return (uint32_t) sys_grspw2((void *) &spw);
+	return (uint32_t)sys_grspw2((void *)&spw);
+}
+
+
+uint32_t grspw2_get_pkt_ref(uint8_t link, uint8_t **pkt)
+{
+	uint32_t sz;
+
+	struct grspw2_data spw;
+
+
+	spw.op   = GRSPW2_OP_GET_NUM_PKT_AVAIL;
+	spw.link = link;
+
+
+	sz = (uint32_t)sys_grspw2((void *)&spw);
+
+	(*pkt) = spw.pkt;
+
+	return sz;
 }
