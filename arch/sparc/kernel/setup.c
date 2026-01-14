@@ -198,35 +198,34 @@ static void mem_init(void)
 
 #elif defined(CONFIG_PROJECT_RAMSES)
 
-	/* in RAMSES, our baseline is 104 SpW RX buffers of 2 MiB each for
-	 * the camera frames. The remainder will be managed memory.
-	 * We have 256 MiB of SDRAM, so we have 48 MiB remaining, of which
-	 * we will reserve 1 MiB here for the run-time location of the
-	 * ASW (+ SpW descriptor tables);
-	 * the ASW start will be at 0x62F00000
-	 * the RX buffers will thus start at 0x63000000
+	/* in RAMSES, our baseline is 3 SpW RX buffers of 2 MiB each for
+	 * the camera link + buffers towards the S/C and the camera TX.
+	 * The remainder will be managed memory.
+	 * We will also reserve 1 MiB here for the run-time location of the
+	 * ASW which will be at 0x6FF00000
+	 * the SpW area will start at 0x6F800000
 	 */
 	sp_banks[0].base_addr = 0x60000000;
-	sp_banks[0].num_bytes = 0x02000000;	/* first 32 MiB */
+	sp_banks[0].num_bytes = 0x08000000;	/* first 128 MiB */
 
 #if (SPARC_PHYS_BANKS > 0)
-	sp_banks[1].base_addr = 0x62000000;
-	sp_banks[1].num_bytes = 0x00800000;	/* next one is only 8 MiB */
+	sp_banks[1].base_addr = 0x68000000;
+	sp_banks[1].num_bytes = 0x04000000;	/* next 64 MiB */
 #endif
 
 #if (SPARC_PHYS_BANKS > 1)
-	sp_banks[2].base_addr = 0x62800000;
-	sp_banks[2].num_bytes = 0x00400000;	/* next 4 MiB */
+	sp_banks[2].base_addr = 0x6C000000;
+	sp_banks[2].num_bytes = 0x02000000;	/* next 32 MiB */
 #endif
 
 #if (SPARC_PHYS_BANKS > 2)
-	sp_banks[3].base_addr = 0x62C00000;
-	sp_banks[3].num_bytes = 0x00200000;	/* next 2 MiB */
+	sp_banks[3].base_addr = 0x6E000000;
+	sp_banks[3].num_bytes = 0x01000000;	/* next 16 MiB */
 #endif
 
 #if (SPARC_PHYS_BANKS > 3)
-	sp_banks[4].base_addr = 0x62E00000;
-	sp_banks[4].num_bytes = 0x00100000;	/* next 1 MiB */
+	sp_banks[4].base_addr = 0x6F000000;
+	sp_banks[4].num_bytes = 0x00800000;	/* next 8 MiB */
 #endif
 
 

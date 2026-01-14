@@ -7,6 +7,7 @@
 #include <kernel/edac.h>
 #include <kernel/memscrub.h>
 #include <kernel/user.h>
+#include <kernel/irq.h>
 
 #include <grspw2.h>
 #include <asm-generic/io.h>
@@ -17,8 +18,8 @@
 #define MSG "RAMSES: "
 
 
-/* a spacewire core configuration (0 = obc,  1 = camera */
-struct spw_user_cfg spw_cfg[2];
+/* a spacewire core configuration (0 = obc,  1 = red,  2 = camera */
+struct spw_user_cfg spw_cfg[3];
 
 #define SPW_CLCKDIV_START	10
 #define SPW_CLCKDIV_PLM_RUN	5		/* baseline is 20 Mbit */
@@ -31,20 +32,21 @@ struct spw_user_cfg spw_cfg[2];
 #define RAMSES_MTU_TM		4096		/* XXX check, this may be just 2 kiB */
 #define RAMSES_MTU_TC		GRSPW2_DEFAULT_MTU
 
-#define CAM_TX_NDESC		16
-#define CAM_RX_NDESC		104
+#define RAMSES_SC_RX_NDESC	GRSPW2_RX_DESCRIPTORS
+#define RAMSES_SC_TX_NDESC	GRSPW2_TX_DESCRIPTORS
+
+#define RAMSES_CAM_TX_NDESC		3
+#define RAMSES_CAM_RX_NDESC		3
 
 #define RAMSES_DPU_ADDR_TO_OBC	0xFE
 #define RAMSES_DPU_ADDR_TO_CAM  0x50
 
+#define CAM_IMG_BUFFERS		RAMSES_CAM_RX_NDESC
+#define GRSPW2_CAM_RX_MTU	(2 * 1024 * 1024)
 
-#define CAM_IMG_BUFFERS		104
-#define GRSPW2_CAM_RX_MTU	(2 * 1024*1024)
-
-/* the start of our image buffers */
-#define CAM_SPW_BUF_START	0x63000000
-/* we take 4 kiB for the SpW descs from the 1 MiB reserved for the ASW */
-#define SPW_DESC_START		(CAM_SPW_BUF_START - 4 * 1024)
+/* this is unmanaged reserved physical memory */
+#define SPW_AREA_START		0x6F800000
+#define SPW_AREA_END		0x6FF00000
 
 
 #define CLKGATE_GRETH		0x00000001
@@ -96,6 +98,9 @@ static void ramses_set_gr712_spw_clock(void)
 	uint32_t *gpreg = (uint32_t *)0x80000600;
 
 
+
+        (*gpreg) = (ioread32be(gpreg) & (0xFFFFFFF8));
+
 	/* set 2x spw dll so we get to 100 MHz from the 50 MHz
 	 * base clock; this requires the DLL to be pulled out of
 	 * reset, since it is active low!
@@ -104,23 +109,12 @@ static void ramses_set_gr712_spw_clock(void)
 }
 
 
-static void spw_alloc_obc(struct spw_user_cfg *cfg)
-{
-	/* we have our descriptors already assigned, so
-	 * malloc rx and tx data buffers: decriptors * packet size
-	 */
-	cfg->rx_data = (uint8_t *) kpcalloc(1, GRSPW2_RX_DESCRIPTORS * GRSPW2_DEFAULT_MTU);
-	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * GRSPW2_DEFAULT_MTU);
-
-	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
-}
-
 
 /**
  * @brief perform basic initialisation of the spw core
  */
 
-static void spw_init_core_obc(struct spw_user_cfg *cfg)
+static void spw_init_core_obc(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc)
 {
 	ramses_set_gr712_spw_clock();
 
@@ -129,18 +123,18 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_0,
 			 RAMSES_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
-			 GRSPW2_DEFAULT_MTU, GRSPW2_IRQ_CORE0,
+			 RAMSES_MTU_TC, GRSPW2_IRQ_CORE0,
 			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  n_rx_desc *  GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
 				  RAMSES_MTU_TC);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  GRSPW2_DESCRIPTOR_TABLE_SIZE,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, RAMSES_MTU_TC);
 
@@ -154,38 +148,70 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg)
 }
 
 
-static void spw_alloc_camera(struct spw_user_cfg *cfg)
-{
-	cfg->tx_data = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * GRSPW2_DEFAULT_MTU);
 
-	cfg->tx_hdr = (uint8_t *) kpcalloc(1, GRSPW2_TX_DESCRIPTORS * HDR_SIZE);
-}
 /**
  * @brief perform basic initialisation of the spw core
  */
 
-
-static void spw_init_core_camera(struct spw_user_cfg *cfg)
+static void spw_init_core_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc)
 {
 	ramses_set_gr712_spw_clock();
 
 	gr712_clkgate_enable(CLKGATE_GRSPW1);
 
-	/* configure for spw core1 */
+	/* configure for spw core0 */
 	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_1,
+			 RAMSES_DPU_ADDR_TO_OBC, SPW_CLCKDIV_START, SPW_CLCKDIV_PLM_RUN,
+			 RAMSES_MTU_TC, GRSPW2_IRQ_CORE1,
+			 GR712_IRL1_AHBSTAT, STRIP_HDR_BYTES);
+
+	grspw2_rx_desc_table_init(&cfg->spw,
+				  cfg->rx_desc,
+				  n_rx_desc *  GRSPW2_RX_DESC_SIZE,
+				  cfg->rx_data,
+				  RAMSES_MTU_TC);
+
+	grspw2_tx_desc_table_init(&cfg->spw,
+				  cfg->tx_desc,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
+				  cfg->tx_hdr, HDR_SIZE,
+				  cfg->tx_data, RAMSES_MTU_TC);
+
+	/* XXX check which of these we need */
+#if 1
+	grspw2_set_promiscuous(&cfg->spw);
+#endif
+#if 0
+	grspw2_protocol_id_drop_enable(&cfg->spw, HDR_PROTO_BYTE, HDR_PROTO_ID);
+#endif
+}
+
+
+/**
+ * @brief perform basic initialisation of the spw core
+ */
+
+static void spw_init_core_camera(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint32_t n_tx_desc)
+{
+	ramses_set_gr712_spw_clock();
+
+	gr712_clkgate_enable(CLKGATE_GRSPW2);
+
+	/* configure for spw core1 */
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_2,
 			 RAMSES_DPU_ADDR_TO_CAM, SPW_CLCKDIV_START, SPW_CLCKDIV_CAM_RUN,
-			 GRSPW2_CAM_RX_MTU, GRSPW2_IRQ_CORE1,
+			 GRSPW2_CAM_RX_MTU, GRSPW2_IRQ_CORE2,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
 				  cfg->rx_desc,
-				  CAM_RX_NDESC * GRSPW2_RX_DESC_SIZE,
+				  n_rx_desc * GRSPW2_RX_DESC_SIZE,
 				  cfg->rx_data,
 				  GRSPW2_CAM_RX_MTU);
 
 	grspw2_tx_desc_table_init(&cfg->spw,
 				  cfg->tx_desc,
-				  CAM_TX_NDESC * GRSPW2_TX_DESC_SIZE,
+				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
 				  cfg->tx_data, GRSPW2_DEFAULT_MTU);
 
@@ -193,35 +219,91 @@ static void spw_init_core_camera(struct spw_user_cfg *cfg)
 }
 
 
+/* emit signals 101 and 102 to indicate packet on nom/red S/C link */
+static irqreturn_t emit_irq_nom(unsigned int irq, void *userdata)
+{
+	ksignal_send_info(101, NULL);
+	return 0;
+}
+
+static irqreturn_t emit_irq_red(unsigned int irq, void *userdata)
+{
+	ksignal_send_info(102, NULL);
+	return 0;
+}
+
+
 static int ramses_init(void)
 {
-	void *addr;
+	uint8_t *addr;
 
 
-	memset((void *)CAM_SPW_BUF_START, 0, 4 * 1024);
+	memset((void *)SPW_AREA_START, 0, SPW_AREA_END - SPW_AREA_START);
 
 	/* we require 1kiB tables which are also aligned to 1kiB */
-	spw_cfg[0].rx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 0);
-	spw_cfg[0].tx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 1);
-	spw_cfg[1].rx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 2);
-	spw_cfg[1].tx_desc = (uint32_t *)(SPW_DESC_START + 1024 * 3);
+	spw_cfg[0].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 0);
+	spw_cfg[0].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 1);
+	spw_cfg[1].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 2);
+	spw_cfg[1].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 3);
+
+	spw_cfg[2].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 4);
+	spw_cfg[2].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
+
+	/* note: the addresses for the header and data buffers may be byte aligned */
+	addr = (uint8_t *)(SPW_AREA_START + 1024 * 6);
+
+	/* nominal S/C link */
+	spw_cfg[0].rx_data = addr;
+	addr += RAMSES_MTU_TC * RAMSES_SC_RX_NDESC;
+	spw_cfg[0].tx_data = addr;
+	addr += RAMSES_MTU_TM * RAMSES_SC_TX_NDESC;
+	spw_cfg[0].tx_hdr = addr;
+	addr += HDR_SIZE * RAMSES_SC_TX_NDESC;
+
+	/* redundant S/C link */
+	spw_cfg[1].rx_data = addr;
+	addr += RAMSES_MTU_TC * RAMSES_SC_RX_NDESC;
+	spw_cfg[1].tx_data = addr;
+	addr += RAMSES_MTU_TM * RAMSES_SC_TX_NDESC;
+	spw_cfg[1].tx_hdr = addr;
+	addr += HDR_SIZE * RAMSES_SC_TX_NDESC;
+
+	/* CAM link */
+	spw_cfg[2].rx_data = addr;
+	addr += GRSPW2_CAM_RX_MTU * RAMSES_CAM_RX_NDESC;
+	spw_cfg[2].tx_data = addr;
+	addr += GRSPW2_DEFAULT_MTU * RAMSES_CAM_TX_NDESC;
+	spw_cfg[2].tx_hdr = addr;
+	addr += HDR_SIZE * RAMSES_CAM_TX_NDESC;
 
 
-	/* we assign only the camera RX buffers, everything else is malloc'd */
-	spw_cfg[1].rx_data = (uint8_t *)CAM_SPW_BUF_START;
+	/* final sanity check */
+	BUG_ON((uintptr_t)addr >= SPW_AREA_END);
 
-	spw_alloc_obc(&spw_cfg[0]);
-	spw_init_core_obc(&spw_cfg[0]);
+
+	spw_init_core_obc(&spw_cfg[0], RAMSES_SC_RX_NDESC, RAMSES_SC_TX_NDESC);
 
 	grspw2_core_start(&spw_cfg[0].spw, 1, 1);
 	grspw2_set_time_rx(&spw_cfg[0].spw);
 	grspw2_tick_out_interrupt_enable(&spw_cfg[0].spw);
+	grspw2_rx_interrupt_enable(&spw_cfg[0].spw);
+	irq_request(spw_cfg[0].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_nom, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_nom, NULL);
 
-	spw_alloc_camera(&spw_cfg[1]);
-	spw_init_core_camera(&spw_cfg[1]);
+	spw_init_core_red(&spw_cfg[1], RAMSES_SC_RX_NDESC, RAMSES_SC_TX_NDESC);
+
 	grspw2_core_start(&spw_cfg[1].spw, 1, 1);
+	grspw2_set_time_rx(&spw_cfg[1].spw);
+	grspw2_tick_out_interrupt_enable(&spw_cfg[1].spw);
+	grspw2_rx_interrupt_enable(&spw_cfg[1].spw);
+	irq_request(spw_cfg[1].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_red, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_nom, NULL);
 
 
+	spw_init_core_camera(&spw_cfg[2], RAMSES_CAM_RX_NDESC, RAMSES_CAM_TX_NDESC);
+	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
+
+	
 #ifdef CONFIG_EMBED_APPLICATION
 	/* load RAMSES ASW */
 	addr = module_read_embedded("dpm");
@@ -229,6 +311,7 @@ static int ramses_init(void)
 	if (addr)
 		application_load(addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
 #endif /* CONFIG_EMBED_APPLICATION */
+
 
 	return 0;
 }
