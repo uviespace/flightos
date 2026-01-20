@@ -16,6 +16,9 @@
 #include <asm/leon.h>
 #include <asm/ttable.h>
 
+#include <mmu.h>
+#include <srmmu.h>
+#include <srmmu_access.h>
 
 #define STACKTRACE_MAX_ENTRIES 7
 
@@ -201,14 +204,26 @@ static void ramses_write_reset_info_trap(void)
 
 static int ramses_cfg_reset_traps(void)
 {
+#if 0
 	/* called by machine_halt */
 	trap_handler_install(0x82, ramses_write_reset_info_trap);
 	watchdog_set_handler(ramses_watchdog_handler, NULL);
-
+#endif
 	return 0;
 }
 late_initcall(ramses_cfg_reset_traps)
 
+
+static int ramses_map_mram0(void)
+{
+	/* 1:1 map MRAM0 */
+	srmmu_do_small_mapping_range(0, 0, 0,
+				0x200000 / SRMMU_SMALL_PAGE_SIZE,
+				(SRMMU_ACC_S_RWX_2));
+	return 0;
+}
+
+late_initcall(ramses_map_mram0)
 
 
 static int ramses_mem_cfg(void)
@@ -227,9 +242,9 @@ static int ramses_mem_cfg(void)
 	 */
 #endif
 
-#define MEMCFG1_PROMACCESS		0x101A0022
+#define MEMCFG1_PROMACCESS		0x102A0022
 #define MEMCFG2_RAMACCESS		0xCB60504F
-#define MEMCFG3_RAMACCESS		0x08185300
+#define MEMCFG3_RAMACCESS		0x08185200
 	iowrite32be(MEMCFG1_PROMACCESS, (void *)0x80000000);
 	iowrite32be(MEMCFG2_RAMACCESS,  (void *)0x80000004);
 	iowrite32be(MEMCFG3_RAMACCESS,  (void *)0x80000008);
