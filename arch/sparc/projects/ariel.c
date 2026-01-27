@@ -227,7 +227,7 @@ static int ariel_mem_cfg(void)
 
 	iowrite32be(0x10880033, (void *)0x80000000);
 	iowrite32be(0x00001665, (void *)0x80000004);
-	iowrite32be(0x08000200, (void *)0x80000008);
+	iowrite32be(0x08000300, (void *)0x80000008);
 	iowrite32be(0x00000000, (void *)0x8000000C);
 #endif /* EVAL_BOARD */
 
