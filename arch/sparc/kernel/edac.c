@@ -64,6 +64,7 @@
 #include <errno.h>
 #include <asm/io.h>
 #include <asm/memrepair.h>
+#include <asm/leon.h>
 
 #include <leon3_memcfg.h>
 #include <kernel/edac.h>
@@ -239,6 +240,69 @@ static uint8_t bch_edac_checkbits(const uint32_t value)
 }
 
 
+#ifdef CONFIG_FTMCTRL_BCH_IN_PROM_AN0003
+/**
+ * @brief write BCH codes via software
+ *
+ * @param repair: if 1, repair checkbits, if 0, invalidate with pattern
+ *
+ * as per application note GRLIB-AN-0003, Issue 1, April 2017, the FTMCTRL does
+ * not update BCH codes for the PROM area (0x0 - 0x1fffffff) even with
+ * prom write cycles enabled the memory controller configuration
+ * (I consider this an erratum)
+ *
+ * @note only 8-bit prom configurations are currently supported
+ */
+
+static void ftmctlr_prom_update_bch(uint32_t addr, int repair)
+{
+	uint32_t end;
+	uint32_t start = 0;
+
+	uint8_t *cb;
+
+
+	/* ignore out of prom range */
+	if (addr >= 0x20000000)
+		return;
+
+	/* 32 bit mode is currently unsupported */
+	if (leon3_memcfg_get_prom_width())
+		return;
+
+	/* chip selected second bank ? */
+	if (addr > 0x10000000)
+		start = 0x10000000;
+
+	leon3_flush();
+
+	/* we obviously assume the PROM bank size is properly configured to
+	 * be at least 4 times the actual size as per the erratum
+	 */
+	end = start + leon3_memcfg_get_prom_bank_size() - 1;
+
+
+	/* note: we can unconditionally disable and re-enable the PROM EDAC,
+	 * otherwise we would not be here
+	 */
+	leon3_memcfg_enable_prom_write();
+	leon3_memcfg_disable_prom_edac();
+
+	if (repair)
+		mem_repair((void *)addr);
+	else	/* otherwise overwrite with all bits set */
+		iowrite32be(~0, (void *)addr);
+
+
+	cb = (uint8_t *)(end - (addr - start) / 4);
+	(*cb) = bch_edac_checkbits(ioread32be((void *)addr));
+
+	leon3_memcfg_disable_prom_write();
+	leon3_memcfg_enable_prom_edac();
+}
+#endif /* CONFIG_FTMCTRL_BCH_IN_PROM_AN0003 */
+
+
 
 /**
  * @brief check if the failing address is in a critical segment
@@ -299,8 +363,16 @@ static uint32_t edac_error(void)
 		edacstat.edac_single++;
 		edacstat.edac_last_single_addr = addr;
 
+#ifdef CONFIG_FTMCTRL_BCH_IN_PROM_AN0003
+		if (addr >= 0x20000000)
+			mem_repair((void *)addr);
+
+		/* mem repair may not have worked, check for prom write */
+		ftmctlr_prom_update_bch(addr, 1);
+#else /* CONFIG_FTMCTRL_BCH_IN_PROM_AN0003 */
 		/* XXX kalarm() -> EDAC, LOW, addr */
-		mem_repair((void *) addr);
+		mem_repair((void *)addr);
+#endif /* CONFIG_FTMCTRL_BCH_IN_PROM_AN0003 */
 
 		/* clear edac error triggered by repair */
 		ahbstat_clear_new_error();
@@ -316,10 +388,19 @@ static uint32_t edac_error(void)
 	if (edac_error_in_critical_section((void *)addr)) {
 		if (do_reset)
 			do_reset(reset_data);
+	} else {
 		/* otherwise overwrite with all bits set */
-		iowrite32be(-1, (void *) addr);
-	}
+#ifdef CONFIG_FTMCTRL_BCH_IN_PROM_AN0003
+		if (addr >= 0x20000000)
+			iowrite32be(~0, (void *)addr);
 
+		/* check for prom and overwrite with pattern */
+		ftmctlr_prom_update_bch(addr, 0);
+
+#else	/* CONFIG_FTMCTRL_BCH_IN_PROM_AN0003 */
+		iowrite32be(~0, (void *)addr);
+#endif	/* CONFIG_FTMCTRL_BCH_IN_PROM_AN0003 */
+	}
 
 	return 1;
 }
