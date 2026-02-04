@@ -1583,7 +1583,7 @@ static int32_t grspw2_tx_desc_add_pkt(struct grspw2_core_cfg *cfg,
 	}
 
 	/* reject if disconnected, this is in principle optional */
-	if (!(grspw2_get_link_status(cfg) & GRSPW2_STATUS_LS_RUN))
+	if (!(grspw2_get_link_status(cfg) == GRSPW2_STATUS_LS_RUN))
 		return -ENOLINK;
 
 	grspw2_tx_desc_move_free_all(cfg);
@@ -2366,7 +2366,7 @@ int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 
 	if (unlikely(ret)) {
 		grspw2_handle_error(LOW);
-		return -1;
+		return ret;
 	}
 
 	cfg->tx_bytes += hdr_size + data_size;
