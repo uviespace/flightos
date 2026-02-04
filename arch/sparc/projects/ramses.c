@@ -194,7 +194,11 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 
 static void ramses_watchdog_handler(void *userdata)
 {
+#if 0
 	ramses_write_reset_info(0, userdata);
+#else
+	die();	/* emulate external reset for now */
+#endif
 }
 
 static void ramses_write_reset_info_trap(void)
@@ -207,8 +211,9 @@ static int ramses_cfg_reset_traps(void)
 #if 0
 	/* called by machine_halt */
 	trap_handler_install(0x82, ramses_write_reset_info_trap);
-	watchdog_set_handler(ramses_watchdog_handler, NULL);
 #endif
+	watchdog_set_handler(ramses_watchdog_handler, NULL);
+
 	return 0;
 }
 late_initcall(ramses_cfg_reset_traps)
