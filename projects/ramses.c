@@ -21,7 +21,7 @@
 /* a spacewire core configuration (0 = obc,  1 = red,  2 = camera */
 struct spw_user_cfg spw_cfg[3];
 
-#define SPW_CLCKDIV_START	10
+#define SPW_CLCKDIV_START	6
 #define SPW_CLCKDIV_PLM_RUN	3		/* baseline is 20 Mbit (60 MHz inclk) */
 #define SPW_CLCKDIV_CAM_RUN	1
 #define GR712_IRL1_AHBSTAT	1
@@ -110,7 +110,7 @@ static void ramses_set_gr712_spw_clock(void)
 	/* 60 MHz configuration (proposed flight configuration)
 	 * we use the inclk for spw, no 2x dll
 	 */
-	(*gpreg) = ((ioread32be(gpreg) & (0xFFFFFFF8))) | 0x1;
+	(*gpreg) = ((ioread32be(gpreg) & (0xFFFFFFF8))) | 0x3;
 #endif
 }
 
