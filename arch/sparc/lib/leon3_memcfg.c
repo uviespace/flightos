@@ -283,6 +283,7 @@ static uint8_t leon3_memcfg_get_checkbits(void)
 }
 
 
+
 /**
  * @brief enable the prom edac
  */
@@ -300,18 +301,6 @@ void leon3_memcfg_enable_prom_edac(void)
 void leon3_memcfg_disable_prom_edac(void)
 {
 	leon3_memcfg_clear_mcfg3(LEON3_MEMCFG3_PROM_EDAC);
-}
-
-
-/**
- * @brief get the prom edac status
- *
- * @returns 0: disabled, enabled otherwise
- */
-
-int leon3_memcfg_prom_edac_status(void)
-{
-	return leon3_memcfg_get_mcfg3(LEON3_MEMCFG3_PROM_EDAC);
 }
 
 
@@ -503,29 +492,6 @@ void leon3_memcfg_set_io(void)
 
 
 /**
- * @brief get PROM bank size (in bytes)
- */
-
-uint32_t leon3_memcfg_get_prom_bank_size(void)
-{
-	uint32_t reg;
-
-
-	reg = leon3_memcfg_get_mcfg1(LEON3_MEMCFG1_ROMBANKSZ_MASK);
-
-	reg >>= LEON3_MEMCFG1_ROMBANKSZ_OFF;
-
-
-	/* 0xf and 0 are the same thing */
-	if (!reg)
-		reg = 15;
-
-	/* bank size in bytes is 8 kib * 2^banksize */
-	return 8192 * (2 << (reg - 1));
-}
-
-
-/**
  * @brief set PROM bank size
  *
  * @note 0000 = 256 MiB, all others: bank_size = lg2(kilobytes / 8)
@@ -543,40 +509,11 @@ void leon3_memcfg_set_prom_bank_size(uint32_t bank_size)
  * @brief enable prom write cycles
  */
 
-void leon3_memcfg_enable_prom_write(void)
+void leon3_memcfg_set_prom_write(void)
 {
 	leon3_memcfg_set_mcfg1(LEON3_MEMCFG1_PWEN);
 }
 
-
-
-/**
- * @brief disable prom write cycles
- */
-
-void leon3_memcfg_disable_prom_write(void)
-{
-	leon3_memcfg_clear_mcfg1(LEON3_MEMCFG1_PWEN);
-}
-
-
-/**
- * @brief get PROM data bus width
- *
- * @note 0 (00) = 8 bits, 2 (01) = 32 bits
- */
-
-uint32_t leon3_memcfg_get_prom_width(void)
-{
-	uint32_t reg;
-
-
-	reg = leon3_memcfg_get_mcfg1(LEON3_MEMCFG1_PROM_WIDTH_MASK);
-
-	reg >>= LEON3_MEMCFG1_PROM_WIDTH_OFF;
-
-	return reg;
-}
 
 
 /**

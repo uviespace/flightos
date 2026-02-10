@@ -43,15 +43,6 @@ config LEON3FT_ERRATUM_TN0018
          Errata'
 	 If building for an FT cpu, say Y here.
 
-config FTMCTRL_BCH_IN_PROM_AN0003
-	bool "GRLIB-AN-0003 PROM BCH update workaround"
-	default y
-	help
-	 Enable BCH code update via software for PROM EDAC events
-	 If you use a chip-selected second bank in the prom area which is
-	 intended to be used with BCH protection and writeable via prom writes,
-	 say Y here.
-
 endmenu
 
 config MMU
