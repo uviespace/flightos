@@ -106,14 +106,5 @@ void leon3_memcfg_set_read_modify_write(void);
 
 void leon3_memcfg_clear_sram_disable(void);
 
-uint32_t leon3_memcfg_get_prom_bank_size(void);
-uint32_t leon3_memcfg_get_prom_width(void);
-
-void leon3_memcfg_enable_prom_write(void);
-void leon3_memcfg_disable_prom_write(void);
-
-void leon3_memcfg_enable_prom_edac(void);
-void leon3_memcfg_disable_prom_edac(void);
-int leon3_memcfg_prom_edac_status(void);
 
 #endif /* LEON3_MEMCFG_H */
