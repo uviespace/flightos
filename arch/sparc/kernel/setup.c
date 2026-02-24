@@ -31,6 +31,8 @@
 #include <kernel/smp.h>
 #include <asm/irqflags.h>
 
+#include <leon3_dsu.h>
+
 void *_kernel_stack_top;
 void *_kernel_stack_bottom;
 
@@ -257,6 +259,14 @@ int cpu_ready[CONFIG_SMP_CPUS_MAX];
 void cpu_wake(uint32_t cpu_id)
 {
 #ifdef CONFIG_LEON3
+
+	dsu_set_reg_pc(cpu_id, 0);
+	dsu_set_reg_npc(cpu_id, 0);
+	dsu_set_reg_psr(cpu_id, 0);
+	dsu_set_reg_wim(cpu_id, 0);
+	dsu_set_reg_tbr(cpu_id, 0);
+	dsu_clear_iu_reg_file(cpu_id);
+
 	iowrite32be(1 << cpu_id, (uint32_t *) 0x80000210);
 #endif
 #ifdef CONFIG_LEON4
