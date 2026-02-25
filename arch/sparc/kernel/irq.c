@@ -164,6 +164,7 @@ static struct {
 	uint32_t eirl;
 	uint32_t irl_irq[IRL_SIZE];
 	uint32_t eirl_irq[EIRL_SIZE];
+	uint32_t per_cpu[CONFIG_SMP_CPUS_MAX];
 } irqstat;
 
 
@@ -249,6 +250,23 @@ static ssize_t eirl_store(__attribute__((unused)) struct sysobj *sobj,
 	return 0;
 }
 
+
+static ssize_t per_cpu_rate_show(__attribute__((unused)) struct sysobj *sobj,
+				 __attribute__((unused)) struct sobj_attribute *sattr,
+				 char *buf)
+{
+	int cpu;
+
+
+	cpu = strtol(sattr->name, NULL, 10);
+
+	if (cpu > CONFIG_SMP_CPUS_MAX)
+		return 0;
+
+	return sprintf(buf, "%lu", irqstat.per_cpu[cpu]);
+}
+
+
 __extension__
 static struct sobj_attribute irl_attr[] = {
 	__ATTR(irl,  irl_show, irl_store),
@@ -309,6 +327,12 @@ static struct sobj_attribute *eirl_attributes[] = {
 	&eirl_attr[24],	&eirl_attr[25], &eirl_attr[26], &eirl_attr[27],
 	&eirl_attr[28],	&eirl_attr[29], &eirl_attr[30], &eirl_attr[31],
 	&eirl_attr[32],	NULL};
+
+/* we'll bomb if there are more than 99 CPUs in the system ;) */
+#define CPU_MAX_CHARS_PER_NAME	2
+static char per_cpu_rate_names[CONFIG_SMP_CPUS_MAX * CPU_MAX_CHARS_PER_NAME];
+static struct sobj_attribute  per_cpu_rate_attr[CONFIG_SMP_CPUS_MAX];
+static struct sobj_attribute *per_cpu_rate_attributes[CONFIG_SMP_CPUS_MAX + 1];
 
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
@@ -834,6 +858,7 @@ int leon_irq_dispatch(unsigned int irq)
 #ifdef CONFIG_IRQ_STATS_COLLECT
 	irqstat.irl++;
 	irqstat.irl_irq[irq]++;
+	irqstat.per_cpu[leon3_cpuid()]++;
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
 	list_for_each_entry(p_elem, &irl_vector[irq], handler_node) {
@@ -880,6 +905,7 @@ static int leon_eirq_dispatch(unsigned int irq)
 #ifdef CONFIG_IRQ_STATS_COLLECT
 	irqstat.irl++;
 	irqstat.irl_irq[irq]++;
+	irqstat.per_cpu[leon3_cpuid()]++;
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
 #if defined(CONFIG_LEON3) || defined (CONFIG_LEON4)
@@ -909,6 +935,7 @@ static int leon_eirq_dispatch(unsigned int irq)
 #ifdef CONFIG_IRQ_STATS_COLLECT
 	irqstat.eirl++;
 	irqstat.eirl_irq[eirq]++;
+	irqstat.per_cpu[leon3_cpuid()]++;
 #endif /* CONFIG_IRQ_STATS_COLLECT */
 
 	list_for_each_entry_safe(p_elem, p_tmp, &eirl_vector[eirq], handler_node) {
@@ -1251,27 +1278,51 @@ static int irq_dispatch_init(void)
 #ifdef CONFIG_IRQ_STATS_COLLECT
 static int irq_dispatch_init_sysctl(void)
 {
+	size_t i;
+
 	struct sysset *sset;
 	struct sysobj *sobj;
 
 
 	sset = sysset_create_and_add("irl", NULL, sysctl_root());
 
-	sobj = sysobj_create();
 
+	sobj = sysobj_create();
 	if (!sobj)
 		return -1;
 
 	sobj->sattr = irl_attributes;
 	sysobj_add(sobj, NULL, sset, "primary");
 
-	sobj = sysobj_create();
 
+	sobj = sysobj_create();
 	if (!sobj)
 		return -1;
 
 	sobj->sattr = eirl_attributes;
 	sysobj_add(sobj, NULL, sset, "secondary");
+
+
+	sobj = sysobj_create();
+	if (!sobj)
+		return -1;
+
+	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
+
+		snprintf(&per_cpu_rate_names[i * 2], CPU_MAX_CHARS_PER_NAME,"%u", i);
+		per_cpu_rate_attr[i].name  = &per_cpu_rate_names[i * 2];
+		per_cpu_rate_attr[i].show  = per_cpu_rate_show;
+		per_cpu_rate_attr[i].store = NULL;
+
+		per_cpu_rate_attributes[i] = &per_cpu_rate_attr[i];
+	}
+
+	/* be explicit; last item in attribute pointer list is always NULL */
+	per_cpu_rate_attributes[CONFIG_SMP_CPUS_MAX] = NULL;
+
+	sobj->sattr = per_cpu_rate_attributes;
+	sysobj_add(sobj, NULL, sysctl_root(), "per_cpu_rate");
+
 
 	return 0;
 }
