@@ -20,9 +20,13 @@
 
 /* a spacewire core configuration (0 = obc,  1 = red,  2 = camera */
 struct spw_user_cfg spw_cfg[3];
-
+#if 0
 #define SPW_CLCKDIV_START	6
 #define SPW_CLCKDIV_PLM_RUN	3		/* baseline is 20 Mbit (60 MHz inclk) */
+#else
+#define SPW_CLCKDIV_START      10
+#define SPW_CLCKDIV_PLM_RUN	5
+#endif
 #define SPW_CLCKDIV_CAM_RUN	1
 #define GR712_IRL1_AHBSTAT	1
 
@@ -100,7 +104,7 @@ static void ramses_set_gr712_spw_clock(void)
 
 
         (*gpreg) = (ioread32be(gpreg) & (0xFFFFFFF8));
-#if 0
+#if 1
 	/* set 2x spw dll so we get to 100 MHz from the 50 MHz
 	 * base clock; this requires the DLL to be pulled out of
 	 * reset, since it is active low!
@@ -309,7 +313,7 @@ static int ramses_init(void)
 	spw_init_core_camera(&spw_cfg[2], RAMSES_CAM_RX_NDESC, RAMSES_CAM_TX_NDESC);
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 
-	
+
 #ifdef CONFIG_EMBED_APPLICATION
 	/* load RAMSES ASW */
 	addr = module_read_embedded("dpm");
