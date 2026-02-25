@@ -2217,7 +2217,13 @@ uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
 	if (p_elem->desc->pkt_ctrl & GRSPW2_RX_DESC_EN)
 		goto exit;
 
-	pkt_size = p_elem->desc->pkt_size - cfg->strip_hdr_bytes;
+	if (p_elem->desc->pkt_size >= cfg->strip_hdr_bytes)
+		pkt_size = p_elem->desc->pkt_size - cfg->strip_hdr_bytes;
+	else {
+		grspw2_rx_desc_readd(cfg, p_elem);
+		goto exit;
+	}
+
 	if (!pkt)
 		goto exit;
 
