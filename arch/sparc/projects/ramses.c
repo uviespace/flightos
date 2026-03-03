@@ -196,8 +196,6 @@ static void ramses_watchdog_handler(void *userdata)
 {
 #if 0
 	ramses_write_reset_info(0, userdata);
-#else
-	die();	/* emulate external reset for now */
 #endif
 }
 
