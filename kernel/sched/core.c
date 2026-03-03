@@ -156,8 +156,8 @@ static int  sched_init_sysctl(void)
 
 	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
 
-		snprintf(&cpu_load_names[i * 2], CPU_MAX_CHARS_PER_NAME,"%u", i);
-		cpu_load_attr[i].name  = &cpu_load_names[i * 2];
+		snprintf(&cpu_load_names[i * CPU_MAX_CHARS_PER_NAME], CPU_MAX_CHARS_PER_NAME,"%u", i);
+		cpu_load_attr[i].name  = &cpu_load_names[i * CPU_MAX_CHARS_PER_NAME];
 		cpu_load_attr[i].show  = cpu_load_show;
 		cpu_load_attr[i].store = NULL;
 

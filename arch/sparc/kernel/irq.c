@@ -1308,9 +1308,9 @@ static int irq_dispatch_init_sysctl(void)
 		return -1;
 
 	for (i = 0; i < CONFIG_SMP_CPUS_MAX; i++) {
-
-		snprintf(&per_cpu_rate_names[i * 2], CPU_MAX_CHARS_PER_NAME,"%u", i);
-		per_cpu_rate_attr[i].name  = &per_cpu_rate_names[i * 2];
+		
+		snprintf(&per_cpu_rate_names[i * CPU_MAX_CHARS_PER_NAME], CPU_MAX_CHARS_PER_NAME,"%u", i);
+		per_cpu_rate_attr[i].name  = &per_cpu_rate_names[i * CPU_MAX_CHARS_PER_NAME];
 		per_cpu_rate_attr[i].show  = per_cpu_rate_show;
 		per_cpu_rate_attr[i].store = NULL;
 
@@ -1321,7 +1321,7 @@ static int irq_dispatch_init_sysctl(void)
 	per_cpu_rate_attributes[CONFIG_SMP_CPUS_MAX] = NULL;
 
 	sobj->sattr = per_cpu_rate_attributes;
-	sysobj_add(sobj, NULL, sysctl_root(), "per_cpu_rate");
+	sysobj_add(sobj, NULL, sset, "per_cpu_rate");
 
 
 	return 0;
