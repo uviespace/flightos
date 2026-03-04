@@ -196,6 +196,8 @@ static void ramses_watchdog_handler(void *userdata)
 {
 #if 0
 	ramses_write_reset_info(0, userdata);
+#else
+	die();
 #endif
 }
 
@@ -247,10 +249,10 @@ static int ramses_mem_cfg(void)
 
 #define MEMCFG1_PROMACCESS		0x102A0022
 #define MEMCFG2_RAMACCESS		0xCB60544F
-#define MEMCFG3_RAMACCESS		0x08185200
 //#define MEMCFG2_RAMACCESS		0xCB60544F
 //#define MEMCFG2_RAMACCESS		0xD778504F
 //#define MEMCFG3_RAMACCESS		0x08185200
+#define MEMCFG3_RAMACCESS		0x08076200
 	iowrite32be(MEMCFG1_PROMACCESS, (void *)0x80000000);
 	iowrite32be(MEMCFG2_RAMACCESS,  (void *)0x80000004);
 	iowrite32be(MEMCFG3_RAMACCESS,  (void *)0x80000008);
