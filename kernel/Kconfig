@@ -34,6 +34,11 @@ config CPU_STATS_COLLECT
 	help
 	 Expose cpu loads in the sysctl tree.
 
+config SPI_DEVICES
+	bool "Enable SPI devices"
+	default n
+
+
 config TASK_PREEMPTION_DISABLE
 	bool "Disable forced preemption of tasks"
 	default n
@@ -69,6 +74,26 @@ config SSDP
 	 Configure parameters for the SSDP
 
 endchoice
+
+menu "SPI device drivers"
+
+depends on SPI_DEVICES
+
+config GRSPI_CONTROLLER
+	bool "Enable Gaisler SPI controller"
+	default n
+	help
+	 Enable the SPI controller found on SoC such as the GR712RC or GR740
+
+config AD7814_SPI
+	bool "Enable AD7814 temperature sensor"
+	default n
+
+endmenu
+
+
+
+
 
 menu "System-on-Chip drivers"
 
