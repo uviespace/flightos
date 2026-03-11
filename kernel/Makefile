@@ -28,3 +28,4 @@ obj-$(CONFIG_TESTMODULE) += testmodule.o
 obj-$(CONFIG_SPI_DEVICES) += spictlr.o
 obj-$(CONFIG_GRSPI_CONTROLLER) += grspi.o
 obj-$(CONFIG_AD7814_SPI) += ad7814_spi.o
+obj-$(CONFIG_ADC128S102_SPI) += adc128s102_spi.o

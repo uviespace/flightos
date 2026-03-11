@@ -89,6 +89,10 @@ config AD7814_SPI
 	bool "Enable AD7814 temperature sensor"
 	default n
 
+config ADC128S102_SPI
+	bool "Enable ADC128S102 8-channel 12-bit ADC"
+	default n
+
 endmenu
 
 
