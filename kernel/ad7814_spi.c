@@ -172,9 +172,6 @@ int ad7814_register(void (*chip_select)(bool))
 	if (spi_dev)
 		return -EADDRINUSE;
 
-	if (!chip_select)
-		return -EINVAL;
-
 	spi_dev = spi_new_dev(spi_get_master(0), &ad7814_info);
 	if (!spi_dev)
 		return -ENODEV;
