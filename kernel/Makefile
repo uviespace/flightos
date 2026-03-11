@@ -25,3 +25,6 @@ obj-$(CONFIG_SYSCTL) += sysctl.o
 obj-$(CONFIG_NOC_DMA) += noc_dma.o
 obj-$(CONFIG_XENTIUM) += xentium.o
 obj-$(CONFIG_TESTMODULE) += testmodule.o
+obj-$(CONFIG_SPI_DEVICES) += spictlr.o
+obj-$(CONFIG_GRSPI_CONTROLLER) += grspi.o
+obj-$(CONFIG_AD7814_SPI) += ad7814_spi.o
