@@ -11,7 +11,10 @@
 
 #include <grspw2.h>
 #include <asm-generic/io.h>
+#include <asm/leon_reg.h>
 #include <modules-image.h>
+
+#include <adc128s102.h>
 
 #include <string.h>
 
@@ -243,10 +246,34 @@ static irqreturn_t emit_irq_red(unsigned int irq, void *userdata)
 }
 
 
+static void gr712_adc128s102_spi_cs(bool enable)
+{
+	uint32_t dir;
+	uint32_t out;
+
+	struct leon3_grgpio_registermap *reg = (void *)LEON3_BASE_ADDRESS_GRGPIO_2;
+
+
+	dir = ioread32be(&reg->ioport_direction);
+	out = ioread32be(&reg->ioport_output_value);
+
+	/* CS on ADC128S102 is active low */
+	if (enable) {
+		iowrite32be(dir |  (1 << 22), &reg->ioport_direction);
+		iowrite32be(out & ~(1 << 22), &reg->ioport_output_value);
+	} else {
+		iowrite32be(out |  (1 << 22), &reg->ioport_output_value);
+		iowrite32be(dir & ~(1 << 22), &reg->ioport_direction);
+	}
+}
+
+
 static int ramses_init(void)
 {
 	uint8_t *addr;
 
+
+	adc128s102_register(gr712_adc128s102_spi_cs);
 
 	memset((void *)SPW_AREA_START, 0, SPW_AREA_END - SPW_AREA_START);
 
