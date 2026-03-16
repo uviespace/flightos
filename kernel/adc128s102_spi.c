@@ -7,14 +7,36 @@
 #include <kernel/sysctl.h>
 #include <adc128s102.h>
 
-
 #if defined(DEMO_ADC128S102)
 
 #include <asm/leon_reg.h>
+#include <asm-generic/io.h>
 #include <kernel/kthread.h>
 #include <kernel/init.h>
 #include <kernel/user.h>
 
+
+
+static void gr712_adc128s102_spi_cs(bool enable)
+{
+	uint32_t dir;
+	uint32_t out;
+
+	struct leon3_grgpio_registermap *reg = (void *)LEON3_BASE_ADDRESS_GRGPIO_2;
+
+
+	dir = ioread32be(&reg->ioport_direction);
+	out = ioread32be(&reg->ioport_output_value);
+
+	/* CS on ADC128S102 is active low */
+	if (enable) {
+		iowrite32be(dir |  (1 << 22), &reg->ioport_direction);
+		iowrite32be(out & ~(1 << 22), &reg->ioport_output_value);
+	} else {
+		iowrite32be(out |  (1 << 22), &reg->ioport_output_value);
+		iowrite32be(dir & ~(1 << 22), &reg->ioport_direction);
+	}
+}
 
 static int adc128s102_poll_thread(void *data)
 {
@@ -23,7 +45,7 @@ static int adc128s102_poll_thread(void *data)
 	while (1) {
 
 		for (i = 0; i < 8; i++)
-			printk("ADC[%d] %4d\n", i, adc128s102_get_value(i));
+			printk("ADC[%d] 0x%04x\n", i, adc128s102_get_value(i));
 
 		sched_yield();
 	}
@@ -36,7 +58,7 @@ static int adc128s102_poll_init(void)
 	struct task_struct *t;
 
 
-	adc128s102_register(NULL);
+	adc128s102_register(gr712_adc128s102_spi_cs);
 
 	t = kthread_create(adc128s102_poll_thread, NULL, KTHREAD_CPU_AFFINITY_NONE, "POLL_ADC128S102_TEMP");
 	BUG_ON(!t);
@@ -139,7 +161,7 @@ static void adc128s102_cs(bool enable)
 
 
 static struct spi_board_info adc128s102_info = {
-	.max_speed_hz = 14000000,
+	.max_speed_hz = 16000000,
 	.chip_select  = adc128s102_cs,
 	.mode	      = (SPI_MODE_2 | SPI_MSB_FIRST),
 };
@@ -198,7 +220,9 @@ int adc128s102_register(void (*chip_select)(bool))
 	adc128s10_init_sysctl();
 #endif /* CONFIG_SYSCTL */
 
-	/* prime device */
+	/* prime local values; the ADC128 does not need dummy polls, but
+	 * we do since we will (eventually) only run in async mode
+	 */
 	for (i = 0; i < 8; i++)
 		adc128s102_get_value(i);
 
