@@ -102,8 +102,8 @@ static const uint16_t tx_cmd[8] = {
 
 
 #if defined(CONFIG_SYSCTL)
-
-static char adc128s102_names[8*2];
+#define MAX_CHARS_PER_NAME 2
+static char adc128s102_names[8 * MAX_CHARS_PER_NAME];
 static struct sobj_attribute  adc128s102_attr[8];
 static struct sobj_attribute *adc128s102_attributes[8 + 1];
 
@@ -131,8 +131,8 @@ static int adc128s10_init_sysctl(void)
 
 	for (i = 0; i < 8; i++) {
 
-		snprintf(&adc128s102_names[i], 2,"%u", i);
-		adc128s102_attr[i].name  = &adc128s102_names[i];
+		snprintf(&adc128s102_names[i * MAX_CHARS_PER_NAME], MAX_CHARS_PER_NAME,"%u", i);
+		adc128s102_attr[i].name  = &adc128s102_names[i * MAX_CHARS_PER_NAME];
 		adc128s102_attr[i].show  = adc128s102_show;
 		adc128s102_attr[i].store = NULL;
 
