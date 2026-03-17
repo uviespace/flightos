@@ -402,7 +402,7 @@ static int grspi_setup(struct spi_dev *spi)
 }
 
 
-
+__attribute__((unused))
 static irqreturn_t grspi_irq(unsigned int irq, void *userdata)
 {
 	uint32_t evt;
