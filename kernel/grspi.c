@@ -231,9 +231,64 @@ static void grspi_setup_transfer(struct spi_dev *spi, struct spi_transfer *t)
 	arch_local_irq_enable();
 }
 
-static int done;
 
-static int grspi_bufs(struct spi_dev *spi, struct spi_transfer *t)
+static int grspi_bufs_sync(struct spi_dev *spi, struct spi_transfer *t)
+{
+	uint32_t evt;
+	uint32_t word;
+	uint32_t data;
+	struct grspi *grspi;
+
+	unsigned int len = t->len;
+	uint8_t bits_per_word;
+
+	grspi = spi->ctlr->ctlr_dev;
+
+
+	bits_per_word = spi->bits_per_word;
+	if (t->bits_per_word)
+		bits_per_word = t->bits_per_word;
+
+	if (bits_per_word > 8)
+		len /= 2;
+	if (bits_per_word > 16)
+		len /= 2;
+
+	grspi->tx = t->tx_buf;
+	grspi->rx = t->rx_buf;
+
+	grspi->count = len;
+
+	spi->chip_select(1);
+	/* disable RX IRQ */
+	grspi_write_register(&grspi->regs->msk, 0);
+
+	/* transmit word */
+	word = grspi->chip.get_tx(grspi);
+	grspi_write_register(&grspi->regs->tx, word);
+
+	do {	/* wait for RX queue to not be empty */
+		evt = grspi_read_register(&grspi->regs->evt);
+	} while (!(evt & GRSPI_EVT_NF));
+
+	/* data received, update */
+	data = grspi_read_register(&grspi->regs->rx);
+	if (grspi->rx)
+		grspi->chip.get_rx(data, grspi);
+
+	/* clear event register */
+	grspi_write_register(&grspi->regs->evt, evt);
+
+	spi->chip_select(0);
+
+	return grspi->count;
+}
+
+
+
+static int done;
+__attribute__((unused))
+static int grspi_bufs_async(struct spi_dev *spi, struct spi_transfer *t)
 {
 	struct grspi *grspi;
 	uint32_t word;
@@ -294,7 +349,7 @@ static int grspi_transfer_one(struct spi_ctlr *ctlr,
 
 
 	if (t->len)
-		status = grspi_bufs(spi, t);
+		status = grspi_bufs_sync(spi, t);
 	if (status > 0)
 		return -EMSGSIZE;
 
@@ -440,10 +495,13 @@ static int grspi_init_dev(void)
 
 	spi_register_ctlr(ctlr);
 
+	/* XXX DISABLED FOR NOW; this works, but we won't need it at this time */
+#if 0
 	ret = irq_request(spi->irq, ISR_PRIORITY_NOW, grspi_irq, spi);
 	if (ret)
 		goto exit;
 
+#endif
 
 exit:
 	return ret;
