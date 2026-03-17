@@ -59,8 +59,12 @@ static int tty_tx(void *data)
 #define TX_FULL  (1 << 9)
 
 #if defined(CONFIG_LEON3)
+#if defined(CONFIG_PROJECT_RAMSES)
+	static volatile int *console = (int *)0x80100100;
+#else /* CONFIG_PROJECT_RAMSES */
 	static volatile int *console = (int *)0x80000100;
-#endif
+#endif /* CONFIG_PROJECT_RAMSES */
+#endif /* CONFIG_LEON3 */
 
 #if defined(CONFIG_LEON4)
 	static volatile int *console = (int *)0xFF900000;
@@ -127,8 +131,12 @@ static int tty_write_internal_old(void *buf, size_t nbyte)
 #define TREADY 4
 
 #if defined(CONFIG_LEON3)
-       static volatile int *console = (int *)0x80000100;
-#endif
+#if defined(CONFIG_PROJECT_RAMSES)
+	static volatile int *console = (int *)0x80100100;
+#else /* CONFIG_PROJECT_RAMSES */
+	static volatile int *console = (int *)0x80000100;
+#endif /* CONFIG_PROJECT_RAMSES */
+#endif /* CONFIG_LEON3 */
 
 #if defined(CONFIG_LEON4)
        static volatile int *console = (int *)0xFF900000;
