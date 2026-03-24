@@ -79,11 +79,37 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 	rr_lock();
 
+
+	/* if thas been raised, we need to see whether we can
+	 * prioritise a corresponding RR thread
+	 */
+	if (ksignal_raised()) {
+
+		list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
+
+			if (!tsk->sig_cnt)
+				continue;
+
+			if (tsk->on_cpu != cpu) {
+				if (tsk->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
+					continue;
+			}
+
+			if (tsk->state == TASK_RUN) {
+				tsk->runtime = tsk->attr.wcet;
+				list_move(&tsk->node, &tq[0].run);
+				next = tsk;
+				goto signal;
+			}
+		}
+	}
+
 	list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
 
-		if (tsk->on_cpu != cpu)
+		if (tsk->on_cpu != cpu) {
 			if (tsk->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
 				continue;
+		}
 
 
 		if (tsk->state == TASK_RUN) {
@@ -105,7 +131,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			if (tsk->on_cpu == cpu)
 				list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
-
+signal:
 	next->state = TASK_BUSY;
 
 	if (next->sig_cnt) /* switch to signal subtask */
