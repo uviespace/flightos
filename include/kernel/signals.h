@@ -92,4 +92,6 @@ int ksigaction(int signal, const struct ksig_action *act, struct ksig_action *oa
 
 void ksignal_drop_task(struct task_struct *task);
 
+int ksignal_raised(void);
+
 #endif /* _KERNEL_SIGNALS_H_ */

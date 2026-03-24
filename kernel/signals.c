@@ -4,6 +4,12 @@
 #include <kernel/kthread.h>
 #include <kernel/string.h>
 #include <kernel/smp.h>
+#include <kernel/syscall.h>
+#include <asm/processor.h>
+#include <asm/spinlock.h>
+
+int syscall_sched_yield(void);
+
 
 #define MSG "KSIGNAL: "
 
@@ -16,10 +22,38 @@ struct ksig_reg {
 
 static LIST_HEAD(ksignals);
 
+static uint32_t ksig_cnt;
+static struct spinlock ksig_spinlock;
 
-#include <kernel/syscall.h>
-#include <asm/processor.h>
-int syscall_sched_yield(void);
+
+static void ksig_lock(void)
+{
+	spin_lock_raw(&ksig_spinlock);
+}
+
+
+static void ksig_unlock(void)
+{
+	spin_unlock(&ksig_spinlock);
+}
+
+
+static void ksig_dec(int count)
+{
+	ksig_lock();
+	ksig_cnt -= count;
+	ksig_unlock();
+}
+
+
+static void ksig_inc(void)
+{
+	ksig_lock();
+	ksig_cnt++;
+	ksig_unlock();
+}
+
+
 static int ksig_exec(void *data)
 {
 	struct task_struct *tsk = data;
@@ -53,6 +87,7 @@ static int ksig_exec(void *data)
 			}
 		}
 		tsk->sig_cnt--;
+		ksig_dec(1);
 	}
 	return 0;
 }
@@ -202,6 +237,7 @@ int ksignal_send_info(int signal, siginfo_t *info)
 
 		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
 		hdl->tsk->sig_cnt++;
+		ksig_inc();
 		schedule();
 	}
 
@@ -232,6 +268,8 @@ void ksignal_drop_task(struct task_struct *task)
 	}
 
 	list_for_each_entry_safe(hdl, htmp, &task->ksig_handlers, node) {
+
+		ksig_dec(hdl->tsk->sig_cnt);
 		list_del(&hdl->node);
 		list_del(&hdl->task_node);
 		kfree(hdl);
@@ -239,4 +277,14 @@ void ksignal_drop_task(struct task_struct *task)
 
 	if (task->sig)
 		kfree(task->sig->stack);
+}
+
+
+/**
+ * @brief check if there are pending signals
+ */
+
+int ksignal_raised(void)
+{
+	return !!ksig_cnt;
 }
