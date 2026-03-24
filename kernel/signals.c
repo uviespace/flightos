@@ -37,20 +37,33 @@ static void ksig_unlock(void)
 	spin_unlock(&ksig_spinlock);
 }
 
-
 static void ksig_dec(int count)
 {
+	uint32_t c;
+	uint32_t psr;
+
+	psr = spin_lock_save_irq();
 	ksig_lock();
-	ksig_cnt -= count;
+	c = ioread32be(&ksig_cnt);
+	c -= count;
+	iowrite32be(c, &ksig_cnt);
 	ksig_unlock();
+	spin_lock_restore_irq(psr);
 }
 
 
 static void ksig_inc(void)
 {
+	uint32_t c;
+	uint32_t psr;
+
+	psr = spin_lock_save_irq();
 	ksig_lock();
-	ksig_cnt++;
+	c = ioread32be(&ksig_cnt);
+	c += 1;
+	iowrite32be(c, &ksig_cnt);
 	ksig_unlock();
+	spin_lock_restore_irq(psr);
 }
 
 
