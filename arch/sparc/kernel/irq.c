@@ -1503,6 +1503,22 @@ static void set_affinity(unsigned int irq, int cpu)
 
 
 /**
+ * @brief set IRQ level
+ *
+ * @note leon implementations support only high/normal
+ */
+
+static void set_level(unsigned int irq, unsigned int priority)
+{
+
+	if (irq >= IRL_SIZE)	/* regular interrrupts only */
+		return;
+
+	leon_irq_set_level(1 << irq, priority);
+}
+
+
+/**
  * the configuration for the high-level irq manager
  */
 
@@ -1513,6 +1529,7 @@ static struct irq_dev leon_irq = {
 	.irq_unmask		= unmask_irq,
 	.irq_deferred		= execute_deferred_irq,
 	.irq_set_affinity	= set_affinity,
+	.irq_set_level		= set_level,
 };
 
 

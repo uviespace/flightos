@@ -104,6 +104,19 @@ int irq_set_affinity(unsigned int irq, int cpu)
 }
 EXPORT_SYMBOL(irq_set_affinity);
 
+
+/**
+ * @brief set an interrupt priority level
+ */
+
+void irq_set_level(unsigned int irq, unsigned int priority)
+{
+	if (irq_ctrl->irq_set_level)
+		irq_ctrl->irq_set_level(irq, priority);
+}
+EXPORT_SYMBOL(irq_set_level);
+
+
 /**
  * @brief initialise the IRQ system
  */

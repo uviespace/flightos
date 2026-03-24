@@ -48,6 +48,7 @@ struct irq_dev {
         void         (*irq_unmask)        (struct irq_data *data);
         void         (*irq_deferred)      (void);
         void         (*irq_set_affinity)  (unsigned int irq, int cpu);
+        void         (*irq_set_level)	  (unsigned int irq, unsigned int priority);
 };
 
 
@@ -62,5 +63,6 @@ int irq_request(unsigned int irq, enum isr_exec_priority priority,
 int irq_exec_deferred(void);
 
 int irq_set_affinity(unsigned int irq, int cpu);
+void irq_set_level(unsigned int irq, unsigned int priority);
 
 #endif /* _KERNEL_IRQ_H_ */
