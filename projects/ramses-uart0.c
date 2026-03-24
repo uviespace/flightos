@@ -49,11 +49,29 @@ static int rs485_write_internal(void *buf, size_t nbyte)
 {
 	size_t cnt = 0;
 	char *c = buf;
+	uint32_t status;
 
 	struct leon3_apbuart_registermap *uart = (void *)LEON3_BASE_ADDRESS_APBUART;
 
 
+
+	/* switch back to TX */
 	ramses_rs485_tx_select(1);
+
+	/* we see the occasional link-level error, to re-sync, we
+	 * attempt to empty the RX fifo of stale bytes before TXing the
+	 * next command
+	 */
+	while ((ioread32be(&uart->status) >> 26))
+		ioread32be(&uart->data);
+
+	status = ioread32be(&uart->status);	/* clear all errors */
+	if (status & (ERR_FE | ERR_PE | ERR_OV)) {
+
+		status &= ~(ERR_FE | ERR_PE | ERR_OV);
+		iowrite32be(status, &uart->status);
+	}
+
 
 	while (nbyte) {
 
