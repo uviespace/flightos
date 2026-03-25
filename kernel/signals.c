@@ -7,6 +7,7 @@
 #include <kernel/syscall.h>
 #include <asm/processor.h>
 #include <asm/spinlock.h>
+#include <asm-generic/irqflags.h>
 
 int syscall_sched_yield(void);
 
@@ -40,30 +41,32 @@ static void ksig_unlock(void)
 static void ksig_dec(int count)
 {
 	uint32_t c;
-	uint32_t psr;
 
-	psr = spin_lock_save_irq();
+	arch_local_irq_disable();
+
 	ksig_lock();
 	c = ioread32be(&ksig_cnt);
 	c -= count;
 	iowrite32be(c, &ksig_cnt);
 	ksig_unlock();
-	spin_lock_restore_irq(psr);
+
+	arch_local_irq_enable();
 }
 
 
 static void ksig_inc(void)
 {
 	uint32_t c;
-	uint32_t psr;
 
-	psr = spin_lock_save_irq();
+	arch_local_irq_disable();
+
 	ksig_lock();
 	c = ioread32be(&ksig_cnt);
 	c += 1;
 	iowrite32be(c, &ksig_cnt);
 	ksig_unlock();
-	spin_lock_restore_irq(psr);
+
+	arch_local_irq_enable();
 }
 
 
