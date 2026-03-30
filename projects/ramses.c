@@ -36,7 +36,7 @@ struct spw_user_cfg spw_cfg[3];
 #define HDR_SIZE		0x4
 #define STRIP_HDR_BYTES		0x4
 
-#define RAMSES_MTU_TM		4096		/* XXX check, this may be just 2 kiB */
+#define RAMSES_MTU_TM		2048
 #define RAMSES_MTU_TC		GRSPW2_DEFAULT_MTU
 
 #define RAMSES_SC_RX_NDESC	GRSPW2_RX_DESCRIPTORS
@@ -149,7 +149,7 @@ static void spw_init_core_obc(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint
 				  cfg->tx_desc,
 				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
-				  cfg->tx_data, RAMSES_MTU_TC);
+				  cfg->tx_data, RAMSES_MTU_TM);
 
 	/* XXX check which of these we need */
 #if 1
@@ -188,7 +188,7 @@ static void spw_init_core_red(struct spw_user_cfg *cfg, uint32_t n_rx_desc, uint
 				  cfg->tx_desc,
 				  n_tx_desc * GRSPW2_TX_DESC_SIZE,
 				  cfg->tx_hdr, HDR_SIZE,
-				  cfg->tx_data, RAMSES_MTU_TC);
+				  cfg->tx_data, RAMSES_MTU_TM);
 
 	/* XXX check which of these we need */
 #if 1

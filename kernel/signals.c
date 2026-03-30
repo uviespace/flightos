@@ -78,33 +78,44 @@ static int ksig_exec(void *data)
 	struct ksig_handler *hdl;
 
 
+
 	while (1) {
+
 		if (!tsk->sig_cnt || list_empty(&tsk->ksig_queue)) {
-			/* switch back; atomicity should not be a problem here,
-			 * as worst-case, we will land back here...I hope...
-			 */
+
+			arch_local_irq_disable();
 			tsk->active = &tsk->tsk;
-			syscall_sched_yield();
+			arch_local_irq_enable();
+
+			sched_yield();
 			continue;
 		}
+
 
 		nfo = list_first_entry(&tsk->ksig_queue, struct ksig_info, node);
 		list_del(&nfo->node);
 
 		list_for_each_entry(hdl, &tsk->ksig_handlers, node) {
 			if (hdl->signal == nfo->signal) {
+
 				if (!hdl->action.sa_sigaction)
 					break;
 
 				hdl->action.sa_sigaction(nfo->signal, &nfo->info, NULL);
 
+				ksig_dec(1);
+
 				kfree(nfo);
+
+				ksig_lock();
+				tsk->sig_cnt--;
+				ksig_unlock();
+
 				break;
 			}
 		}
-		tsk->sig_cnt--;
-		ksig_dec(1);
 	}
+
 	return 0;
 }
 
@@ -251,11 +262,14 @@ int ksignal_send_info(int signal, siginfo_t *info)
 		if (info)
 			memcpy(&nfo->info, info, sizeof(*info));
 
-		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
+		ksig_lock();
 		hdl->tsk->sig_cnt++;
+		ksig_unlock();
+		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
 		ksig_inc();
-		schedule();
 	}
+
+	schedule();
 
 
 	return 0;
@@ -279,15 +293,27 @@ void ksignal_drop_task(struct task_struct *task)
 
 
 	list_for_each_entry_safe(nfo, ntmp, &task->ksig_queue, node) {
+		arch_local_irq_disable();
+		ksig_lock();
 		list_del(&nfo->node);
+
+		ksig_unlock();
+		arch_local_irq_enable();
 		kfree(nfo);
 	}
 
 	list_for_each_entry_safe(hdl, htmp, &task->ksig_handlers, node) {
 
+		arch_local_irq_disable();
+		ksig_lock();
+
 		ksig_dec(hdl->tsk->sig_cnt);
 		list_del(&hdl->node);
 		list_del(&hdl->task_node);
+
+		ksig_unlock();
+		arch_local_irq_enable();
+
 		kfree(hdl);
 	}
 
