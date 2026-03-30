@@ -419,11 +419,8 @@ void schedule(void)
 
 	spin_unlock(&core_spinlock[cpu]);
 
-	/* execute switch only if needed */
-	if (likely(next != current_set[cpu]->task)) {
-		prepare_arch_switch(1);
-		switch_to(next);
-	}
+	prepare_arch_switch(1);
+	switch_to(next);
 
 	arch_local_irq_enable();
 }

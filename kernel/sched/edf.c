@@ -198,59 +198,66 @@ static inline void schedule_edf_reinit_task(struct task_struct *tsk, ktime now)
 
 static ktime edf_hyperperiod(struct task_queue tq[], int cpu, const struct task_struct *task)
 {
-       ktime lcm = 1;
+	ktime lcm = 1;
 
-       ktime a,b;
+	ktime a,b;
 
-       struct task_struct *tsk;
-       struct task_struct *tmp;
+	struct task_struct *tsk;
+	struct task_struct *tmp;
 
 
 	lcm = task->attr.period;
 
-       /* argh, need to consider everything */
-       list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
+	/* argh, need to consider everything */
+	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
-               a = lcm;
-               b = tsk->attr.period;
+		if (tsk->flags & TASK_RUN_ONCE)	/* irrelevant */
+			continue;
 
-               /* already a multiple? */
-               if (a % b == 0)
-                       continue;
-
-               while (a != b) {
-                       if (a > b)
-                               a -= b;
-                       else
-                               b -= a;
-               }
-
-               lcm = lcm * (tsk->attr.period / a);
-       }
+		a = lcm;
+		b = tsk->attr.period;
 
 
-       /* meh ... */
-       list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
+		/* already a multiple? */
+		if (a % b == 0)
+			continue;
 
-               a = lcm;
-               b = tsk->attr.period;
+		while (a != b) {
+			if (a > b)
+				a -= b;
+			else
+				b -= a;
+		}
 
-               /* already a multiple? */
-               if (a % b == 0)
-                       continue;
-
-               while (a != b) {
-                       if (a > b)
-                               a -= b;
-                       else
-                               b -= a;
-               }
-
-               lcm = lcm * (tsk->attr.period / a);
-       }
+		lcm = lcm * (tsk->attr.period / a);
+	}
 
 
-       return lcm;
+	/* meh ... */
+	list_for_each_entry_safe(tsk, tmp, &tq[cpu].wake, node) {
+
+		if (tsk->flags & TASK_RUN_ONCE)
+			continue;
+
+		a = lcm;
+		b = tsk->attr.period;
+
+		/* already a multiple? */
+		if (a % b == 0)
+			continue;
+
+		while (a != b) {
+			if (a > b)
+				a -= b;
+			else
+				b -= a;
+		}
+
+		lcm = lcm * (tsk->attr.period / a);
+	}
+
+
+	return lcm;
 }
 
 
@@ -999,8 +1006,6 @@ static int edf_enqueue(struct task_struct *task)
 	}
 
 	task->on_cpu = cpu;
-	if (task->flags & TASK_RUN_ONCE)
-		task->attr.period = 0;
 
 	list_add_tail(&task->node, &tq[cpu].wake);
 
@@ -1038,22 +1043,22 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 
 	if (attr->policy != KSCHED_EDF) {
 		pr_err(MSG "attribute policy is %d, expected KSCHED_EDF (%d)\n",
-			attr->policy, KSCHED_EDF);
+		       attr->policy, KSCHED_EDF);
 		return -EINVAL;
 	}
 
 	if (attr->wcet < tick_min) {
 		pr_err(MSG "Cannot schedule EDF task with WCET of %lld ns, "
-		           "minimum tick duration is %lld\n", attr->wcet,
-			   tick_min);
+		       "minimum tick duration is %lld\n", attr->wcet,
+		       tick_min);
 		goto error;
 	}
 
 	if (ktime_delta(attr->deadline_rel, attr->wcet) < tick_min) {
 		pr_err(MSG "Cannot schedule EDF task with WCET-deadline delta "
-		           "of %lld ns, minimum tick duration is %lld\n",
-			   ktime_delta(attr->deadline_rel, attr->wcet),
-			   tick_min);
+		       "of %lld ns, minimum tick duration is %lld\n",
+		       ktime_delta(attr->deadline_rel, attr->wcet),
+		       tick_min);
 		goto error;
 	}
 
@@ -1085,7 +1090,7 @@ static int edf_check_sched_attr(struct sched_attr *attr)
 
 	if (attr->wcet >= attr->deadline_rel) {
 		pr_err(MSG "Cannot schedule EDF task with WCET %lld >= "
-		           "DEADLINE %lld !\n", attr->wcet, attr->deadline_rel);
+		       "DEADLINE %lld !\n", attr->wcet, attr->deadline_rel);
 		goto error;
 	}
 

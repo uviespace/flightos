@@ -72,14 +72,24 @@ SYSCALL_DEFINE3(read, int, fd, void *, buf, size_t, count)
 }
 
 #if 1
+#if defined(CONFIG_PROJECT_RAMSES)
+int rs485_write(void *buf, size_t nbyte);
+#endif /* CONFIG_PROJECT_RAMSES */
 SYSCALL_DEFINE3(write, int, fd, void *, buf, size_t, count)
 {
 
 	if (fd == stdout || fd == stderr)
 		return tty_write(buf, count);
 
+#if defined(CONFIG_PROJECT_RAMSES)
 
+	if (fd == 33)
+		rs485_write(buf, count);
+
+
+#else /* CONFIG_PROJECT_RAMSES */
 	printk("SYSCALL WRITE to fd not stdout or stderr not implemented\n");
+#endif /* CONFIG_PROJECT_RAMSES */
 	return 0;
 }
 #else

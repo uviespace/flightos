@@ -284,6 +284,8 @@ static void leon_setup_clockdevs(void)
 				   &gp_clk_dev_irq_handler,
 				   &_gp_clk_ev.dev[i]));
 
+		irq_set_level(ce->irq, 1); /* want need maximum priority */
+
 		clockevents_register_device(ce);
 	}
 }

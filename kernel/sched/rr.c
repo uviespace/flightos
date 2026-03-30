@@ -90,16 +90,18 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			if (!tsk->sig_cnt)
 				continue;
 
-			if (tsk->on_cpu != cpu) {
-				if (tsk->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
-					continue;
-			}
+			/* we only care about cpu-local tasks here; one
+			 * with no affinity will be caught below and
+			 * treated as lower general priority
+			 */
+			if (tsk->on_cpu != cpu)
+				continue;
 
 			if (tsk->state == TASK_RUN) {
 				tsk->runtime = tsk->attr.wcet;
 				list_move(&tsk->node, &tq[0].run);
 				next = tsk;
-				goto signal;
+				goto done;
 			}
 		}
 	}
@@ -131,11 +133,13 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			if (tsk->on_cpu == cpu)
 				list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
-signal:
-	next->state = TASK_BUSY;
 
-	if (next->sig_cnt) /* switch to signal subtask */
+done:
+	/* switch to signal subtask */
+	if (next->sig_cnt)
 		next->active = next->sig;
+
+	next->state = TASK_BUSY;
 
 	rr_unlock();
 

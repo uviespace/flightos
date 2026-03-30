@@ -23,7 +23,7 @@ struct ksig_reg {
 
 static LIST_HEAD(ksignals);
 
-static uint32_t ksig_cnt;
+static int ksig_cnt;
 static struct spinlock ksig_spinlock;
 
 
@@ -40,14 +40,10 @@ static void ksig_unlock(void)
 
 static void ksig_dec(int count)
 {
-	uint32_t c;
-
 	arch_local_irq_disable();
 
 	ksig_lock();
-	c = ioread32be(&ksig_cnt);
-	c -= count;
-	iowrite32be(c, &ksig_cnt);
+	ksig_cnt--;
 	ksig_unlock();
 
 	arch_local_irq_enable();
@@ -56,14 +52,10 @@ static void ksig_dec(int count)
 
 static void ksig_inc(void)
 {
-	uint32_t c;
-
 	arch_local_irq_disable();
 
 	ksig_lock();
-	c = ioread32be(&ksig_cnt);
-	c += 1;
-	iowrite32be(c, &ksig_cnt);
+	ksig_cnt++;
 	ksig_unlock();
 
 	arch_local_irq_enable();
@@ -79,12 +71,12 @@ static int ksig_exec(void *data)
 
 
 	while (1) {
-		if (!tsk->sig_cnt || list_empty(&tsk->ksig_queue)) {
-			/* switch back; atomicity should not be a problem here,
-			 * as worst-case, we will land back here...I hope...
-			 */
+
+		if (list_empty(&tsk->ksig_queue)) {
+
 			tsk->active = &tsk->tsk;
-			syscall_sched_yield();
+
+			sched_yield();
 			continue;
 		}
 
@@ -93,17 +85,24 @@ static int ksig_exec(void *data)
 
 		list_for_each_entry(hdl, &tsk->ksig_handlers, node) {
 			if (hdl->signal == nfo->signal) {
+
 				if (!hdl->action.sa_sigaction)
 					break;
 
 				hdl->action.sa_sigaction(nfo->signal, &nfo->info, NULL);
 
+				ksig_dec(1);
+
 				kfree(nfo);
+
+				tsk->sig_cnt--;
+
 				break;
 			}
 		}
-		tsk->sig_cnt--;
-		ksig_dec(1);
+
+
+
 	}
 	return 0;
 }
@@ -254,7 +253,6 @@ int ksignal_send_info(int signal, siginfo_t *info)
 		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
 		hdl->tsk->sig_cnt++;
 		ksig_inc();
-		schedule();
 	}
 
 
@@ -279,15 +277,27 @@ void ksignal_drop_task(struct task_struct *task)
 
 
 	list_for_each_entry_safe(nfo, ntmp, &task->ksig_queue, node) {
+		arch_local_irq_disable();
+		ksig_lock();
 		list_del(&nfo->node);
+
+		ksig_unlock();
+		arch_local_irq_enable();
 		kfree(nfo);
 	}
 
 	list_for_each_entry_safe(hdl, htmp, &task->ksig_handlers, node) {
 
+		arch_local_irq_disable();
+		ksig_lock();
+
 		ksig_dec(hdl->tsk->sig_cnt);
 		list_del(&hdl->node);
 		list_del(&hdl->task_node);
+
+		ksig_unlock();
+		arch_local_irq_enable();
+
 		kfree(hdl);
 	}
 
@@ -302,5 +312,5 @@ void ksignal_drop_task(struct task_struct *task)
 
 int ksignal_raised(void)
 {
-	return !!ksig_cnt;
+	return (ksig_cnt > 0);
 }
