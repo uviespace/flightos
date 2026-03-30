@@ -84,23 +84,18 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 	 * prioritise a corresponding RR thread
 	 */
 	if (ksignal_raised()) {
+
 		list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
 
 			if (!tsk->sig_cnt)
 				continue;
 
-			/* XXX if I allow threads here which have KTHREAD_CPU_AFFINITY_NONE set,
-			 * we get a crash after some time, but I have no clue why...
+			/* we only care about cpu-local tasks here; one
+			 * with no affinity will be caught below and
+			 * treated as lower general priority
 			 */
-#if 0
-			if (tsk->on_cpu != cpu) {
-				if (tsk->on_cpu != KTHREAD_CPU_AFFINITY_NONE)
-					continue;
-			}
-#else
 			if (tsk->on_cpu != cpu)
 				continue;
-#endif
 
 			if (tsk->state == TASK_RUN) {
 				tsk->runtime = tsk->attr.wcet;

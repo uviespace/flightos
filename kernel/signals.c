@@ -23,7 +23,7 @@ struct ksig_reg {
 
 static LIST_HEAD(ksignals);
 
-static uint32_t ksig_cnt;
+static int ksig_cnt;
 static struct spinlock ksig_spinlock;
 
 
@@ -40,14 +40,10 @@ static void ksig_unlock(void)
 
 static void ksig_dec(int count)
 {
-	uint32_t c;
-
 	arch_local_irq_disable();
 
 	ksig_lock();
-	c = ioread32be(&ksig_cnt);
-	c -= count;
-	iowrite32be(c, &ksig_cnt);
+	ksig_cnt--;
 	ksig_unlock();
 
 	arch_local_irq_enable();
@@ -56,14 +52,10 @@ static void ksig_dec(int count)
 
 static void ksig_inc(void)
 {
-	uint32_t c;
-
 	arch_local_irq_disable();
 
 	ksig_lock();
-	c = ioread32be(&ksig_cnt);
-	c += 1;
-	iowrite32be(c, &ksig_cnt);
+	ksig_cnt++;
 	ksig_unlock();
 
 	arch_local_irq_enable();
@@ -78,19 +70,15 @@ static int ksig_exec(void *data)
 	struct ksig_handler *hdl;
 
 
-
 	while (1) {
 
-		if (!tsk->sig_cnt || list_empty(&tsk->ksig_queue)) {
+		if (list_empty(&tsk->ksig_queue)) {
 
-			arch_local_irq_disable();
 			tsk->active = &tsk->tsk;
-			arch_local_irq_enable();
 
 			sched_yield();
 			continue;
 		}
-
 
 		nfo = list_first_entry(&tsk->ksig_queue, struct ksig_info, node);
 		list_del(&nfo->node);
@@ -107,15 +95,15 @@ static int ksig_exec(void *data)
 
 				kfree(nfo);
 
-				ksig_lock();
 				tsk->sig_cnt--;
-				ksig_unlock();
 
 				break;
 			}
 		}
-	}
 
+
+
+	}
 	return 0;
 }
 
@@ -262,14 +250,10 @@ int ksignal_send_info(int signal, siginfo_t *info)
 		if (info)
 			memcpy(&nfo->info, info, sizeof(*info));
 
-		ksig_lock();
-		hdl->tsk->sig_cnt++;
-		ksig_unlock();
 		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
+		hdl->tsk->sig_cnt++;
 		ksig_inc();
 	}
-
-	schedule();
 
 
 	return 0;
@@ -328,5 +312,5 @@ void ksignal_drop_task(struct task_struct *task)
 
 int ksignal_raised(void)
 {
-	return !!ksig_cnt;
+	return (ksig_cnt > 0);
 }
