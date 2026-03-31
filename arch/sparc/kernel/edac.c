@@ -316,10 +316,10 @@ static uint32_t edac_error(void)
 	if (edac_error_in_critical_section((void *)addr)) {
 		if (do_reset)
 			do_reset(reset_data);
-		/* otherwise overwrite with all bits set */
-		iowrite32be(-1, (void *) addr);
 	}
 
+	/* otherwise overwrite with all bits set */
+	iowrite32be(-1, (void *) addr);
 
 	return 1;
 }
