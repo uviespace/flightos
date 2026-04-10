@@ -346,7 +346,7 @@ static int ramses_init(void)
 	addr = module_read_embedded("dpm");
 	printk(MSG "test executable address is %p\n", addr);
 	if (addr)
-		application_load(addr, "ASW", KTHREAD_CPU_AFFINITY_NONE, 0, NULL);
+		application_load(addr, "ASW", 1, 0, NULL);
 #endif /* CONFIG_EMBED_APPLICATION */
 
 

@@ -249,10 +249,17 @@ static int ramses_mem_cfg(void)
 
 #define MEMCFG1_PROMACCESS		0x102A0022
 #define MEMCFG2_RAMACCESS		0xCB60544F
-//#define MEMCFG2_RAMACCESS		0xCB60544F
-//#define MEMCFG2_RAMACCESS		0xD778504F
-#define MEMCFG3_RAMACCESS		0x08185200
-//#define MEMCFG3_RAMACCESS		0x08076200
+#define MEMCFG3_RAMACCESS		0x081D3200	/* as per spec for 60 MHz */
+
+/* note: refresh is 8192/64 ms cycles as per SDRAM datasheet => 7.8125 µs/cycle
+ * mcfg3:
+ * refresh counter = t_refresh * sysclk - 1 = 7.8125 * 50 - 1 = 389 =  0x185
+ * for 100 MHz: 780/0x30c
+ */
+
+	/* set good SDDEL */
+	iowrite32be(0x02800000,  (void *)0x80000600);
+
 	iowrite32be(MEMCFG1_PROMACCESS, (void *)0x80000000);
 	iowrite32be(MEMCFG2_RAMACCESS,  (void *)0x80000004);
 	iowrite32be(MEMCFG3_RAMACCESS,  (void *)0x80000008);
