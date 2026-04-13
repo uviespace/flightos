@@ -79,7 +79,8 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 	rr_lock();
 
-
+	/* for now, disable for RAMSES until the CPU2 issue identified */
+#if defined(CONFIG_PROJECT_RAMSES)
 	/* if thas been raised, we need to see whether we can
 	 * prioritise a corresponding RR thread
 	 */
@@ -105,7 +106,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			}
 		}
 	}
-
+#endif
 	list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
 
 		if (tsk->on_cpu != cpu) {

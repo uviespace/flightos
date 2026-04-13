@@ -419,8 +419,17 @@ void schedule(void)
 
 	spin_unlock(&core_spinlock[cpu]);
 
+	/* for now, disable for RAMSES until the CPU2 issue identified */
+#if defined(CONFIG_PROJECT_RAMSES)
+	/* execute switch only if needed */
+	if (likely(next != current_set[cpu]->task)) {
+		prepare_arch_switch(1);
+		switch_to(next);
+	}
+#else
 	prepare_arch_switch(1);
 	switch_to(next);
+#endif /* CONFIG_PROJECT_RAMSES */
 
 	arch_local_irq_enable();
 }

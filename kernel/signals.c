@@ -40,25 +40,33 @@ static void ksig_unlock(void)
 
 static void ksig_dec(int count)
 {
+#if !defined(CONFIG_PROJECT_RAMSES)
 	arch_local_irq_disable();
 
 	ksig_lock();
+#endif
 	ksig_cnt--;
+#if !defined(CONFIG_PROJECT_RAMSES)
 	ksig_unlock();
 
 	arch_local_irq_enable();
+#endif
 }
 
 
 static void ksig_inc(void)
 {
+#if !defined(CONFIG_PROJECT_RAMSES)
 	arch_local_irq_disable();
 
 	ksig_lock();
+#endif
 	ksig_cnt++;
+#if !defined(CONFIG_PROJECT_RAMSES)
 	ksig_unlock();
 
 	arch_local_irq_enable();
+#endif
 }
 
 
