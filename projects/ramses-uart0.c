@@ -29,6 +29,7 @@
 #define CTRL_TX_IRQ		(1 << 3)
 #define CTRL_TX_FIFO_IRQ	(1 << 9)
 #define CTRL_RX_FIFO_IRQ	(1 << 10)
+#define CTRL_TX_EN		(1 << 1)
 
 
 
@@ -63,9 +64,7 @@ static int rs485_write_internal(void *buf, size_t nbyte)
 	struct leon3_apbuart_registermap *uart = (void *)LEON3_BASE_ADDRESS_APBUART;
 
 
-
-
-	/* we see the occasional link-level error, to re-sync, we
+	/* if we see a link-level error, to re-sync, we
 	 * attempt to empty the RX fifo of stale bytes before TXing the
 	 * next command
 	 */
@@ -79,21 +78,19 @@ static int rs485_write_internal(void *buf, size_t nbyte)
 		iowrite32be(status, &uart->status);
 	}
 
-	/* switch transceiver back to tx */
-	ramses_rs485_tx_select(1);
-
-	/* enable IRQs */
-	ctrl = ioread32be(&uart->ctrl);
-	ctrl |= CTRL_RX_IRQ | CTRL_TX_IRQ;
-	iowrite32be(ctrl, &uart->ctrl);
-
 	while (nbyte) {
-
 		uart->data = c[cnt] & 0xff;
-
 		cnt++;
 		nbyte--;
 	}
+
+	/* switch transceiver back to tx */
+	ramses_rs485_tx_select(1);
+	/* enable IRQs, TX */
+	ctrl = ioread32be(&uart->ctrl);
+	ctrl |= CTRL_RX_IRQ | CTRL_TX_IRQ | CTRL_TX_EN;
+	iowrite32be(ctrl, &uart->ctrl);
+
 
 	return cnt;
 }
@@ -101,11 +98,7 @@ static int rs485_write_internal(void *buf, size_t nbyte)
 
 int rs485_write(void *buf, size_t nbyte)
 {
-        uint32_t psr;
-
-        psr = spin_lock_save_irq();
 	rs485_write_internal(buf, nbyte);
-        spin_lock_restore_irq(psr);
 
 	return 0;
 }
@@ -129,8 +122,9 @@ static irqreturn_t rs485_irq(unsigned int irq, void *userdata)
 	if ((ioread32be(&uart->status) >> 26) > 3) {
 
 		uint8_t *p = (void *)&info;
-		uint32_t ctrl = ioread32be(&uart->ctrl);
-		uint32_t status = ioread32be(&uart->status);
+		uint32_t status;
+		uint32_t ctrl;
+
 
 		/* we always expect a 4-byte response */
 		p[0] = ioread32be(&uart->data) & 0xff;
@@ -138,19 +132,32 @@ static irqreturn_t rs485_irq(unsigned int irq, void *userdata)
 		p[2] = ioread32be(&uart->data) & 0xff;
 		p[3] = ioread32be(&uart->data) & 0xff;
 
-		/* enable IRQs */
-		ctrl &= ~(CTRL_RX_IRQ | CTRL_TX_IRQ);
+		/* disable IRQs, TX enable bit
+		 * NOTE: we may have encountered an unknown erratum here;
+		 * with the FPGA we see an apparent communication error for
+		 * ~1% of commands, with a rate of ~800/s
+		 * An oscilloscope trace shows that this is indeed a
+		 * transmission problem, as the TX_EN line controlling the
+		 * transceiver goes high in rs485_write_internal(), but
+		 * no data is being clocked out.
+		 *
+		 * I therefore had the idea to simply toggle the transmit bit
+		 * off at some point (i.e. here) and only back on when we have
+		 * queued up our 6 command bytes in the TX FIFO
+		 * voila...no more missed messaged
+		 */
+		ctrl = ioread32be(&uart->ctrl);
+		ctrl &= ~(CTRL_RX_IRQ | CTRL_TX_IRQ | CTRL_TX_EN);
 		iowrite32be(ctrl, &uart->ctrl);
 
-		/* tx done, switch external transceiver back to to TX */
-		ramses_rs485_tx_select(1);
-
+		status = ioread32be(&uart->status);
 		if (status & (STATUS_ERR_FE | STATUS_ERR_PE | STATUS_ERR_OV)) {
 
 			/* empty fifo if any of these occured */
 			while ((ioread32be(&uart->status) >> 26))
 				ioread32be(&uart->data);
 
+			status = ioread32be(&uart->status);
 			status &= ~(STATUS_ERR_FE | STATUS_ERR_PE | STATUS_ERR_OV);
 			iowrite32be(status, &uart->status);
 
@@ -178,15 +185,10 @@ int rs485_init(void)
 
 	struct leon3_apbuart_registermap *uart = (void *)LEON3_BASE_ADDRESS_APBUART;
 
-	/* make sure TX is on by default to make us blind against random signals */
-	ramses_rs485_tx_select(1);
+	ramses_rs485_tx_select(0);
 
-	uart->ctrl &= ~(1 << 7); /* make sure loopback is disabled */
-	uart->ctrl &= ~CTRL_TX_FIFO_IRQ; /* make sure TX FIFO IRQ is disabled */
-	uart->ctrl &= ~CTRL_RX_FIFO_IRQ; /* make sure TX FIFO IRQ is disabled */
-	uart->ctrl &= ~(1 << 4); /* make sure parity is even*/
-	/* even parity, TX irq, TX enable, RX enable */
-	uart->ctrl |= (1 << 5) | (1 << 1) | (1 << 0);
+	/* even parity, RX enable, clear everything else */
+	uart->ctrl = (1 << 5) | (1 << 0);
 
 	uart->scaler = 64;	/* closest scaler for 115200 baud target @60MHz sysclk */
 
