@@ -144,6 +144,20 @@ static inline void leon3_enable_snooping(void)
 }
 
 __attribute__((unused))
+static inline void leon3_enable_insn_burst_fetch(void)
+{
+	__asm__ __volatile__(
+			"lda	[%0] %1, %%l1		\n\t"
+			"set	0x10000, %%l2		\n\t"
+			"or	%%l2,	  %%l1,	%%l2	\n\t"
+			"sta	%%l2, [%0] %1		\n\t"
+			:
+			: "r" (ASI_LEON3_SYSCTRL_CCR),
+			  "i" (ASI_LEON3_SYSCTRL)
+			: "l1", "l2");
+}
+
+__attribute__((unused))
 static inline void leon3_enable_fault_tolerant(void)
 {
 	__asm__ __volatile__(

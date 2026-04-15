@@ -426,6 +426,7 @@ void smp_cpu_entry(void)
 	leon3_enable_icache();
 	leon3_enable_dcache();
 	leon3_enable_fault_tolerant();
+	leon3_enable_insn_burst_fetch();
 	leon3_enable_snooping();
 #endif /* CONFIG_LEON3 */
 
