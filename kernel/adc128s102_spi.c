@@ -161,7 +161,7 @@ static void adc128s102_cs(bool enable)
 
 
 static struct spi_board_info adc128s102_info = {
-	.max_speed_hz = 16000000,
+	.max_speed_hz = 10000000,
 	.chip_select  = adc128s102_cs,
 	.mode	      = (SPI_MODE_2 | SPI_MSB_FIRST),
 };
