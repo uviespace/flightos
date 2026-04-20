@@ -730,14 +730,10 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	if (first->state != TASK_RUN)
 		goto no_task;
 
-	if (first->sig_cnt) /* switch to signal subtask */
-		first->active = first->sig;
-
 	first->state = TASK_BUSY;
 
 	edf_unlock();
 	return first;
-
 
 no_task:
 	edf_unlock();

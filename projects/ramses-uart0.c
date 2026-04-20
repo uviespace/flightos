@@ -193,6 +193,7 @@ int rs485_init(void)
 	uart->scaler = 64;	/* closest scaler for 115200 baud target @60MHz sysclk */
 
 
+	irq_set_level(2, 0); /* want minimum priority */
 	irq_set_affinity(2, 1); /* we handle the UART on the second CPU */
 	ret = irq_request(2, ISR_PRIORITY_NOW, rs485_irq, NULL);
 	if (ret)
