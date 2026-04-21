@@ -90,14 +90,14 @@ static void (*cs)(bool);
 static struct spi_dev *spi_dev;
 static uint16_t rx_raw[8];
 static const uint16_t tx_cmd[8] = {
-	0 << (3 + 8),
-	1 << (3 + 8),
 	2 << (3 + 8),
 	3 << (3 + 8),
 	4 << (3 + 8),
 	5 << (3 + 8),
 	6 << (3 + 8),
 	7 << (3 + 8),
+	0 << (3 + 8),
+	1 << (3 + 8),
 };
 
 
@@ -163,7 +163,7 @@ static void adc128s102_cs(bool enable)
 static struct spi_board_info adc128s102_info = {
 	.max_speed_hz = 10000000,
 	.chip_select  = adc128s102_cs,
-	.mode	      = (SPI_MODE_2 | SPI_MSB_FIRST),
+	.mode	      = (SPI_MODE_3 | SPI_MSB_FIRST),
 };
 
 static void adc128s102_poll(uint8_t channel)
@@ -192,7 +192,8 @@ uint16_t adc128s102_get_value(uint8_t channel)
 
 	adc128s102_poll(channel);
 
-	return rx_raw[channel];
+	/* mask anything which is outside of valid 12 bit range */
+	return rx_raw[channel] & 0xfff;
 }
 
 
