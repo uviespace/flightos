@@ -98,13 +98,14 @@ static char *ar_get_strtbl_filename(struct archive *a, struct ar_hdr *hdr)
 {
 	long off;
 
-	char *str;
+	char *str = NULL;
 
 
 	off =  strtol(&hdr->ar_name[1], NULL, 10);
 
 
-	str = (char *) a->ar_str + off;
+	if (a->ar_str)
+		str = (char *) a->ar_str + off;
 
 	if (str > (a->ar_base + a->ar_size))
 		str = NULL;
