@@ -291,6 +291,7 @@ static ktime sched_find_next_task(struct task_struct **task, int cpu, ktime now)
 			break;
 	}
 
+	next->state = TASK_BUSY;
 
 	(*task) = next;
 
