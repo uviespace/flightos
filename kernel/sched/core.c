@@ -18,6 +18,7 @@
 #include <asm-generic/irqflags.h>
 #include <asm-generic/spinlock.h>
 #include <asm/switch_to.h>
+#include <asm-generic/io.h>
 
 
 #include <kernel/string.h>
@@ -208,13 +209,14 @@ static void sched_update_runtime(struct task_struct *task, ktime now)
 	task->runtime = ktime_sub(task->runtime, rt);
 	task->total   = ktime_add(task->total, rt);
 
-	if (task->state == TASK_BUSY)
-		task->state  = TASK_RUN;
+
+	if (ioread32be(&task->state) != TASK_DEAD)
+		iowrite32be(TASK_RUN, &task->state);
 
 
 	if (task->flags & TASK_RUN_ONCE) {
 		if (task->runtime < (ktime) (2 * tick_get_period_min_ns()))
-			task->state = TASK_DEAD;
+			iowrite32be(TASK_DEAD, &task->state);
 	}
 }
 
@@ -291,7 +293,6 @@ static ktime sched_find_next_task(struct task_struct **task, int cpu, ktime now)
 			break;
 	}
 
-	next->state = TASK_BUSY;
 
 	(*task) = next;
 

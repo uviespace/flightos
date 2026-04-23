@@ -21,7 +21,7 @@
 #include <kernel/smp.h>
 #include <asm/spinlock.h>
 #include <asm-generic/irqflags.h>
-
+#include <asm-generic/io.h>
 
 #define MSG "KSCHED_RR: "
 
@@ -116,7 +116,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 		}
 
 
-		if (tsk->state == TASK_RUN) {
+		if (ioread32be(&tsk->state) == TASK_RUN) {
 
 			if (tsk->runtime <= tick) {
 				/* reset runtime and queue up at the end */
@@ -139,6 +139,9 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 #if !defined(CONFIG_PROJECT_RAMSES)
 done:
 #endif
+	next->state = TASK_BUSY;
+	iowrite32be(TASK_BUSY, &next->state);
+
 	rr_unlock();
 
 	return next;
