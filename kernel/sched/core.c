@@ -387,6 +387,7 @@ void schedule(void)
 		 * execute given the system overhead
 		 */
 
+		iowrite32be(TASK_RUN, &next->state);	/* return to sender */
 		now = ktime_get();
 	}
 
