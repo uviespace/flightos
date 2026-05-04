@@ -139,7 +139,6 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 #if !defined(CONFIG_PROJECT_RAMSES)
 done:
 #endif
-	next->state = TASK_BUSY;
 	iowrite32be(TASK_BUSY, &next->state);
 
 	rr_unlock();
