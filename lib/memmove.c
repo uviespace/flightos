@@ -7,16 +7,12 @@
  *
  */
 
+#include <stdint.h>
+#include <stddef.h>
 
-#include <kernel/kmem.h>
 #include <kernel/export.h>
-#include <kernel/types.h>
 #include <kernel/string.h>
-#include <kernel/printk.h>
-#include <kernel/log2.h>
-#include <kernel/bitops.h>
 #include <kernel/kernel.h>
-#include <kernel/tty.h>
 
 
 union cpy64 {
