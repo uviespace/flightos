@@ -399,13 +399,20 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 
 void *memmove(void *dest, const void *src, size_t n)
 {
+	uintptr_t d = (uintptr_t)dest;
+	uintptr_t s = (uintptr_t)src;
+
 	if (!n || dest == src)
 		return dest;
 
-	if ((uintptr_t)dest + n < (uintptr_t)src ||  (uintptr_t)src + n < (uintptr_t)dest)
-		memmove_fwd(dest, src, n);
-	else
+	if (d + n < s || s + n < d || d < s) {
+		void *tmp = dest;
+
+		precondition_alignment(&tmp, &src, &n);
+		memmove_fwd(tmp, src, n);
+	} else {
 		memmove_bwd(dest, src, n);
+	}
 
 	return dest;
 }
