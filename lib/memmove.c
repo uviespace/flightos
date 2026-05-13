@@ -18,6 +18,7 @@
 #include <kernel/kernel.h>
 #include <kernel/tty.h>
 
+
 union cpy64 {
 	uint64_t v;
 	struct {
@@ -27,147 +28,141 @@ union cpy64 {
 };
 
 
-static inline void cpy_64_64(char **dd, const char **ss, size_t *nn, size_t *cc)
+static inline void cpy_64_64(void **dst, const void **src, size_t *nn)
 {
+	size_t c;
 	size_t n = (*nn);
-	size_t c = (*cc);
 
-	char *d = (*dd);
+	uint64_t *d;
+	const uint64_t *s;
 
-	const char *s = (*ss);
-
-	uint64_t *ddd, *sss;
 	register uint64_t r0, r1, r2, r3;
 
 
-	/* this may be less efficient on platforms which do not
+	d = (uint64_t *)(*dst);
+	s = (uint64_t *)(*src);
+
+	/* this may be lesrc efficient on platforms which do not
 	 * have enough registers available, but 4 seems an ok choice
 	 * (and it works perfectly fine on SPARC)
 	 */
-	c = n / (sizeof(uint64_t) * 4);
-	if (c >= 4) {
+	c = n / sizeof(uint64_t) / 4;
+	if (c < 4)
+		goto tail;
 
-		n -= c * sizeof(uint64_t) * 4;
+	n -= c * sizeof(uint64_t) * 4;
 
-		while (c--) {
-
-
-			ddd = (uint64_t *)d;
-			sss = (uint64_t *)s;
-
-			r0 = sss[0];
-			r1 = sss[1];
-			r2 = sss[2];
-			r3 = sss[3];
-			ddd[0] = r0;
-			ddd[1] = r1;
-			ddd[2] = r2;
-			ddd[3] = r3;
-
-			s += sizeof(uint64_t) * 4;
-			d += sizeof(uint64_t) * 4;
-		}
-	}
-
-	/* copy the aligned tail end */
-	c = n / sizeof(uint64_t);
 	while (c--) {
 
-		(*((uint64_t *)d)) = (*((uint64_t *)s));
+		r0 = s[0];
+		r1 = s[1];
+		r2 = s[2];
+		r3 = s[3];
+		d[0] = r0;
+		d[1] = r1;
+		d[2] = r2;
+		d[3] = r3;
 
-		s += sizeof(uint64_t);
-		d += sizeof(uint64_t);
+		s += 4;
+		d += 4;
 	}
 
+tail:
+	/* copy the aligned tail end */
+	c = n / sizeof(uint64_t);
+	n -= c * sizeof(uint64_t);
+	while (c--)
+		(*((uint64_t *)d++)) = (*((uint64_t *)s++));
 
-	(*nn) = n;
-	(*cc) = c;
-	(*dd) = d;
-	(*ss) = s;
+	(*nn)  = n;
+	(*dst) = d;
+	(*src) = s;
 }
 
 
-static inline void cpy_16_16(char **dd, const char **ss, size_t *nn, size_t *cc)
+static inline void cpy_16_16(void **dst, const void **src, size_t *nn)
 {
+	size_t c;
 	size_t n = (*nn);
-	size_t c = (*cc);
 
-	char *d = (*dd);
+	uint16_t *d;
+	const uint16_t *s;
 
-	const char *s = (*ss);
-
-	uint16_t *ddd, *sss;
 	register uint16_t r0, r1;
 
 
+	d = (uint16_t *)(*dst);
+	s = (uint16_t *)(*src);
+
 	/* a loop of 2 half-words seems to be best (on SPARC) */
-	c = n / (sizeof(uint16_t) * 2);
-	if (c >= 2) {
+	c = n / sizeof(uint16_t) / 2;
+	if (c < 2)
+		goto exit;
 
-		n -= c * sizeof(uint16_t) * 2;
+	n -= c * sizeof(uint16_t) * 2;
 
-		while (c--) {
+	while (c--) {
 
+		r0 = s[0];
+		r1 = s[1];
+		d[0] = r0;
+		d[1] = r1;
 
-			ddd = (uint16_t *)d;
-			sss = (uint16_t *)s;
-
-			r0 = sss[0];
-			r1 = sss[1];
-			ddd[0] = r0;
-			ddd[1] = r1;
-
-			s += sizeof(uint16_t) * 2;
-			d += sizeof(uint16_t) * 2;
-		}
+		s += 2;
+		d += 2;
 	}
-
-	(*nn) = n;
-	(*cc) = c;
-	(*dd) = d;
-	(*ss) = s;
+exit:
+	(*nn)  = n;
+	(*dst) = d;
+	(*src) = s;
 }
 
 
-static inline void cpy_64_32(char **dd, const char **ss, size_t *nn, size_t *cc)
+/* needed or sparc-gaisler-elf-gcc 13.2.1 (bcc-v2.3.1)
+ * will not always generate 64-bit load instructions and thus ~40% slower code:
+ *
+ *	#pragma GCC optimize("no-strict-aliasing")
+ *
+ * this is default for the kernel build, so I'm not using it here
+ */
+static void cpy_64_32(void **dst, const void **src, size_t *nn)
 {
+	size_t c;
 	size_t n = (*nn);
-	size_t c = (*cc);
 
-	char *d = (*dd);
-	const char *s = (*ss);
-
-	uint64_t *sss;
-	uint32_t *ddd;
+	uint32_t *d;
+	const uint64_t *s;
 
 	register union cpy64 r0;
 	register union cpy64 r1;
 
 
+	d = (uint32_t *)(*dst);
+	s = (uint64_t *)(*src);
+
 	c =  n / sizeof(uint64_t) / 2;
 	n -= c * sizeof(uint64_t) * 2;
 
+	if (c < 2)
+		goto exit;
+
 	while (c--) {
 
-		ddd = (uint32_t *)d;
-		sss = (uint64_t *)s;
+		r0.v = s[0];
+		d[0] = r0.h;
+		d[1] = r0.l;
+		r1.v = s[1];
+		d[2] = r1.h;
+		d[3] = r1.l;
 
-		r0.v = sss[0];
-		ddd[0] = r0.h;
-		ddd[1] = r0.l;
-		r1.v = sss[1];
-		ddd[2] = r1.h;
-		ddd[3] = r1.l;
-
-		s += sizeof(uint64_t) * 2;
-		d += sizeof(uint64_t) * 2;
+		s += 2;
+		d += 4;
 	}
 
-
+exit:
 	(*nn) = n;
-	(*cc) = c;
-	(*dd) = d;
-	(*ss) = s;
+	(*dst) = d;
+	(*src) = s;
 }
 
 #if 0
@@ -177,55 +172,51 @@ static inline void cpy_64_32(char **dd, const char **ss, size_t *nn, size_t *cc)
  * potential to become a lot faster, e.g  ~17% on SPARC
  */
 
-static inline void cpy_32_64(char **dd, const char **ss, size_t *nn, size_t *cc)
+static inline void cpy_32_64(void **dst, const void **src, size_t *nn)
 {
+	size_t c;
 	size_t n = (*nn);
-	size_t c = (*cc);
 
-	char *d = (*dd);
-	const char *s = (*ss);
+	const uint32_t *s;
+	uint64_t *d;
 
-	uint32_t *sss;
-	uint64_t *ddd;
+	register union cpy64 r0 asm("%l0");
+	register union cpy64 r1 asm("%l2");
 
-	register union cpy64 r0 REG64_0;
-	register union cpy64 r1 REG64_1;
 
+	d = (uint64_t *)(*dst);
+	s = (uint32_t *)(*src);
 
 	c =  n / sizeof(uint64_t) / 2;
 	n -= c * sizeof(uint64_t) * 2;
 
 	while (c--) {
 
-		ddd = (uint64_t *)d;
-		sss = (uint32_t *)s;
 
-		r0.h = sss[0];
-		r0.l = sss[1];
-		ddd[0] = r0.v;
-		r1.h = sss[2];
-		r1.l = sss[3];
-		ddd[1] = r1.v;
+		r0.h = s[0];
+		r0.l = s[1];
+		d[0] = r0.v;
+		r1.h = s[2];
+		r1.l = s[3];
+		d[1] = r1.v;
 
-		s += sizeof(uint64_t) * 2;
-		d += sizeof(uint64_t) * 2;
+		s += 4;
+		d += 2;
 	}
 
 
 	(*nn) = n;
-	(*cc) = c;
-	(*dd) = d;
-	(*ss) = s;
+	(*dst) = d;
+	(*src) = s;
 }
-
 #endif
 
-static void precondition_alignment(void **dd, const void **ss, size_t *nn)
+static void precondition_alignment(void **dst, const void **src, size_t *nn)
 {
 	size_t n = (*nn);
 
-	char *d = (*dd);
-	const char *s = (*ss);
+	uint32_t *d = (*dst);
+	const uint32_t *s = (*src);
 
 	/* fuck off, gcc
 	 *
@@ -248,45 +239,33 @@ static void precondition_alignment(void **dd, const void **ss, size_t *nn)
 		if (IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint32_t))) {
 			if (IS_ALIGNED((uintptr_t)d, sizeof(uint64_t))) {
 				(*((uint32_t *)d)) = (*((uint32_t *)s));
-				s += sizeof(uint32_t);
-				d += sizeof(uint32_t);
-				n -= sizeof(uint32_t);
+				s += 1;
+				d += 1;
+				n -= 1;
 			}
 		}
 	}
 
-	(*nn) = n;
-	(*dd) = d;
-	(*ss) = s;
-
+	(*nn)  = n;
+	(*dst) = d;
+	(*src) = s;
 }
 
-static void memmove_fwd(char *d, const char *s, size_t n)
+static void memmove_fwd(void *d, const void *s, size_t n)
 {
 	size_t c;
 
+
+	if (n < sizeof(uint32_t))
+			goto tail_bytes;
 
 	if (!IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint64_t))) {
 
 		if (IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint32_t))) {
 
-
-			if (n < sizeof(uint32_t))
-				goto tail_bytes;
-
-			/* we attempt to copy 16 bytes per loop in cpy_XX_YY()
-			 * note: while this will work on any platform with 64-bit
-			 * load/store instructions, our current target is
-			 * primarily the leon/sparcv8; it turns out that
-			 * 2 64-bit accesses per cycle produces the most
-			 * performant code by far
-			 */
-			if (n < 2 * sizeof(uint64_t))
-				goto tail_bytes;
-
 			if (IS_ALIGNED((uintptr_t)s, sizeof(uint64_t))) {
 				/* src is 64-bit aligned */
-				cpy_64_32(&d, &s, &n, &c);
+				cpy_64_32(&d, &s, &n);
 			} else {
 				/* none are is 64-bit aligned but they are
 				 * 32-bit aligned, so move up the to the
@@ -294,8 +273,8 @@ static void memmove_fwd(char *d, const char *s, size_t n)
 				 */
 
 				(*((uint32_t *)d)) = (*((uint32_t *)s));
-				s += sizeof(uint32_t);
-				d += sizeof(uint32_t);
+				s = (void *) ((uintptr_t)s + sizeof(uint32_t));
+				d = (void *) ((uintptr_t)d + sizeof(uint32_t));
 				n -= sizeof(uint32_t);
 
 				goto double_copy;
@@ -310,7 +289,7 @@ static void memmove_fwd(char *d, const char *s, size_t n)
 		 * extraction of half-words from a word-size register
 		 */
 		if (IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint16_t))) {
-				cpy_16_16(&d, &s, &n, &c);
+				cpy_16_16(&d, &s, &n);
 				goto tail_bytes;
 		}
 
@@ -325,28 +304,30 @@ static void memmove_fwd(char *d, const char *s, size_t n)
 		if (n < sizeof(uint64_t)) {
 			c = n;	/* there isn't much to copy ... */
 		} else if (((uintptr_t) s ^ (uintptr_t) d) & (sizeof(uint64_t) - 1)) {
-			c = n; /* one pointer is always unaligned */
-			goto bytes_only;
+			goto tail_bytes; /* one pointer is always unaligned */
 		} else {
+			/* move to to 64-bit boundary */
 			c = sizeof(uint64_t) - ((uintptr_t) s & (sizeof(uint64_t) - 1));
 		}
 
 		/* copy the head bytes until aligned */
 		n -= c;
 		while (c--)
-			(*d++) = (*s++);
+			(*((*(uint8_t **)&d)++)) = (*((*(uint8_t **)&s)++));
 	}
 
 double_copy:
-	cpy_64_64(&d, &s, &n, &c);
+	cpy_64_64(&d, &s, &n);
 
 tail_bytes:
-	/* copy remainder */
-	c = n & (sizeof(uint64_t) - 1);
-bytes_only:
-	while (c--)
-		(*d++) = (*s++);
+	if (!n)
+		return;
+
+	while (n--)
+		(*((*(uint8_t **)&d)++)) = (*((*(uint8_t **)&s)++));	/* fuck your lvalue */
 }
+
+
 
 static void memmove_bwd(char *d, const char *s, size_t n)
 {
@@ -358,8 +339,6 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 	 */
 	s += n;
 	d += n;
-
-	c = (uintptr_t) s;
 
 	if (((uintptr_t) s | (uintptr_t) d) & (sizeof(uint64_t) - 1)) {
 
@@ -427,8 +406,7 @@ void *memmove(void *dest, const void *src, size_t n)
 	if (!n || dest == src)
 		return dest;
 
-	/* need likely() here for better optimisation */
-	if (likely((uintptr_t)dest + n < (uintptr_t)src ||  (uintptr_t)src + n < (uintptr_t)dest))
+	if ((uintptr_t)dest + n < (uintptr_t)src ||  (uintptr_t)src + n < (uintptr_t)dest)
 		memmove_fwd(dest, src, n);
 	else
 		memmove_bwd(dest, src, n);
@@ -450,6 +428,7 @@ EXPORT_SYMBOL(memmove);
 void *memcpy(void *dest, const void *src, size_t n)
 {
 	precondition_alignment(&dest, &src, &n);
-	return memmove(dest, src, n);
+	memmove_fwd(dest, src, n);
+	return dest;
 }
 EXPORT_SYMBOL(memcpy);
