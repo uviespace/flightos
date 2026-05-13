@@ -427,8 +427,11 @@ EXPORT_SYMBOL(memmove);
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
-	precondition_alignment(&dest, &src, &n);
-	memmove_fwd(dest, src, n);
+	void *tmp = dest;
+
+	precondition_alignment(&tmp, &src, &n);
+	memmove_fwd(tmp, src, n);
+
 	return dest;
 }
 EXPORT_SYMBOL(memcpy);
