@@ -141,10 +141,10 @@ static void cpy_64_32(void **dst, const void **src, size_t *nn)
 	s = (uint64_t *)(*src);
 
 	c =  n / sizeof(uint64_t) / 2;
-	n -= c * sizeof(uint64_t) * 2;
-
 	if (c < 2)
 		goto exit;
+
+	n -= c * sizeof(uint64_t) * 2;
 
 	while (c--) {
 
@@ -241,7 +241,7 @@ static void precondition_alignment(void **dst, const void **src, size_t *nn)
 				(*((uint32_t *)d)) = (*((uint32_t *)s));
 				s += 1;
 				d += 1;
-				n -= 1;
+				n -= sizeof(uint32_t);
 			}
 		}
 	}
