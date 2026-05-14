@@ -49,7 +49,6 @@ static inline void cpy_64_64(void **dst, const void **src, size_t *nn)
 	n -= c * sizeof(uint64_t) * 4;
 
 	while (c--) {
-
 		r0 = s[0];
 		r1 = s[1];
 		r2 = s[2];
@@ -98,7 +97,6 @@ static inline void cpy_16_16(void **dst, const void **src, size_t *nn)
 	n -= c * sizeof(uint16_t) * 2;
 
 	while (c--) {
-
 		r0 = s[0];
 		r1 = s[1];
 		d[0] = r0;
@@ -136,14 +134,13 @@ static void cpy_64_32(void **dst, const void **src, size_t *nn)
 	d = (uint32_t *)(*dst);
 	s = (uint64_t *)(*src);
 
-	c =  n / sizeof(uint64_t) / 2;
+	c = n / sizeof(uint64_t) / 2;
 	if (c < 2)
 		goto exit;
 
 	n -= c * sizeof(uint64_t) * 2;
 
 	while (c--) {
-
 		r0.v = s[0];
 		d[0] = r0.h;
 		d[1] = r0.l;
@@ -156,7 +153,7 @@ static void cpy_64_32(void **dst, const void **src, size_t *nn)
 	}
 
 exit:
-	(*nn) = n;
+	(*nn)  = n;
 	(*dst) = d;
 	(*src) = s;
 }
@@ -253,12 +250,10 @@ static void memmove_fwd(void *d, const void *s, size_t n)
 
 
 	if (n < sizeof(uint32_t))
-			goto tail_bytes;
+		goto tail_bytes;
 
 	if (!IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint64_t))) {
-
 		if (IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint32_t))) {
-
 			if (IS_ALIGNED((uintptr_t)s, sizeof(uint64_t))) {
 				/* src is 64-bit aligned */
 				cpy_64_32(&d, &s, &n);
@@ -269,8 +264,8 @@ static void memmove_fwd(void *d, const void *s, size_t n)
 				 */
 
 				(*((uint32_t *)d)) = (*((uint32_t *)s));
-				s = (void *) ((uintptr_t)s + sizeof(uint32_t));
-				d = (void *) ((uintptr_t)d + sizeof(uint32_t));
+				s = (void *)((uintptr_t)s + sizeof(uint32_t));
+				d = (void *)((uintptr_t)d + sizeof(uint32_t));
 				n -= sizeof(uint32_t);
 
 				goto double_copy;
@@ -285,8 +280,8 @@ static void memmove_fwd(void *d, const void *s, size_t n)
 		 * extraction of half-words from a word-size register
 		 */
 		if (IS_ALIGNED((uintptr_t)s | (uintptr_t)d, sizeof(uint16_t))) {
-				cpy_16_16(&d, &s, &n);
-				goto tail_bytes;
+			cpy_16_16(&d, &s, &n);
+			goto tail_bytes;
 		}
 
 		/* here we are in the situation where the addresses are not
@@ -298,12 +293,12 @@ static void memmove_fwd(void *d, const void *s, size_t n)
 		 */
 
 		if (n < sizeof(uint64_t)) {
-			c = n;	/* there isn't much to copy ... */
-		} else if (((uintptr_t) s ^ (uintptr_t) d) & (sizeof(uint64_t) - 1)) {
+			c = n;  /* there isn't much to copy ... */
+		} else if (((uintptr_t)s ^ (uintptr_t)d) & (sizeof(uint64_t) - 1)) {
 			goto tail_bytes; /* one pointer is always unaligned */
 		} else {
 			/* move to to 64-bit boundary */
-			c = sizeof(uint64_t) - ((uintptr_t) s & (sizeof(uint64_t) - 1));
+			c = sizeof(uint64_t) - ((uintptr_t)s & (sizeof(uint64_t) - 1));
 		}
 
 		/* copy the head bytes until aligned */
@@ -320,9 +315,8 @@ tail_bytes:
 		return;
 
 	while (n--)
-		(*((*(uint8_t **)&d)++)) = (*((*(uint8_t **)&s)++));	/* fuck your lvalue */
+		(*((*(uint8_t **)&d)++)) = (*((*(uint8_t **)&s)++));    /* fuck your lvalue */
 }
-
 
 
 static void memmove_bwd(char *d, const char *s, size_t n)
@@ -336,22 +330,20 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 	s += n;
 	d += n;
 
-	if (((uintptr_t) s | (uintptr_t) d) & (sizeof(uint64_t) - 1)) {
-
+	if (((uintptr_t)s | (uintptr_t)d) & (sizeof(uint64_t) - 1)) {
 		/* same as in memmove_fwd, but start at the end */
 
 		if (n <= sizeof(uint64_t)) {
 			c = n;
-		} else if (((uintptr_t) s ^ (uintptr_t) d) & (sizeof(uint64_t) - 1)) {
+		} else if (((uintptr_t)s ^ (uintptr_t)d) & (sizeof(uint64_t) - 1)) {
 			c = n;
 		} else {
-			c = ((uintptr_t) s) & (sizeof(uint64_t) - 1);
+			c = ((uintptr_t)s) & (sizeof(uint64_t) - 1);
 		}
 
 		n -= c;
 
 		while (c--) {
-
 			d--;
 			s--;
 
@@ -363,11 +355,10 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 	c = n / sizeof(uint64_t);
 
 	while (c--) {
-
 		s -= sizeof(uint64_t);
 		d -= sizeof(uint64_t);
 
-		(*((uint64_t *) d)) = (*((uint64_t *) s));
+		(*((uint64_t *)d)) = (*((uint64_t *)s));
 	}
 
 
@@ -375,7 +366,6 @@ static void memmove_bwd(char *d, const char *s, size_t n)
 	c = n & (sizeof(uint64_t) - 1);
 
 	while (c--) {
-
 		d--;
 		s--;
 
@@ -417,6 +407,7 @@ void *memmove(void *dest, const void *src, size_t n)
 	return dest;
 }
 EXPORT_SYMBOL(memmove);
+
 
 /**
  * @brief copy a memory area
