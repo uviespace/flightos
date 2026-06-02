@@ -224,13 +224,6 @@ MARK();
 	return 0;
 
 error:
-	if (m->sec)
-		for (idx = 0; idx < m->num_sec; idx++)
-			kfree(m->sec[idx].name);
-
-	kfree(m->sec);
-	kfree(m->base);
-
 	return -ENOMEM;
 }
 
@@ -326,7 +319,7 @@ static int module_relocate(struct elf_binary *m)
 
 				if (symstr && strlen(symstr)) {
 
-						unsigned long symval;
+						unsigned long symval = 0;
 						Elf_Addr sym = (Elf_Addr) lookup_symbol(symstr);
 
 						if (!sym) {
@@ -447,9 +440,10 @@ void module_unload(struct elf_binary *m)
 	if (m->sec) {
 		for (i = 0; i < m->num_sec; i++)
 			kfree(m->sec[i].name);
+
+		kfree(m->sec);
 	}
 
-	kfree(m->sec);
 	kfree(m->base);
 }
 

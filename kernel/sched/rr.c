@@ -21,7 +21,7 @@
 #include <kernel/smp.h>
 #include <asm/spinlock.h>
 #include <asm-generic/irqflags.h>
-
+#include <asm-generic/io.h>
 
 #define MSG "KSCHED_RR: "
 
@@ -79,7 +79,8 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 	rr_lock();
 
-
+	/* for now, disable for RAMSES until the CPU2 issue identified */
+#if !defined(CONFIG_PROJECT_RAMSES)
 	/* if thas been raised, we need to see whether we can
 	 * prioritise a corresponding RR thread
 	 */
@@ -91,8 +92,9 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 				continue;
 
 			/* we only care about cpu-local tasks here; one
-			 * with no affinity will be caught below and
-			 * treated as lower general priority
+			 * with no affinity will be caught at the exit of
+			 * schedule() and therefore treated as lower general
+			 * priority
 			 */
 			if (tsk->on_cpu != cpu)
 				continue;
@@ -105,7 +107,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			}
 		}
 	}
-
+#endif
 	list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
 
 		if (tsk->on_cpu != cpu) {
@@ -114,7 +116,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 		}
 
 
-		if (tsk->state == TASK_RUN) {
+		if (ioread32be(&tsk->state) == TASK_RUN) {
 
 			if (tsk->runtime <= tick) {
 				/* reset runtime and queue up at the end */
@@ -134,12 +136,10 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 				list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
 
+#if !defined(CONFIG_PROJECT_RAMSES)
 done:
-	/* switch to signal subtask */
-	if (next->sig_cnt)
-		next->active = next->sig;
-
-	next->state = TASK_BUSY;
+#endif
+	iowrite32be(TASK_BUSY, &next->state);
 
 	rr_unlock();
 

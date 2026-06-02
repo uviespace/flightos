@@ -391,7 +391,7 @@ static int grspi_setup(struct spi_dev *spi)
 		chip->mode_reg |= GRSPI_MODE_CPOL;
 
 	if (spi->mode & SPI_CPHA)
-		chip->mode_reg |= GRSPI_MODE_CPOL;
+		chip->mode_reg |= GRSPI_MODE_CPHA;
 
 	if (spi->mode & SPI_MSB_FIRST)
 		chip->mode_reg |= GRSPI_MODE_REV;

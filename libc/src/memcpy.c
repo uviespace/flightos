@@ -31,24 +31,5 @@ void *memcpy(void *dest, const void *src, size_t n)
 }
 
 #else /* USE_OPTIMISATIONS */
-
-void *memmove(void *dest, const void *src, size_t n);
-/**
- * @brief copy a memory area
- *
- * @param dest the destination memory area
- * @param src the source memory area
- * @param n the number of bytes to copy
- *
- * @note this is just the optimised version of memmove()
- *
- * @returns a pointer to dest
- */
-
-void *memcpy(void *dest, const void *src, size_t n)
-{
-
-	return memmove(dest, src, n);
-}
-
+/* now in memmove.c */
 #endif /* USE_OPTIMISATIONS */

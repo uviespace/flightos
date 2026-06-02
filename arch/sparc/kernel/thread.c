@@ -58,7 +58,7 @@ static void th_starter(void)
 	pr_info("thread: %p returned after %ld ms\n", task->active->stack, ktime_ms_delta(t1, t0));
 
 	flags = arch_local_irq_save();
-	task->state = TASK_DEAD;
+	iowrite32be(TASK_DEAD, &task->state);
 	if (task->attr.policy == KSCHED_RR)
 		task->on_cpu = leon3_cpuid();	/* force cleanup to this cpu */
 	task->runtime = 0;

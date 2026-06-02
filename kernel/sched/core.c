@@ -18,6 +18,7 @@
 #include <asm-generic/irqflags.h>
 #include <asm-generic/spinlock.h>
 #include <asm/switch_to.h>
+#include <asm-generic/io.h>
 
 
 #include <kernel/string.h>
@@ -208,13 +209,14 @@ static void sched_update_runtime(struct task_struct *task, ktime now)
 	task->runtime = ktime_sub(task->runtime, rt);
 	task->total   = ktime_add(task->total, rt);
 
-	if (task->state == TASK_BUSY)
-		task->state  = TASK_RUN;
+
+	if (ioread32be(&task->state) != TASK_DEAD)
+		iowrite32be(TASK_RUN, &task->state);
 
 
 	if (task->flags & TASK_RUN_ONCE) {
 		if (task->runtime < (ktime) (2 * tick_get_period_min_ns()))
-			task->state = TASK_DEAD;
+			iowrite32be(TASK_DEAD, &task->state);
 	}
 }
 
@@ -385,6 +387,7 @@ void schedule(void)
 		 * execute given the system overhead
 		 */
 
+		iowrite32be(TASK_RUN, &next->state);	/* return to sender */
 		now = ktime_get();
 	}
 
@@ -419,8 +422,18 @@ void schedule(void)
 
 	spin_unlock(&core_spinlock[cpu]);
 
-	prepare_arch_switch(1);
-	switch_to(next);
+	/* switch to signal subtask if necessary */
+	if (unlikely(next->sig_cnt))
+		next->active = next->sig;
+	else
+		next->active = &next->tsk;
+
+	/* execute switch only if needed */
+	if (likely(next->active != current_set[cpu]->task->active)) {
+		prepare_arch_switch(1);
+		switch_to(next);
+	}
+
 
 	arch_local_irq_enable();
 }

@@ -28,7 +28,7 @@
 #define RAMSES_MRAM_WR_WAIT_STATES	3
 
 
-#define EXCHANGE_AREA_BASE_ADDR		0x6003F000
+#define EXCHANGE_AREA_BASE_ADDR		0xa0000400
 
 #define WD_TIMER_IRL	11
 
@@ -42,16 +42,7 @@ struct cpu_reginfo {
 };
 
 
-struct exchange_area {
-
-	uint16_t reset_type;
-	uint8_t err_cnt;
-	uint8_t no_conn_rst_cnt;
-	uint64_t reset_time;
-	uint8_t trapnum_core0;
-	uint8_t trapnum_core1;
-
-	uint16_t sw_trap_id;
+struct stack_trace_area {
 
 	struct cpu_reginfo regs_cpu0;
 	struct cpu_reginfo regs_cpu1;
@@ -60,13 +51,16 @@ struct exchange_area {
 
 	uint32_t stacktrace_cpu0[STACKTRACE_MAX_ENTRIES];
 	uint32_t stacktrace_cpu1[STACKTRACE_MAX_ENTRIES];
+
+	uint8_t trapnum_core0;
+	uint8_t trapnum_core1;
 } __attribute__((packed));
 
 
 /**
  * @brief the dpu reset function
  * @param reset_type a reset type
- * @note this writes the exchange area specified in RAMSES-IWF-PL-RS-015
+ * @note this writes the rep area specified in RAMSES-IWF-PL-RS-015
  * DPU-SSSIF-IF-5420
  */
 
@@ -80,65 +74,44 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 	uint32_t sp;
 	uint32_t pc;
 
-	struct timespec kt;
-	uint32_t coarse;
-	uint32_t fine;
-	char *ts;
-
 	register int sp_local asm("%sp");
 
 	struct stack_trace trace;
 
-	struct exchange_area *exchange = (struct exchange_area *) EXCHANGE_AREA_BASE_ADDR;
+	struct stack_trace_area *rep = (struct stack_trace_area *) EXCHANGE_AREA_BASE_ADDR;
 
 	/* re-enable traps, but mask all IRQs */
 	put_psr(get_psr() | PSR_PIL | PSR_ET);
 
 #if 0
-	exchange->reset_type = 0x223;	/* EVT_RES_EXCEPT */
+	rep->reset_type = 0x223;	/* EVT_RES_EXCEPT */
 #endif
 
-	/* fill uptime in CUC format */
-	kt = get_ktime();
-        coarse = kt.tv_sec;
-        fine   = kt.tv_nsec / 1000;
-
-	ts = (char *) &exchange->reset_time;
-
-        ts[0] = (coarse >> 24) & 0xff;
-        ts[1] = (coarse >> 16) & 0xff;
-        ts[2] = (coarse >>  8) & 0xff;
-        ts[3] =  coarse        & 0xff;
-        ts[4] = (fine   >> 16) & 0xff;
-        ts[5] = (fine   >>  8) & 0xff;
-        ts[6] =  fine          & 0xff;
-        ts[7] = 0;
-
 	/* latest traps */
-	exchange->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
-	exchange->trapnum_core1 = (dsu_get_reg_tbr(1) >> 4) & 0xff;
+	rep->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
+	rep->trapnum_core1 = (dsu_get_reg_tbr(1) >> 4) & 0xff;
 
 	/** REGISTERS CORE1 **/
-	exchange->regs_cpu0.psr = dsu_get_reg_psr(0);
-	exchange->regs_cpu0.wim = dsu_get_reg_wim(0);
-	exchange->regs_cpu0.pc  = dsu_get_reg_pc(0);
-	exchange->regs_cpu0.npc = dsu_get_reg_npc(0);
-	exchange->regs_cpu0.fsr = dsu_get_reg_fsr(0);
+	rep->regs_cpu0.psr = dsu_get_reg_psr(0);
+	rep->regs_cpu0.wim = dsu_get_reg_wim(0);
+	rep->regs_cpu0.pc  = dsu_get_reg_pc(0);
+	rep->regs_cpu0.npc = dsu_get_reg_npc(0);
+	rep->regs_cpu0.fsr = dsu_get_reg_fsr(0);
 
 	/** REGISTERS CORE2 **/
-	exchange->regs_cpu1.psr = dsu_get_reg_psr(1);
-	exchange->regs_cpu1.wim = dsu_get_reg_wim(1);
-	exchange->regs_cpu1.pc  = dsu_get_reg_pc(1);
-	exchange->regs_cpu1.npc = dsu_get_reg_npc(1);
-	exchange->regs_cpu1.fsr = dsu_get_reg_fsr(1);
+	rep->regs_cpu1.psr = dsu_get_reg_psr(1);
+	rep->regs_cpu1.wim = dsu_get_reg_wim(1);
+	rep->regs_cpu1.pc  = dsu_get_reg_pc(1);
+	rep->regs_cpu1.npc = dsu_get_reg_npc(1);
+	rep->regs_cpu1.fsr = dsu_get_reg_fsr(1);
 
 	/** AHB STATUS REGISTER and AHB FAILING ADDRESS REG **/
-	exchange->ahb_status_reg       = ahbstat_get_status();
-	exchange->ahb_failing_addr_reg = ahbstat_get_failing_addr();
+	rep->ahb_status_reg       = ahbstat_get_status();
+	rep->ahb_failing_addr_reg = ahbstat_get_failing_addr();
 
 	/* unused slots in the trace should be cleared */
-	bzero(exchange->stacktrace_cpu0, sizeof(exchange->stacktrace_cpu0));
-	bzero(exchange->stacktrace_cpu1, sizeof(exchange->stacktrace_cpu1));
+	bzero(rep->stacktrace_cpu0, sizeof(rep->stacktrace_cpu0));
+	bzero(rep->stacktrace_cpu1, sizeof(rep->stacktrace_cpu1));
 
 
 	/** CALL STACK CORE 1 **/
@@ -166,10 +139,10 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 
 
 	/* first is always current %pc */
-	exchange->stacktrace_cpu0[0] = pc;
+	rep->stacktrace_cpu0[0] = pc;
 
 	for (i = 1; i < trace.nr_entries - 1; i++)
-		exchange->stacktrace_cpu0[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
+		rep->stacktrace_cpu0[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
 
 	/** CALL STACK CORE 2 **/
@@ -181,10 +154,10 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 	save_stack_trace(&trace, sp, pc);
 
 	/* first is always current %pc */
-	exchange->stacktrace_cpu1[0] = pc;
+	rep->stacktrace_cpu1[0] = pc;
 
 	for (i = 1; i < trace.nr_entries - 1; i++)
-		exchange->stacktrace_cpu1[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
+		rep->stacktrace_cpu1[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
 	/* wait for sweet death to take us */
 	die();
@@ -194,11 +167,8 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 
 static void ramses_watchdog_handler(void *userdata)
 {
-#if 0
 	ramses_write_reset_info(0, userdata);
-#else
 	die();
-#endif
 }
 
 static void ramses_write_reset_info_trap(void)
@@ -208,10 +178,8 @@ static void ramses_write_reset_info_trap(void)
 
 static int ramses_cfg_reset_traps(void)
 {
-#if 0
 	/* called by machine_halt */
 	trap_handler_install(0x82, ramses_write_reset_info_trap);
-#endif
 	watchdog_set_handler(ramses_watchdog_handler, NULL);
 
 	return 0;
@@ -249,10 +217,17 @@ static int ramses_mem_cfg(void)
 
 #define MEMCFG1_PROMACCESS		0x102A0022
 #define MEMCFG2_RAMACCESS		0xCB60544F
-//#define MEMCFG2_RAMACCESS		0xCB60544F
-//#define MEMCFG2_RAMACCESS		0xD778504F
-#define MEMCFG3_RAMACCESS		0x08185200
-//#define MEMCFG3_RAMACCESS		0x08076200
+#define MEMCFG3_RAMACCESS		0x081D3200	/* as per spec for 60 MHz */
+
+/* note: refresh is 8192/64 ms cycles as per SDRAM datasheet => 7.8125 µs/cycle
+ * mcfg3:
+ * refresh counter = t_refresh * sysclk - 1 = 7.8125 * 50 - 1 = 389 =  0x185
+ * for 100 MHz: 780/0x30c
+ */
+
+	/* set good SDDEL */
+	iowrite32be(0x02800000,  (void *)0x80000600);
+
 	iowrite32be(MEMCFG1_PROMACCESS, (void *)0x80000000);
 	iowrite32be(MEMCFG2_RAMACCESS,  (void *)0x80000004);
 	iowrite32be(MEMCFG3_RAMACCESS,  (void *)0x80000008);

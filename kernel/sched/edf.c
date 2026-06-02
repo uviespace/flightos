@@ -15,6 +15,7 @@
 
 #include <asm/spinlock.h>
 #include <asm-generic/irqflags.h>
+#include <asm-generic/io.h>
 
 
 
@@ -640,7 +641,7 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	list_for_each_entry_safe(tsk, tmp, &tq[cpu].run, node) {
 
 		if (tsk->flags & TASK_RUN_ONCE) {
-			if (tsk->state == TASK_IDLE) {
+			if (ioread32be(&tsk->state) == TASK_IDLE) {
 				tsk->state = TASK_RUN;
 				list_move(&tsk->node, &tq[cpu].run);
 				break;
@@ -730,14 +731,10 @@ static struct task_struct *edf_pick_next(struct task_queue *tq, int cpu,
 	if (first->state != TASK_RUN)
 		goto no_task;
 
-	if (first->sig_cnt) /* switch to signal subtask */
-		first->active = first->sig;
-
 	first->state = TASK_BUSY;
 
 	edf_unlock();
 	return first;
-
 
 no_task:
 	edf_unlock();

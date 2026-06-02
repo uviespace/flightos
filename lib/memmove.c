@@ -1,62 +1,20 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <compiler.h>
-
-
-#ifndef USE_OPTIMISATIONS
-
-/**
- * @brief copy a memory area src that may overlap with area dest
+/*+
+ * @file lib/memmove.c
  *
- * @param dest the destination memory area
- * @param src the source memory area
- * @param n the number of bytes to copy
+ * @ingroup string
  *
- * @returns a pointer to dest
+ * @brief implements memcpy() and memmove()
+ *
  */
 
-void *memmove(void *dest, const void *src, size_t n)
-{
-	char *d;
+#include <stdint.h>
+#include <stddef.h>
 
-	const char *s;
-
-	if (dest <= src) {
-
-		d = dest;
-		s = src;
-
-		while (n--) {
-			(*d) = (*s);
-			d++;
-			s++;
-		}
-
-	} else {
-
-		d = dest;
-		d += n;
-
-		s = src;
-		s += n;
-
-		while (n--) {
-			d--;
-			s--;
-			(*d) = (*s);
-		}
-
-	}
-	return dest;
-}
+#include <kernel/export.h>
+#include <kernel/string.h>
+#include <kernel/kernel.h>
 
 
-#else /* USE_OPTIMISATIONS */
-
-
-#define IS_ALIGNED(x, a) (((x) & ((typeof(x))(a) - 1)) == 0)
-
-__diag_ignore(GCC, 7, "-Wpedantic", "need this to force better asm")
 union cpy64 {
 	uint64_t v;
 	struct {
@@ -64,6 +22,7 @@ union cpy64 {
 		uint32_t l;
 	};
 };
+
 
 static inline void cpy_64_64(void **dst, const void **src, size_t *nn)
 {
@@ -155,8 +114,11 @@ exit:
 
 /* needed or sparc-gaisler-elf-gcc 13.2.1 (bcc-v2.3.1)
  * will not always generate 64-bit load instructions and thus ~40% slower code:
+ *
+ *	#pragma GCC optimize("no-strict-aliasing")
+ *
+ * this is default for the kernel build, so I'm not using it here
  */
-#pragma GCC optimize("no-strict-aliasing")
 static void cpy_64_32(void **dst, const void **src, size_t *nn)
 {
 	size_t c;
@@ -444,6 +406,7 @@ void *memmove(void *dest, const void *src, size_t n)
 
 	return dest;
 }
+EXPORT_SYMBOL(memmove);
 
 
 /**
@@ -458,12 +421,11 @@ void *memmove(void *dest, const void *src, size_t n)
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
-	precondition_alignment(&dest, &src, &n);
-	memmove_fwd(dest, src, n);
+	void *tmp = dest;
+
+	precondition_alignment(&tmp, &src, &n);
+	memmove_fwd(tmp, src, n);
+
 	return dest;
 }
-
-
-#endif /* USE_OPTIMISATIONS */
-
-
+EXPORT_SYMBOL(memcpy);

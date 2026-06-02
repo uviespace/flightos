@@ -40,25 +40,33 @@ static void ksig_unlock(void)
 
 static void ksig_dec(int count)
 {
+#if !defined(CONFIG_PROJECT_RAMSES)
 	arch_local_irq_disable();
 
 	ksig_lock();
+#endif
 	ksig_cnt--;
+#if !defined(CONFIG_PROJECT_RAMSES)
 	ksig_unlock();
 
 	arch_local_irq_enable();
+#endif
 }
 
 
 static void ksig_inc(void)
 {
+#if !defined(CONFIG_PROJECT_RAMSES)
 	arch_local_irq_disable();
 
 	ksig_lock();
+#endif
 	ksig_cnt++;
+#if !defined(CONFIG_PROJECT_RAMSES)
 	ksig_unlock();
 
 	arch_local_irq_enable();
+#endif
 }
 
 
@@ -73,15 +81,16 @@ static int ksig_exec(void *data)
 	while (1) {
 
 		if (list_empty(&tsk->ksig_queue)) {
-
-			tsk->active = &tsk->tsk;
-
-			sched_yield();
+			syscall_sched_yield();
 			continue;
 		}
 
+		arch_local_irq_disable();
+		ksig_lock();
 		nfo = list_first_entry(&tsk->ksig_queue, struct ksig_info, node);
 		list_del(&nfo->node);
+		ksig_unlock();
+		arch_local_irq_enable();
 
 		list_for_each_entry(hdl, &tsk->ksig_handlers, node) {
 			if (hdl->signal == nfo->signal) {
@@ -95,7 +104,11 @@ static int ksig_exec(void *data)
 
 				kfree(nfo);
 
+				arch_local_irq_disable();
+				ksig_lock();
 				tsk->sig_cnt--;
+				ksig_unlock();
+				arch_local_irq_enable();
 
 				break;
 			}
@@ -250,9 +263,13 @@ int ksignal_send_info(int signal, siginfo_t *info)
 		if (info)
 			memcpy(&nfo->info, info, sizeof(*info));
 
+		arch_local_irq_disable();
+		ksig_lock();
 		list_add_tail(&nfo->node, &hdl->tsk->ksig_queue);
 		hdl->tsk->sig_cnt++;
 		ksig_inc();
+		ksig_unlock();
+		arch_local_irq_enable();
 	}
 
 
