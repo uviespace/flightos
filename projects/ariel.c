@@ -393,7 +393,7 @@ static int ariel_init(void)
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[2].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[2].spw);
-	irq_set_affinity(spw_cfg[2].spw.core_irq, 0);
+	irq_set_affinity(spw_cfg[2].spw.core_irq, 1);
 	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 
@@ -403,7 +403,7 @@ static int ariel_init(void)
 	grspw2_core_start(&spw_cfg[3].spw, 1, 1);
 	grspw2_set_promiscuous(&spw_cfg[3].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[3].spw);
-	irq_set_affinity(spw_cfg[3].spw.core_irq, 0);
+	irq_set_affinity(spw_cfg[3].spw.core_irq, 1);
 	irq_request(spw_cfg[3].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 
