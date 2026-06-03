@@ -254,12 +254,12 @@ static void spw_init_core_debug(struct spw_user_cfg *cfg, uint32_t n_rx_desc, ui
 {
 	ariel_set_gr712_spw_clock();
 
-	gr712_clkgate_enable(CLKGATE_GRSPW4);
+	gr712_clkgate_enable(CLKGATE_GRSPW5);
 
 	/* configure for spw core0 */
-	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_4,
+	grspw2_core_init(&cfg->spw, GRSPW2_BASE_CORE_5,
 			 ARIEL_DPU_ADDR_TO_DCU1, SPW_CLCKDIV_START, SPW_CLCKDIV_OBC_RUN,
-			 ARIEL_MTU_RX_DCU, GRSPW2_IRQ_CORE4,
+			 ARIEL_MTU_RX_DCU, GRSPW2_IRQ_CORE5,
 			 GR712_IRL1_AHBSTAT, 0);
 
 	grspw2_rx_desc_table_init(&cfg->spw,
@@ -316,8 +316,8 @@ static int ariel_init(void)
 	spw_cfg[2].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 5);
 	spw_cfg[3].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 6);
 	spw_cfg[3].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 7);
-	spw_cfg[4].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 8);
-	spw_cfg[4].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 9);
+	spw_cfg[5].rx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 8);
+	spw_cfg[5].tx_desc = (uint32_t *)(SPW_AREA_START + 1024 * 9);
 
 
 	/* note: the addresses for the header and data buffers may be byte aligned */
@@ -357,9 +357,9 @@ static int ariel_init(void)
 	 * the high-level SW and the users must take care not to
 	 * use the links concurrently
 	 */
-	spw_cfg[4].rx_data = spw_cfg[2].rx_data;
-	spw_cfg[4].tx_data = spw_cfg[2].tx_data;
-	spw_cfg[4].tx_hdr  = spw_cfg[2].tx_hdr;
+	spw_cfg[5].rx_data = spw_cfg[2].rx_data;
+	spw_cfg[5].tx_data = spw_cfg[2].tx_data;
+	spw_cfg[5].tx_hdr  = spw_cfg[2].tx_hdr;
 
 
 	/* final sanity check */
@@ -408,13 +408,13 @@ static int ariel_init(void)
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu2, NULL);
 
 
-	spw_init_core_debug(&spw_cfg[4], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
+	spw_init_core_debug(&spw_cfg[5], ARIEL_DCU_NDESC, ARIEL_DCU_NDESC, ARIEL_DCU_HDR_SIZE);
 
-	grspw2_core_start(&spw_cfg[4].spw, 1, 1);
-	grspw2_set_promiscuous(&spw_cfg[4].spw);
-	grspw2_rx_interrupt_enable(&spw_cfg[4].spw);
-	irq_set_affinity(spw_cfg[4].spw.core_irq, 0);
-	irq_request(spw_cfg[4].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
+	grspw2_core_start(&spw_cfg[5].spw, 1, 1);
+	grspw2_set_promiscuous(&spw_cfg[5].spw);
+	grspw2_rx_interrupt_enable(&spw_cfg[5].spw);
+	irq_set_affinity(spw_cfg[5].spw.core_irq, 0);
+	irq_request(spw_cfg[5].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_dcu1, NULL);
 
 
