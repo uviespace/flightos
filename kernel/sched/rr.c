@@ -79,14 +79,15 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 
 	rr_lock();
 
-	/* for now, disable for RAMSES until the CPU2 issue identified */
-#if !defined(CONFIG_PROJECT_RAMSES)
-	/* if thas been raised, we need to see whether we can
+	/* if a signal thas been raised, we need to see whether we can
 	 * prioritise a corresponding RR thread
 	 */
 	if (ksignal_raised()) {
 
 		list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
+
+			if (tsk->on_cpu != cpu)
+				continue;
 
 			if (!tsk->sig_cnt)
 				continue;
@@ -96,18 +97,17 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 			 * schedule() and therefore treated as lower general
 			 * priority
 			 */
-			if (tsk->on_cpu != cpu)
-				continue;
 
 			if (tsk->state == TASK_RUN) {
-				tsk->runtime = tsk->attr.wcet;
-				list_move(&tsk->node, &tq[0].run);
+				if (tsk->runtime <= tick)
+					tsk->runtime = tsk->attr.wcet;
+				list_move_tail(&tsk->node, &tq[0].run);
 				next = tsk;
 				goto done;
 			}
 		}
 	}
-#endif
+
 	list_for_each_entry_safe(tsk, tmp, &tq[0].run, node) {
 
 		if (tsk->on_cpu != cpu) {
@@ -136,9 +136,7 @@ static struct task_struct *rr_pick_next(struct task_queue tq[], int cpu,
 				list_move_tail(&tsk->node, &tq[cpu].dead);
 	}
 
-#if !defined(CONFIG_PROJECT_RAMSES)
 done:
-#endif
 	iowrite32be(TASK_BUSY, &next->state);
 
 	rr_unlock();

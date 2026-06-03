@@ -420,7 +420,6 @@ void schedule(void)
 	/* set next wakeup */
 	tick_set_next_ns(ktime_sub(slice, tick));
 
-	spin_unlock(&core_spinlock[cpu]);
 
 	/* switch to signal subtask if necessary */
 	if (unlikely(next->sig_cnt))
@@ -428,12 +427,10 @@ void schedule(void)
 	else
 		next->active = &next->tsk;
 
-	/* execute switch only if needed */
-	if (likely(next->active != current_set[cpu]->task->active)) {
-		prepare_arch_switch(1);
-		switch_to(next);
-	}
+	spin_unlock(&core_spinlock[cpu]);
 
+	prepare_arch_switch(1);
+	switch_to(next);
 
 	arch_local_irq_enable();
 }

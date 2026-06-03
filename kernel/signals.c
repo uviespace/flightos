@@ -40,33 +40,18 @@ static void ksig_unlock(void)
 
 static void ksig_dec(int count)
 {
-#if !defined(CONFIG_PROJECT_RAMSES)
-	arch_local_irq_disable();
-
-	ksig_lock();
-#endif
-	ksig_cnt--;
-#if !defined(CONFIG_PROJECT_RAMSES)
-	ksig_unlock();
-
-	arch_local_irq_enable();
-#endif
+	ksig_cnt -= count;
 }
 
 
 static void ksig_inc(void)
 {
-#if !defined(CONFIG_PROJECT_RAMSES)
-	arch_local_irq_disable();
-
-	ksig_lock();
-#endif
 	ksig_cnt++;
-#if !defined(CONFIG_PROJECT_RAMSES)
-	ksig_unlock();
+}
 
-	arch_local_irq_enable();
-#endif
+static void ksig_tsk_sig_cnt_dec(struct task_struct *tsk)
+{
+
 }
 
 
@@ -103,6 +88,8 @@ static int ksig_exec(void *data)
 				ksig_dec(1);
 
 				kfree(nfo);
+
+				ksig_tsk_sig_cnt_dec(tsk);
 
 				arch_local_irq_disable();
 				ksig_lock();
@@ -329,5 +316,5 @@ void ksignal_drop_task(struct task_struct *task)
 
 int ksignal_raised(void)
 {
-	return (ksig_cnt > 0);
+	return (ioread32be(&ksig_cnt) > 0);
 }
