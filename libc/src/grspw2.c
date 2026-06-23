@@ -127,7 +127,7 @@ uint32_t grspw2_get_pkt_ref(uint8_t link, uint8_t **pkt)
 	struct grspw2_data spw;
 
 
-	spw.op   = GRSPW2_OP_GET_NUM_PKT_AVAIL;
+	spw.op   = GRSPW2_OP_GET_PKT_REF;
 	spw.link = link;
 
 
