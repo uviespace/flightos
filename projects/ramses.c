@@ -245,6 +245,11 @@ static irqreturn_t emit_irq_red(unsigned int irq, void *userdata)
 	return 0;
 }
 
+static irqreturn_t emit_irq_cam(unsigned int irq, void *userdata)
+{
+	ksignal_send_info(103, NULL);
+	return 0;
+}
 
 static void gr712_adc128s102_spi_cs(bool enable)
 {
@@ -334,11 +339,13 @@ static int ramses_init(void)
 	grspw2_tick_out_interrupt_enable(&spw_cfg[1].spw);
 	grspw2_rx_interrupt_enable(&spw_cfg[1].spw);
 	irq_request(spw_cfg[1].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_red, NULL);
-	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_nom, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_red, NULL);
 
 
 	spw_init_core_camera(&spw_cfg[2], RAMSES_CAM_RX_NDESC, RAMSES_CAM_TX_NDESC);
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
+	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_cam, NULL);
+	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_cam, NULL);
 
 
 #ifdef CONFIG_EMBED_APPLICATION
