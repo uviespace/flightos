@@ -344,6 +344,7 @@ static int ramses_init(void)
 
 	spw_init_core_camera(&spw_cfg[2], RAMSES_CAM_RX_NDESC, RAMSES_CAM_TX_NDESC);
 	grspw2_core_start(&spw_cfg[2].spw, 1, 1);
+	grspw2_rx_interrupt_enable(&spw_cfg[2].spw);
 	irq_request(spw_cfg[2].spw.core_irq, ISR_PRIORITY_NOW, emit_irq_cam, NULL);
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, emit_irq_cam, NULL);
 
