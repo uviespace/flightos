@@ -168,7 +168,6 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 static void ramses_watchdog_handler(void *userdata)
 {
 	ramses_write_reset_info(0, userdata);
-	die();
 }
 
 static void ramses_write_reset_info_trap(void)
