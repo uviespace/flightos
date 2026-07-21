@@ -54,6 +54,8 @@ struct stack_trace_area {
 
 	uint8_t trapnum_core0;
 	uint8_t trapnum_core1;
+
+	uint8_t reset_type;
 } __attribute__((packed));
 
 
@@ -78,14 +80,17 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 
 	struct stack_trace trace;
 
-	struct stack_trace_area *rep = (struct stack_trace_area *) EXCHANGE_AREA_BASE_ADDR;
+	struct stack_trace_area *rep = (struct stack_trace_area *)EXCHANGE_AREA_BASE_ADDR;
 
 	/* re-enable traps, but mask all IRQs */
 	put_psr(get_psr() | PSR_PIL | PSR_ET);
 
-#if 0
-	rep->reset_type = 0x223;	/* EVT_RES_EXCEPT */
-#endif
+
+	/* make sure region is wiped so checkbits are initialised */
+	memset(rep, 0x0, sizeof(*rep));
+
+	/* received via machine_halt() arg0 */
+	rep->reset_type = (uint8_t)(*((long *)userdata));
 
 	/* latest traps */
 	rep->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
@@ -170,15 +175,15 @@ static void ramses_watchdog_handler(void *userdata)
 	ramses_write_reset_info(0, userdata);
 }
 
-static void ramses_write_reset_info_trap(void)
+static void ramses_write_reset_info_trap(long reason)
 {
-	ramses_write_reset_info(0, NULL);
+	ramses_write_reset_info(0, &reason);
 }
 
 static int ramses_cfg_reset_traps(void)
 {
 	/* called by machine_halt */
-	trap_handler_install(0x82, ramses_write_reset_info_trap);
+	trap_handler_install(0x82, (void (*)(void))ramses_write_reset_info_trap);
 	watchdog_set_handler(ramses_watchdog_handler, NULL);
 
 	return 0;

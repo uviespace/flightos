@@ -139,8 +139,8 @@ cpdis_trap_handler:
 cpex_trap_handler:
 #	.global fpe_trap_handler
 #fpe_trap_handler:
-	.global hw_div0_trap_handler
-hw_div0_trap_handler:
+#	.global hw_div0_trap_handler
+#hw_div0_trap_handler:
 	.global nmi_entry
 nmi_entry:
 	.global reg_access_trap_handler

@@ -261,7 +261,7 @@ void kernel_mna_trap(struct pt_regs *regs, uint32_t insn)
 	type = mna_can_handle(insn);
 	if (type < 0) {
 		pr_err("Unsupported unaligned access at pc %08x\n", regs->pc);
-		panic(); /* we're boned */
+		panic(REBOOT_MEM_UNALIGNED); /* we're boned */
 	}
 
 	size = mna_get_access_size(insn);

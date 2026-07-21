@@ -15,6 +15,8 @@ obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += mna_trap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += unaligned_memory_access.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += write_buffer_error_trap.o
 obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += write_buffer_error.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += hw_div0.o
+obj-$(CONFIG_ARCH_CUSTOM_BOOT_CODE) += division_by_zero.o
 
 
 obj-y += setup.o
