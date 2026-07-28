@@ -268,6 +268,13 @@ SYSCALL_DEFINE0(sched_yield)
 	return 0;
 }
 
+SYSCALL_DEFINE0(schedule)
+{
+	schedule();
+
+	return 0;
+}
+
 
 /* XXX move */
 /**
@@ -342,6 +349,11 @@ int syscall_sched_yield(void)
 	return SYSCALL0(__NR_sched_yield);
 }
 
+__attribute__((noinline))
+int syscall_schedule(void)
+{
+	return SYSCALL0(__NR_schedule);
+}
 
 
 /*
@@ -365,5 +377,6 @@ void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	__SYSCALL(__NR_sysctl_show_attr,	sys_sysctl_show_attr)
 	__SYSCALL(__NR_sysctl_store_attr,	sys_sysctl_store_attr)
 	__SYSCALL(__NR_sigaction,		sys_sigaction)
+	__SYSCALL(__NR_schedule,		sys_schedule)
 };
 
