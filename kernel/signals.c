@@ -10,6 +10,7 @@
 #include <asm-generic/irqflags.h>
 
 int syscall_sched_yield(void);
+int syscall_schedule(void);
 
 
 #define MSG "KSIGNAL: "
@@ -66,7 +67,7 @@ static int ksig_exec(void *data)
 	while (1) {
 
 		if (list_empty(&tsk->ksig_queue)) {
-			syscall_sched_yield();
+			syscall_schedule();
 			continue;
 		}
 
