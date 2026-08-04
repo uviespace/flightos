@@ -90,7 +90,7 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 	memset(rep, 0x0, sizeof(*rep));
 
 	/* received via machine_halt() arg0 */
-	rep->reset_type = (uint8_t)(*((long *)userdata));
+	rep->reset_type = (uint8_t)((long)userdata);
 
 	/* latest traps */
 	rep->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
@@ -177,7 +177,7 @@ static void ramses_watchdog_handler(void *userdata)
 
 static void ramses_write_reset_info_trap(long reason)
 {
-	ramses_write_reset_info(0, &reason);
+	ramses_write_reset_info(0, (void *)reason);
 }
 
 static int ramses_cfg_reset_traps(void)
