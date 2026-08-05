@@ -259,5 +259,7 @@ void dsu_clear_force_debug_on_watchpoint(uint32_t cpu);
 void dsu_set_reg_wim(uint32_t cpu, uint32_t val);
 void dsu_set_reg_sp(uint32_t cpu, uint32_t cwp, uint32_t val);
 void dsu_set_reg_fp(uint32_t cpu, uint32_t cwp, uint32_t val);
+void dsu_cpu_set_halt_mode(uint32_t cpu);
+
 
 #endif /* LEON3_DSU_H */
