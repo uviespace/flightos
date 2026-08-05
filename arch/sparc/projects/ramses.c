@@ -64,6 +64,9 @@ struct stack_trace_area {
  * @param reset_type a reset type
  * @note this writes the rep area specified in RAMSES-IWF-PL-RS-015
  * DPU-SSSIF-IF-5420
+ *
+ * FIXME: we may need to check which CPU we are when we enter here, so
+ * we can halt the other one for a proper trace
  */
 
 irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
@@ -87,7 +90,7 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 
 
 	/* make sure region is wiped so checkbits are initialised */
-	memset(rep, 0x0, sizeof(*rep));
+	memset(rep, 0x0, ALIGN(sizeof(*rep), sizeof(uint32_t)));
 
 	/* received via machine_halt() arg0 */
 	rep->reset_type = (uint8_t)((long)userdata);
@@ -113,11 +116,6 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 	/** AHB STATUS REGISTER and AHB FAILING ADDRESS REG **/
 	rep->ahb_status_reg       = ahbstat_get_status();
 	rep->ahb_failing_addr_reg = ahbstat_get_failing_addr();
-
-	/* unused slots in the trace should be cleared */
-	bzero(rep->stacktrace_cpu0, sizeof(rep->stacktrace_cpu0));
-	bzero(rep->stacktrace_cpu1, sizeof(rep->stacktrace_cpu1));
-
 
 	/** CALL STACK CORE 1 **/
 	trace.max_entries = STACKTRACE_MAX_ENTRIES;
@@ -150,9 +148,17 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 		rep->stacktrace_cpu0[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
 
+	die();
+	dsu_cpu_set_halt_mode(1);
+	/* something's going on when tracing the second core when coming from
+	 * a hw_div0 trap (have not tested the others.). I'll need to look
+	 * into this...
+	 */
 	/** CALL STACK CORE 2 **/
 	trace.max_entries = STACKTRACE_MAX_ENTRIES;
 	trace.nr_entries  = 0;
+	trace.frames      = trace_frames;
+	trace.regs        = trace_cpuregs;
 
 	sp = dsu_get_reg_sp(1, dsu_get_reg_psr(1) & 0x1f);
 	pc = dsu_get_reg_pc(1);
@@ -165,7 +171,6 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 		rep->stacktrace_cpu1[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
 	/* wait for sweet death to take us */
-	die();
 
 	return 0; /* we never will */
 }
