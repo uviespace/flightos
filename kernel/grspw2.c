@@ -249,19 +249,6 @@ static struct sobj_attribute *grspw2_attributes[] = {&rx_bytes_attr,
 						    NULL};
 #endif /* CONFIG_SYSCTL */
 
-/**
- * @brief central error handling
- */
-#define MEDIUM 1
-#define LOW 1
-
-static void grspw2_handle_error(int s)
-{
-#if 0
-	/* XXX kalarm() */
-	event_report(GRSPW2, s, (uint32_t) errno);
-#endif
-}
 
 
 /**
@@ -283,7 +270,6 @@ static irqreturn_t grspw2_dma_error(unsigned int irq, void *userdata)
 #if 0		/* XXX kalarm() */
 		errno = E_SPW_RX_AHB_ERROR;
 #endif
-		grspw2_handle_error(MEDIUM);
 		dmactrl &= GRSPW2_DMACONTROL_RA;
 	}
 
@@ -291,7 +277,6 @@ static irqreturn_t grspw2_dma_error(unsigned int irq, void *userdata)
 #if 0
 		errno = E_SPW_TX_AHB_ERROR;
 #endif
-		grspw2_handle_error(MEDIUM);
 		dmactrl &= GRSPW2_DMACONTROL_TA;
 	}
 
@@ -311,6 +296,8 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 	uint32_t status;
 	struct grspw2_core_cfg *cfg;
 
+	siginfo_t info;
+
 
 	cfg = (struct grspw2_core_cfg *) userdata;
 
@@ -324,69 +311,16 @@ static irqreturn_t grspw2_link_error(unsigned int irq, void *userdata)
 	if (!tmp)
 		return 0;
 
-	if (status & GRSPW2_STATUS_TO) {
-#if 0
-		static ktime p;
+	/* transport info via siginfo_t, irq serves as link ID
+	 * XXX maybe add an arbitrary link ID to grspw2_core_init?
+	 */
+	info.si_signo = irq;
+	info.si_code  = status;
 
-		ktime c;
-		static ktime drift;
-		static ktime cnt;
-
-		if (!p) {
-			p = ktime_get();
-			goto exit;
-		}
-
-		c = ktime_get();
-		drift = c - p - cnt * 1000000000ULL - 1000000000ULL;
-		cnt++;
-#if 0
-		printk("abs:: %lld ns;\n", drift);
-#endif
-#endif
-
-		status &= GRSPW2_STATUS_TO;
-
+	if (status & GRSPW2_STATUS_TO)
 		ksignal_send_info(42, NULL);
-	}
-#if 0
-exit:
-#endif
-
-	if (status & GRSPW2_STATUS_IA) {
-#if 0		/* XXX kalarm() */
-		errno = E_SPW_INVALID_ADDR_ERROR;
-		grspw2_handle_error(MEDIUM);
-#endif
-	}
-
-	if (status & GRSPW2_STATUS_PE) {
-#if 0		/* XXX kalarm() */
-		errno = E_SPW_PARITY_ERROR;
-		grspw2_handle_error(MEDIUM);
-#endif
-	}
-
-	if (status & GRSPW2_STATUS_DE) {
-#if 0		/* XXX kalarm() */
-		errno = E_SPW_DISCONNECT_ERROR;
-		grspw2_handle_error(MEDIUM);
-#endif
-	}
-
-	if (status & GRSPW2_STATUS_ER) {
-#if 0		/* XXX kalarm() */
-		errno = E_SPW_ESCAPE_ERROR;
-		grspw2_handle_error(MEDIUM);
-#endif
-	}
-
-	if (status & GRSPW2_STATUS_CE) {
-#if 0		/* XXX kalarm() */
-		errno = E_SPW_CREDIT_ERROR;
-		grspw2_handle_error(MEDIUM);
-#endif
-	}
+	else
+		ksignal_send_info(666, &info);	/* all hail the dark lord */
 
 	iowrite32be(status, &cfg->regs->status);
 
@@ -2370,10 +2304,8 @@ int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 	ret = grspw2_tx_desc_add_pkt(cfg, false, hdr, hdr_size, 0,
 				     data, data_size);
 
-	if (unlikely(ret)) {
-		grspw2_handle_error(LOW);
+	if (unlikely(ret))
 		return ret;
-	}
 
 	cfg->tx_bytes += hdr_size + data_size;
 
@@ -2396,10 +2328,8 @@ int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
 	ret = grspw2_tx_desc_add_pkt(cfg, true, hdr, hdr_size, non_crc_bytes,
 				     data, data_size);
 
-	if (unlikely(ret)) {
-		grspw2_handle_error(LOW);
+	if (unlikely(ret))
 		return -1;
-	}
 
 	cfg->tx_bytes += hdr_size + data_size;
 
