@@ -93,7 +93,7 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 	memset(rep, 0x0, ALIGN(sizeof(*rep), sizeof(uint32_t)));
 
 	/* received via machine_halt() arg0 */
-	rep->reset_type = (uint8_t)((long)userdata);
+	rep->reset_type = (uint8_t)irq;
 
 	/* latest traps */
 	rep->trapnum_core0 = (dsu_get_reg_tbr(0) >> 4) & 0xff;
@@ -147,7 +147,6 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 	for (i = 1; i < trace.nr_entries - 1; i++)
 		rep->stacktrace_cpu0[i] = (uint32_t) trace.frames[i - 1]->callers_pc;
 
-
 	die();
 	dsu_cpu_set_halt_mode(1);
 	/* something's going on when tracing the second core when coming from
@@ -177,18 +176,21 @@ irqreturn_t ramses_write_reset_info(unsigned int irq, void *userdata)
 
 static void ramses_watchdog_handler(void *userdata)
 {
-	ramses_write_reset_info(0, userdata);
+	ramses_write_reset_info(REBOOT_WATCHDOG, userdata);
 }
 
-static void ramses_write_reset_info_trap(long reason)
+static void ramses_write_reset_info_trap(void)
 {
-	ramses_write_reset_info(0, (void *)reason);
+	register int reason asm("%g7");	/* set by machine_halt() */
+
+
+	ramses_write_reset_info(reason, NULL);
 }
 
 static int ramses_cfg_reset_traps(void)
 {
 	/* called by machine_halt */
-	trap_handler_install(0x82, (void (*)(void))ramses_write_reset_info_trap);
+	trap_handler_install(0x82, ramses_write_reset_info_trap);
 	watchdog_set_handler(ramses_watchdog_handler, NULL);
 
 	return 0;
