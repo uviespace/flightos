@@ -278,6 +278,12 @@ static int ramses_init(void)
 	uint8_t *addr;
 
 
+	/* add one critical sections for the OS ASW code regions */
+	edac_critical_segment_add((void *)0x60000000, (void *)0x60080000);
+	edac_critical_segment_add((void *)0x6FF00000, (void *)0x6FFFFFF8);
+
+
+
 	adc128s102_register(gr712_adc128s102_spi_cs);
 
 	memset((void *)SPW_AREA_START, 0, SPW_AREA_END - SPW_AREA_START);
