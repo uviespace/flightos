@@ -273,10 +273,18 @@ static void gr712_adc128s102_spi_cs(bool enable)
 }
 
 
+static void ramses_edac_reset(void *data)
+{
+	machine_halt(REBOOT_EDAC);
+}
+
+
 static int ramses_init(void)
 {
 	uint8_t *addr;
 
+
+	edac_set_reset_callback(ramses_edac_reset, NULL);
 
 	/* add one critical sections for the OS ASW code regions */
 	edac_critical_segment_add((void *)0x60000000, (void *)0x60080000);
