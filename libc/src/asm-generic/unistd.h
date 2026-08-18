@@ -6,7 +6,7 @@
  */
 
 /* reserve a suitable slots in the syscall vector */
-#define __NR_syscalls		16
+#define __NR_syscalls		20
 
 
 #define __NR_read		0
@@ -23,5 +23,7 @@
 #define __NR_sysctl_show_attr	11
 #define __NR_sysctl_store_attr	12
 #define __NR_sigaction		13
+#define __NR_schedule		14
+#define __NR_edac_inject_fault	15
 
 #endif /* _ASM_GENERIC_UNISTD_H */

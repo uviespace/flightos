@@ -23,6 +23,7 @@
 #include <kernel/sysctl.h>
 #include <kernel/watchdog.h>
 #include <kernel/application.h>
+#include <kernel/edac.h>
 
 
 #undef __SYSCALL
@@ -342,6 +343,18 @@ SYSCALL_DEFINE3(sigaction, int, signal, const struct ksig_action *, act, struct 
 }
 
 
+
+
+SYSCALL_DEFINE3(edac_inject_fault, void *, addr, uint32_t, mem_value, uint32_t, edac_value)
+{
+	edac_inject_fault(addr, mem_value, edac_value);
+
+	return 0;
+}
+
+
+
+
 #include <kernel/syscall.h>
 __attribute__((noinline))
 int syscall_sched_yield(void)
@@ -378,5 +391,6 @@ void *syscall_tbl[__NR_syscalls] __aligned(4096) = {
 	__SYSCALL(__NR_sysctl_store_attr,	sys_sysctl_store_attr)
 	__SYSCALL(__NR_sigaction,		sys_sigaction)
 	__SYSCALL(__NR_schedule,		sys_schedule)
+	__SYSCALL(__NR_edac_inject_fault,	sys_edac_inject_fault)
 };
 

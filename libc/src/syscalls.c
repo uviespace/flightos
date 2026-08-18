@@ -102,3 +102,9 @@ int sys_sigaction(int signal, const struct xsigaction *act, struct xsigaction *o
 {
 	return SYSCALL3(__NR_sigaction, signal, act, oact);
 }
+
+__attribute__((noinline))
+int sys_edac_inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value)
+{
+	return SYSCALL3(__NR_edac_inject_fault, addr, mem_value, edac_value);
+}

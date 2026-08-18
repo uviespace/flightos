@@ -25,6 +25,8 @@ int sys_sysctl_store_attr(const char *path, const char *name, const char *buf, s
 
 int sys_sigaction(int signal, const struct xsigaction *act, struct xsigaction *oact);
 
+int sys_edac_inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value);
+
 #if 0
 void *sbrk(intptr_t incremen);
 #endif
