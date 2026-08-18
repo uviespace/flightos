@@ -41,6 +41,7 @@ struct memscrub_sec {
 	unsigned long begin;
 	unsigned long end;
 	unsigned long pos;
+	unsigned long cyc;	/* number of roundtrips */
 	unsigned short wpc;
 };
 /* this is where we keep track of scrubbing sections */
@@ -64,9 +65,8 @@ static ssize_t memscrub_show(__attribute__((unused)) struct sysobj *sobj,
 
 		for (i = 0; i < _scrub.cnt; i++) {
 
-			ret = sprintf(buf, "0x%08lx 0x%08lx 0x%08lx\n", _scrub.sec[i].begin,
-									_scrub.sec[i].end,
-									_scrub.sec[i].pos);
+			ret = sprintf(buf, "0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
+				      _scrub.sec[i].begin, _scrub.sec[i].end, _scrub.sec[i].pos, _scrub.sec[i].cyc);
 			buf += ret;
 			n   += ret;
 		}
@@ -186,6 +186,7 @@ static int mem_do_scrub(void *data)
 				pos = memscrub(pos, n);
 				n = _scrub.sec[i].wpc - n;
 				_scrub.sec[i].pos = pos = begin;
+				_scrub.sec[i].cyc++;
 
 			} else {
 				n = _scrub.sec[i].wpc;
