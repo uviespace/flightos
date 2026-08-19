@@ -300,7 +300,7 @@ static uint32_t edac_error(void)
 		edacstat.edac_last_single_addr = addr;
 
 		/* XXX kalarm() -> EDAC, LOW, addr */
-		mem_repair((void *) addr);
+		mem_repair((void *)addr);
 
 		/* clear edac error triggered by repair */
 		ahbstat_clear_new_error();
@@ -319,7 +319,7 @@ static uint32_t edac_error(void)
 	}
 
 	/* otherwise overwrite with all bits set */
-	iowrite32be(-1, (void *) addr);
+	iowrite32be(~0, (void *)addr);
 
 	return 1;
 }
@@ -507,8 +507,8 @@ void leon_edac_init(void)
 
 
 #ifdef CONFIG_LEON3
-
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, edac_ahb_irq, NULL);
+	ahbstat_clear_new_error();
 #endif /* CONFIG_LEON3 */
 }
 
