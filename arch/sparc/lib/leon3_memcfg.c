@@ -48,6 +48,7 @@
 #include <asm/io.h>
 #include <leon3_memcfg.h>
 #include <asm/leon_reg.h>
+#include <asm-generic/irqflags.h>
 
 
 /**
@@ -405,10 +406,14 @@ uint32_t leon3_memcfg_bypass_read(void *addr, uint8_t *tcb)
 
 void leon3_memcfg_bypass_write(void *addr, uint32_t value, uint8_t tcb)
 {
+	uint32_t flags;
+
+	flags = arch_local_irq_save();
 	leon3_memcfg_set_checkbits(tcb);
 	leon3_memcfg_enable_edac_write_bypass();
 	iowrite32be(value, addr);
 	leon3_memcfg_disable_edac_write_bypass();
+	arch_local_irq_restore(flags);
 }
 
 
