@@ -16,6 +16,8 @@
 #define REBOOT_DIV0		0xA3
 #define REBOOT_WATCHDOG		0xA4
 #define REBOOT_EDAC		0xA5
+#define REBOOT_NULLPTR		0xA6
+#define REBOOT_OUT_OF_MEM	0xA7
 #define REBOOT_UNKNOWN		0xFF
 
 

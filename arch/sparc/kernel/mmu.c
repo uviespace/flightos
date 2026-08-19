@@ -257,7 +257,7 @@ void *kernel_sbrk(intptr_t increment)
 
 	pr_debug("SBRK: moved %08lx -> %08lx\n", oldbrk, brk);
 
-	return (void *) oldbrk;
+	return (void *)oldbrk;
 }
 
 
@@ -319,7 +319,7 @@ __diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_retur
 					"in call from %p\n",
 					__builtin_return_address(1));
 __diag_pop();
-				BUG();
+				panic(REBOOT_NULLPTR);
 			}
 
 
@@ -338,7 +338,7 @@ __diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_retur
 					addr,
 					__caller(1));
 __diag_pop();
-				BUG();
+				panic(REBOOT_MEM_BOUNDS);
 			}
 
 			if (addr > HIGHMEM_START) {
@@ -348,7 +348,7 @@ __diag_ignore(GCC, 7, "-Wframe-address", "we're fully aware that __builtin_retur
 					"in call from %p\n",
 					addr,
 					__caller(1));
-				BUG();
+				panic(REBOOT_MEM_BOUNDS);
 __diag_pop();
 			}
 
@@ -357,7 +357,7 @@ __diag_pop();
 				alloc = (unsigned long) page_alloc();
 				if (alloc == -1) {
 					pr_crit("MM:\t Out of physical memory %lx\n", last);
-					BUG();
+					panic(REBOOT_OUT_OF_MEM);
 				}
 
 				last = alloc;
