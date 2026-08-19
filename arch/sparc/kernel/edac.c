@@ -467,6 +467,18 @@ static void inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value)
 #endif /* CONFIG_LEON3 */
 }
 
+static unsigned long bypass_read(void *addr)
+
+{
+#ifdef CONFIG_LEON3
+	uint8_t cb;
+
+	return leon3_memcfg_bypass_read(addr, &cb);
+#else
+	return 0xdeadcafe;
+#endif /* CONFIG_LEON3 */
+}
+
 
 /**
  * the configuration for the high-level edac manager
@@ -481,6 +493,7 @@ static struct edac_dev leon_edac = {
 	.get_error_addr	   = get_error_addr,
 	.error_clear	   = error_clear,
 	.inject_fault	   = inject_fault,
+	.bypass_read	   = bypass_read,
         .set_reset_handler = set_reset_handler,
 };
 

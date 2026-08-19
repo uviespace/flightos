@@ -143,6 +143,24 @@ void edac_inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value)
 
 
 /**
+ * @brief read a memory location while bypassing error correction
+ *
+ * @param addr		address pointer
+ *
+ * @returns the value at the location, always 0xdeadcafe if functionality is
+ *	    unavailable
+ */
+
+unsigned long edac_bypass_read(void *addr)
+{
+	if (edac->bypass_read)
+		return edac->bypass_read(addr);
+
+	return 0xdeadcafe;
+}
+
+
+/**
  * @brief initialise the EDAC system
  */
 

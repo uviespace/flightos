@@ -33,11 +33,13 @@ struct edac_dev {
 	unsigned long  (*get_error_addr)    (void);
 	void           (*error_clear)       (void);
         void           (*inject_fault)      (void *addr, uint32_t mem_value, uint32_t edac_value);
+        unsigned long  (*bypass_read)       (void *addr);
 	void           (*set_reset_handler) (void (*handler)(void *), void *data);
 };
 
 
 void edac_inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value);
+unsigned long edac_bypass_read(void *addr);
 
 void edac_set_reset_callback(void (*handler)(void *), void *userdata);
 int edac_critical_segment_add(void *begin, void *end);
