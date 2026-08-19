@@ -273,10 +273,55 @@ static void gr712_adc128s102_spi_cs(bool enable)
 }
 
 
+
+
+#define EDAC_INJECT_AREA	0xA0000500
+#define EDAC_INJECT_MAGIC	0x0badc0de
+struct edac_injection_area {
+
+	uint32_t sbit_addr;
+	uint32_t sbit_magic;
+	uint32_t dbit_addr;
+	uint32_t dbit_magic;
+} __attribute__((packed)) *inject_area = (void *)EDAC_INJECT_AREA;
+
+
 static void ramses_edac_reset(void *data)
 {
 	machine_halt(REBOOT_EDAC);
 }
+
+
+static void ramses_setup_edac(void)
+{
+	uint32_t addr;
+
+
+
+	/* we bypass-read in case we come from a power-on, as the area
+	 * is intentionally never initialised by the boot loader
+	 */
+	if (edac_bypass_read(&inject_area->sbit_magic) == EDAC_INJECT_MAGIC) {
+		addr = edac_bypass_read(&inject_area->sbit_addr);
+		edac_inject_fault((void *)addr, 0x0, 0x1);
+	}
+
+	if (edac_bypass_read(&inject_area->dbit_magic) == EDAC_INJECT_MAGIC) {
+		addr = edac_bypass_read(&inject_area->dbit_addr);
+		edac_inject_fault((void *)addr, 0x0, 0x3);
+	}
+
+
+	/* always clear injection info */
+	memset(inject_area, 0, sizeof(*inject_area));
+
+	edac_set_reset_callback(ramses_edac_reset, NULL);
+
+	/* add one critical sections for the OS ASW code regions */
+	edac_critical_segment_add((void *)0x60000000, (void *)0x60080000);
+	edac_critical_segment_add((void *)0x6FF00000, (void *)0x6FFFFFF8);
+}
+
 
 
 static int ramses_init(void)
@@ -284,13 +329,7 @@ static int ramses_init(void)
 	uint8_t *addr;
 
 
-	edac_set_reset_callback(ramses_edac_reset, NULL);
-
-	/* add one critical sections for the OS ASW code regions */
-	edac_critical_segment_add((void *)0x60000000, (void *)0x60080000);
-	edac_critical_segment_add((void *)0x6FF00000, (void *)0x6FFFFFF8);
-
-
+	ramses_setup_edac();
 
 	adc128s102_register(gr712_adc128s102_spi_cs);
 
