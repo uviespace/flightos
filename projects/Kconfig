@@ -32,3 +32,16 @@ config PROJECT_MYAPP
 	 Demonstrate loading of an application software
 
 endchoice
+
+
+menu "RAMSES WORKAROUNDS"
+	depends on PROJECT_RAMSES
+
+config RAMSES_EM_2
+	bool "EM-2 EDAC workaround"
+	default n
+	help
+	 If selected, does not acknowledge EDAC error bits in AHB status register
+	 to prevent the unknown source of single-bit errors on EM-2 from
+	 triggering an IRQ.
+endmenu

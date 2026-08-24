@@ -459,7 +459,7 @@ static void disable_edac(void)
 #endif /* CONFIG_LEON3 */
 }
 
-
+__attribute__((unused))
 static void inject_fault(void *addr, uint32_t mem_value, uint32_t edac_value)
 {
 #ifdef CONFIG_LEON3
@@ -492,7 +492,10 @@ static struct edac_dev leon_edac = {
 	.error_detected	   = error_detected,
 	.get_error_addr	   = get_error_addr,
 	.error_clear	   = error_clear,
+#ifndef CONFIG_RAMSES_EM_2
+	/* if this is set EM-2 will not boot*/
 	.inject_fault	   = inject_fault,
+#endif /* CONFIG_RAMSES_EM_2 */
 	.bypass_read	   = bypass_read,
         .set_reset_handler = set_reset_handler,
 };
@@ -521,7 +524,9 @@ void leon_edac_init(void)
 
 #ifdef CONFIG_LEON3
 	irq_request(GR712_IRL1_AHBSTAT, ISR_PRIORITY_NOW, edac_ahb_irq, NULL);
+#ifndef CONFIG_RAMSES_EM_2
 	ahbstat_clear_new_error();
+#endif /* CONFIG_RAMSES_EM_2 */
 #endif /* CONFIG_LEON3 */
 }
 
