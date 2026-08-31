@@ -2,13 +2,14 @@
 
 \title{Architectural Design Document}
 \def \documentid {FLIGHTOS-UVIE-ADD-001}
-\date{Issue 1.0, June 1, 2017}
+\date{Issue 1.1, August 31, 2026}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
 \def\preparedby {Armin Luntzer\affil{1}}
-\def\checkedby {Roland Ottensamer\affil{1}, Christian Reimers\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
 \def\approvedby {Franz Kerschbaum\affil{1}}
+\def\authorisedby{-}
 
 \def\affiliations{
 	\affil{1} Department of Astrophysics, University of Vienna
@@ -21,11 +22,19 @@
 
 \usepackage{vhistory}
 
-\usepackage{biblatex}
+\usepackage[
+	backend=biber,
+	defernumbers,
+	natbib=true,
+	style=numeric, %style=alphabetic,
+	sorting=none,
+	%citestyle=authoryear
+]{biblatex}
 \addbibresource{../shared/bibliography.bib}
 
 
-\externaldocument[REQ-]{../requirements/software_requirements}
+%\externaldocument[REQ-]{../requirements/software_requirements}
+\externaldocument[REQ-]{FLIGHTOS-UVIE-SRS-001_Issue_1_1}
 \input{../requirements/requirements.list}
 
 
@@ -37,9 +46,9 @@
 
 \setmainfont{MyriadPro-SemiCondensed}
 \uvietitlepage%
-{Lean OS --\\ An operating system for the SSDP}%
+{FlightOS --\\\mbox{An RTOS for Space-Based Astronomy}}%
 {\doctitle}%
-{../shared/images/logo2.pdf}
+{../shared/images/logo2.pdf}{}
 \setmainfont{MyriadPro}
 
 \approvalpage
@@ -57,6 +66,7 @@
   \vhEntry{0.1}{16.03.2016}{AL}{initial version with updated specifications from \gls{MPPB}v2}
   \vhEntry{0.2}{02.05.2016}{AL}{revised after internal design review}
   \vhEntry{1.0}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.1}{31.08.2026}{AL}{adopt FlightOS name, add refernces to LEON3/4 targets, update design references}
 \end{versionhistory}
 
 
@@ -64,8 +74,8 @@
 
 \section{Purpose of the Document}
 
-This document specifies the software architecture for the operating system
-kernel FlightOS. This document targets developers, testers and advanced users of
+This document specifies the software architecture for the real-time operating system
+FlightOS. This document targets developers, testers and advanced users of
 FlightOS. It is assumed that the reader is familiar with the user requirements
 and/or the software user manual. \\
 
@@ -115,7 +125,7 @@ The fundamental architecture of FlightOS is shown in
 applications are set up and executed. The C library is part of the user space.
 It provides the system call interface that connects the user to kernel space
 functionality and memory address space. Below the user space is the kernel
-space. Here, the tasks of the operating system kernel are executed.
+space. Here, the tasks of the operating system are executed.
 
 Kernel space can be further divided into three gross layers. At the top is the
 system call interface, which implements any I/O functionality to the user space.
@@ -152,11 +162,11 @@ of its source code in Doxygen markup, from which a document can be generated.
 
 \section{Long Lifetime Software}
 
-FlightOS is designed with the \gls{SSDP} as a target platform. To allow re-use
-and adaptation to new hardware, the software components of FlightOS are designed
-to be modular. Unless neeeded for particular drivers, all hardware access is
-abstracted into a separate layer as much as possible, so improved portability
-is ensured.
+FlightOS is designed with the \gls{LEON3-FT} as a target processor platform.
+To allow re-use and adaptation to new hardware, the software components of
+FlightOS are designed to be modular. Unless neeeded for particular drivers, all
+hardware access is abstracted into a separate layer as much as possible, so
+improved portability is ensured.
 
 
 \section{Memory and CPU Budget}
@@ -199,10 +209,9 @@ No external software packages are reused in the implementation of FlightOS.
 
 
 The purpose of FlightOS is to create an operating system that is easy to use and on
-point with regard to the features of the target platform. Still, it is designed
-to be flexible enough that the operating system kernel may be used with other
-(\gls{LEON3}) platforms. One of its distinguishing features is its focus on
-processing with the \gls{Xentium} \glspl{DSP}.\\
+point with regard to the features of the target platform. It is designed
+to be flexible enough that the operating system may be used with various
+\gls{LEON3} based platforms.
 
 \noindent
 When dealing with the particular features of the \gls{SSDP} or the \gls{MPPB}
@@ -234,13 +243,13 @@ matrix.
 \end{figure}
 
 
-In FlightOS, the \gls{SSDP} hardware is accessed in multiple layers of
+In FlightOS, the underlying hardware is accessed in multiple layers of
 abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
 thread/task management and timer operation are used as part of the operating
 system kernel and are also accessible by user applications via a system call
-interface. Other functional hardware components of the \gls{SSDP} such as the
-\gls{NoC} \gls{DMA} have their own driver modules. These are in turn used by the
-\gls{Xentium} scheduler and other higher level modules in the operating system.
+interface. Other functional hardware components have their own driver modules.
+These are in turn used by the higher level modules in the operating system and
+the user application
 Configuration of and access to the latter from user space is done via a system
 call interface. The system control interface serves as an intermediate between
 all layers of the operating system, where system or module states and hardware
@@ -278,7 +287,7 @@ system call or sysctl interfaces.
 
 \design{GEN-0003}%
 {Interrupts, Traps}
-{In order to operate a \gls{SPARC} v8 \gls{CPU} properly, a trap table must be
+{In order to operate a \gls{SPARC}v8 \gls{CPU} properly, a trap table must be
 configured, in particular to handle register window under and overflow traps if
 used with regular \gls{GCC} code generation for the target platform.
 FlightOS configures a callback system for interrupt traps that can later be used
@@ -286,7 +295,7 @@ to install custom handlers, for example as part of driver modules.\newline
 
 Interrupt statistics are exported via the system control interface.
 }%
-{\meetsreq{GEN-0006, GEN-0009, GEN-0018, GEN-0010, FUN-0023}}%
+{\meetsreq{GEN-0006, GEN-0009, GEN-0018, GEN-0010, FUN-0023, GEN-0402, GEN-0403}}%
 {The trap table and its function are described in \cite{SPARCv8} in detail.}
 
 
@@ -295,10 +304,10 @@ Interrupt statistics are exported via the system control interface.
 {Timers}{%
 Timing functionality is a core element of an operating system by scheduling
 periodic and non-periodic kernel wakeup events that subsequently control the
-system's exectuion. The operating system kernel maintains these timers to
+system's exectuion. The operating system maintains these timers to
 measure time or schedule kernel wakeups.
 
-In addition to the \gls{CPU} bound timers, the real-time clock of the \gls{SSDP}
+In addition to the \gls{CPU} bound timers of the \gls{LEON3-FT}, the real-time clock of the \gls{SSDP}
 is supported.
 }%
 {\meetsreq{FUN-0011, FUN-0016, FUN-0017}}{}
@@ -339,8 +348,10 @@ and scheduling deadlines are supported depending on the selected mode.\newline
 
 Synchronisation and execution control between threads is provided via semaphores
 and mutexes.
+
+Task stacks support painting and alignment checks for validation purposes.
 }%
-{\meetsreq{FUN-0012, FUN-0013, FUN-0019}}{}
+{\meetsreq{FUN-0012, FUN-0013, FUN-0019, GEN-0401}}{}
 
 
 \design{GEN-0008}%
@@ -371,7 +382,7 @@ If the kernel is configured to tick periodically, scheduling events will occur
 at a configurable integer fraction of that rate.\newline
 
 A special type of real-time thread is supported, which, with the exception of
-an \gls{ISR} may also preempt the operating system kernel if its release
+an \gls{ISR} may also preempt the operating system if its release
 condition occurs and may run to its deadline without being preempted by other
 threads. This functionality is reserved for highly timing-critical tasks and 
 is reserved to functionality and modules executed in kernel space.\newline
@@ -453,21 +464,22 @@ make-up of the character buffers.
 
 \design{GEN-0012}%
 {\gls{SpaceWire} Driver}{%
-The \gls{SpaceWire} devices of the \gls{SSDP} are accessible from user space via
-a file descriptor that can be read or written atomically.
-If a \gls{SpaceWire} device is only used in the \gls{Xentium} processing
-network, it may be configured by the driver for direct \gls{DMA} to the input
-buffer stage. Similarly, it may be used with \gls{DMA} for the output buffer
-stage.
+The \emph{GRSPW2} \gls{SpaceWire} devices of the supported platforms are
+accessible from user space via a system call interface which facilitates control
+and packet exchange. 
+If a \gls{SpaceWire} device is only used in the \gls{Xentium}
+processing network on the \gls{SSDP}, it may be configured by the driver for direct \gls{DMA} to
+the input buffer stage. Similarly, it may be used with \gls{DMA} for the output
+buffer stage.
 
 If the \gls{RMAP} feature is to be used, the configured physical memory block
 is mapped into a virtual memory space.
 }%
-{\meetsreq{FUN-0025, FUN-0026, FUN-0027}}{}
+{\meetsreq{FUN-0025, FUN-0026, FUN-0027, FUN-0028}}{}
 
 
 \design{GEN-0013}%
-{\gls{ADC}/\gls{DAC} Driver}{%
+{\gls{SSDP} \gls{ADC}/\gls{DAC} Driver}{%
 The \gls{ADC}/\gls{DAC} devices of the \gls{SSDP} are accessible from user
 space via a file descriptor that can be read or written atomically.
 If a \gls{ADC} device is only used in the \gls{Xentium} processing
@@ -585,7 +597,28 @@ according to their pending routing node.
 {\meetsreq{FUN-0027}}{}
 
 
+\design{GEN-0018}%
+{Application Loader}{%
+Applications can be loaded from the operating system and also through
+the the system call interface. The application supplied in\gls{ELF} binary format
+matching to the processor architecture. The C-library supplied with the OS
+also provides a crt0 runtime which defines a symbol that is used by the loader
+to idenitify the application start instruction.
 
+Start-up arguments can be supplied to the application during loading in the
+common argc/argv format.
+}%
+{\meetsreq{FUN-0804}}{}
+
+
+\design{GEN-0019}%
+{Device Drivers and Initcalls}{%
+A set of initicall helpers support self-startup of driver components during
+the bootstrap phase. This is achieved via a special section in the linker
+file comparable to the standard CTOR constructor calls, but selectable
+startup priority.
+}%
+{\meetsreq{FUN-0028, FUN-0029, FUN-0030}}{}
 
 
 \section{Software Components Design - Aspects of each Component}

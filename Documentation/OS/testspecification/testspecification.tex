@@ -2,13 +2,14 @@
 
 \title{Test Specification}
 \def \documentid {FLIGHTOS-UVIE-TS-001}
-\date{Issue 1.0, May 1, 2016}
+\date{Issue 1.1, August 31, 2026}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
 \def\preparedby {Armin Luntzer\affil{1}}
-\def\checkedby {Roland Ottensamer\affil{1}, Christian Reimers\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
 \def\approvedby {Franz Kerschbaum\affil{1}}
+\def\authorisedby{-}
 
 \def\affiliations{
 	\affil{1} Department of Astrophysics, University of Vienna
@@ -23,28 +24,37 @@
 \usepackage{enumitem}
 \usepackage{vhistory}
 
-\usepackage{biblatex}
+\usepackage[
+	backend=biber,
+	defernumbers,
+	natbib=true,
+	style=numeric, %style=alphabetic,
+	sorting=none,
+	%citestyle=authoryear
+]{biblatex}
 \addbibresource{../shared/bibliography.bib}
 
 
-\externaldocument[REQ-]{../testplan/testplan}
+%\externaldocument[REQ-]{../testplan/testplan}
+\externaldocument[REQ-]{FLIGHTOS-UVIE-TP-001-Issue_1_1}
 \input{../testplan/requirements.list}
 
+
+\rereadauxdesignlabels
 
 \rereadauxdesignlabels
 
 
 \begin{document}
 
+%\setmainfont{MyriadPro-SemiCondensed}
+%\uvietitlepage%
+%{FlightOS --\\\mbox{An RTOS for Space-Based Astronomy}}%
+%{\doctitle}%
+%{../shared/images/logo2.pdf}{}
+%\setmainfont{MyriadPro}
 
-\setmainfont{MyriadPro-SemiCondensed}
-\uvietitlepage%
-{Lean OS --\\ An operating system for the SSDP}%
-{\doctitle}%
-{../shared/images/logo2.pdf}
-\setmainfont{MyriadPro}
-
-\approvalpage
+%\approvalpage
 
 \tableofcontents
 \newpage
@@ -58,6 +68,7 @@
 \begin{versionhistory}
   \vhEntry{0.1}{01.05.2017}{AL}{Initial version}
   \vhEntry{1.0}{01.06.2017}{FK}{Document approved}
+  \vhEntry{1.1}{31.08.2026}{AL}{adopt FlightOS name}
 \end{versionhistory}
 
 
@@ -324,7 +335,7 @@ a success.\\
 		 via \emph{grmon}}{}%
 \testrow{STP}{5}{Verify that the program is started on the \gls{MPPB}.}{}%
 \testrow{STP}{6}{Verify that the program reports SUCCESS on termination.}{}%
-\testrow{CMT}{ }{Test completed.}
+\testrow{CMT}{ }{Test completed.}{}%
 }
 
 

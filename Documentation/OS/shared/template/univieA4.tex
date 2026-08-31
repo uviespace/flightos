@@ -1,4 +1,4 @@
-\documentclass{report}
+\documentclass{report}[a4paper]
 %\usepackage[left = 2cm, right=2cm, top = 1cm]{geometry}
 \usepackage[top = 2cm, bottom = 5cm]{geometry}
 
@@ -69,7 +69,7 @@ contents={
 	\fancyhead[R]{
 		\fontspec{MyriadPro}\docdatever \\
 		\vspace{2em}
-		Page \thepage\ of \pageref{LastPage}
+		Page \thepage\ of \pageref*{LastPage}
 	}
 
 	\fancyhead[C]{

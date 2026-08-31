@@ -1,28 +1,35 @@
 \title{Performance Figures}
 \def \documentid {FLIGHTOS-UVIE-PERF-001}
-\date{Draf 0.1, January 19, 2021}
+\date{Issue 0.2, August 31, 2026}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
 \def\preparedby {Armin Luntzer\affil{1}}
 \def\checkedby {Roland Ottensamer\affil{1}}
 \def\approvedby {Franz Kerschbaum\affil{1}}
+\def\authorisedby{-}
 
 \def\affiliations{
 	\affil{1} Department of Astrophysics, University of Vienna
 }
 
 
-
-
 \input{../shared/template/univie.tex}
 \input{../shared/template/titlepage.tex}
-%\input{../shared/glossary.tex}
+\input{../shared/template/traceability.tex}
+\input{../shared/glossary.tex}
 
 
 \usepackage{vhistory}
-
-\usepackage[giveninits=true]{biblatex}
+\usepackage[
+	backend=biber,
+	defernumbers,
+	natbib=true,
+	style=numeric, %style=alphabetic,
+	sorting=none,
+	giveninits=true,
+	%citestyle=authoryear
+]{biblatex}
 \addbibresource{../shared/bibliography.bib}
 
 \usepackage{listings}
@@ -42,15 +49,15 @@
 
 \usepackage{appendix}
 
+
 \begin{document}
 \lstset{style=customc} 
 
-
 \setmainfont{MyriadPro-SemiCondensed}
 \uvietitlepage%
-{UVIE FlightOS}%
+{FlightOS --\\\mbox{An RTOS for Space-Based Astronomy}}%
 {\doctitle}%
-{../shared/images/logo2.pdf}
+{../shared/images/logo2.pdf}{}
 \setmainfont{MyriadPro}
 
 \approvalpage
@@ -62,6 +69,7 @@
 
 \begin{versionhistory}
   \vhEntry{0.1}{19.01.2021}{AL}{Initial version}
+  \vhEntry{0.2}{31.08.2026}{AL}{update document build}
 \end{versionhistory}
 
 

@@ -7,8 +7,9 @@
 \newcommand\affil[1]{\textsuperscript#1}
 
 \def\preparedby {Armin Luntzer\affil{1}}
-\def\checkedby {Roland Ottensamer\affil{1}, Christian Reimers\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
 \def\approvedby {Franz Kerschbaum\affil{1}}
+\def\authorisedby{-}
 
 \def\affiliations{
 	\affil{1} Department of Astrophysics, University of Vienna
@@ -37,9 +38,9 @@
 
 \setmainfont{MyriadPro-SemiCondensed}
 \uvietitlepage%
-{Lean OS --\\ An operating system for the SSDP}%
+{FlightOS --\\\mbox{An RTOS for Space-Based Astronomy}}%
 {\doctitle}%
-{../shared/images/logo2.pdf}
+{../shared/images/logo2.pdf}{}
 \setmainfont{MyriadPro}
 
 \approvalpage
@@ -52,6 +53,7 @@
 \begin{versionhistory}
   \vhEntry{0.1}{29.05.2015}{AL}{initial version}
   \vhEntry{1.0}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.1}{31.08.2026}{AL}{adopt FlightOS name, add refernces to LEON3/4 targets, update design references}
 \end{versionhistory}
 
 
@@ -61,15 +63,17 @@
 
 
 This document describes the \gls{SQA} activities that will be
-performed in the development of the the operating system kernel FlightOS.
+performed in the development of the the operating system kernel \emph{FlightOS}.
 The document is applicable for all versions of FlightOS and and shall be updated
 as needed.\\
 
 \noindent
-FlightOS targets the \gls{SSDP}, and to a lesser extent, its
-compatible predecessor, the \gls{MPPB} v2.x \cite{MPPB}.
-It is intended to be used in unmanned space applications of (at least)
-Software Criticality Level C. \\
+FlightOS targets \gls{LEON3}-based platforms such as
+\emph{GR712RC} and \emph{GR740}. It also has legacy support for the \gls{SSDP},
+and to a lesser extent, its compatible predecessor, the \gls{MPPB} v2.x \cite{MPPB}.
+It is intended to be used in unmanned space applications of at least
+Software Criticality Level C. Readers must be familiar with the basic concepts
+of event driven real time operating systems and the target hardware. \\
 
 \noindent
 This document follows the document structure for software product assurance
@@ -99,7 +103,11 @@ system resources, \gls{DMA} mechanics and \gls{DSP} program design for best
 efficiency and turnover rates. Consequently, \gls{UVIE} developed an experimental
 operating system to stably drive the \gls{DSP} cores and the \gls{MPPB} close
 to its performance limit. FlightOS is a development based on this operating system
-concept.\\
+concept. After the \gls{SSDP} project was abandoned, the
+operating system was generalised to support the \gls{LEON3} family of European
+processors for space. In addition, the project also provides software test
+coverage, example applications and documentation that supports all aspects
+of the software. \\
 
 \noindent
 Further details on FlightOS may be found in \cite{ssdpOS}.

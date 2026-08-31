@@ -12,10 +12,9 @@
 %elif \paperheight \equal {210mm} % A5
 % todo: based on papersize: >= A4: 20mm, A5/long: 15mm, all smaller: 10mm
 %\if \paperheight \equal {297mm}	  % A4
-\newlength{\logoheight}{\setlength{\logoheight}{\maxlogoheight}
+\newlength{\logoheight}\setlength{\logoheight}{\maxlogoheight}
 %elif \paperheight \equal {210mm} % A5
 %\fi
 %
 % todo: pass as option
-\newlength{\logospacing}{\setlength{\logospacing}{\medlogospacing\logoheight}
-
+\newlength{\logospacing}\setlength{\logospacing}{\medlogospacing\logoheight}

@@ -2,13 +2,14 @@
 
 \title{Test Plan}
 \def \documentid {FLIGHTOS-UVIE-TP-001}
-\date{Issue 1.0, June 1, 2017}
+\date{Issue 1.1, August 31, 2026}
 
 \newcommand\affil[1]{\textsuperscript#1}
 
 \def\preparedby {Armin Luntzer\affil{1}}
-\def\checkedby {Roland Ottensamer\affil{1}, Christian Reimers\affil{1}}
+\def\checkedby {Roland Ottensamer\affil{1}}
 \def\approvedby {Franz Kerschbaum\affil{1}}
+\def\authorisedby{-}
 
 \def\affiliations{
 	\affil{1} Department of Astrophysics, University of Vienna
@@ -24,8 +25,16 @@
 
 \usepackage{vhistory}
 
-\usepackage[backend=biber]{biblatex}
+\usepackage[
+	backend=biber,
+	defernumbers,
+	natbib=true,
+	style=numeric, %style=alphabetic,
+	sorting=none,
+	%citestyle=authoryear
+]{biblatex}
 \addbibresource{../shared/bibliography.bib}
+
 % URL to new line %
 \DeclareFieldFormat{url}{URL: \url{#1}}%
 
@@ -42,12 +51,11 @@
 
 \begin{document}
 
-
 \setmainfont{MyriadPro-SemiCondensed}
 \uvietitlepage%
-{Lean OS --\\ An operating system for the SSDP}%
+{FlightOS --\\\mbox{An RTOS for Space-Based Astronomy}}%
 {\doctitle}%
-{../shared/images/logo2.pdf}
+{../shared/images/logo2.pdf}{}
 \setmainfont{MyriadPro}
 
 \approvalpage
@@ -64,6 +72,7 @@
   \vhEntry{0.1}{23.07.2017}{AL}{initial version}
   \vhEntry{0.2}{01.07.2016}{AL}{incorporate changes from review items}
   \vhEntry{1.0}{01.06.2017}{FK}{document approved}
+  \vhEntry{1.1}{31.08.2026}{AL}{adopt FlightOS name}
 \end{versionhistory}
 
 
@@ -80,11 +89,12 @@
 \end{figure}
 
 \noindent
-FlightOS\cite{ssdpOS}\cite{flightosADD}\cite{flightosSRS} is an operating system specifically
-designed to support hardware devices with drivers and data processing on the
+FlightOS\cite{ssdpOS}\cite{flightosADD}\cite{flightosSRS} is an operating system
+targeting \gls{LEON3}-based platforms such as \emph{GR712RC} and \emph{GR740},
+but also has legacy support for drivers and data processing on the
 \gls{Xentium} \glspl{DSP} of the \gls{SSDP}.\\
 
-In FlightOS, the \gls{SSDP} hardware is accessed in multiple layers of
+In FlightOS, hardware is accessed in multiple layers of
 abstraction (see \fig{fig:logical_model}). Typical \gls{CPU} tasks such as
 thread/task management and timer operation are used as part of the operating
 system kernel and are also accessible by user applications via a system call

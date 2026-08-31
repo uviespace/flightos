@@ -1,4 +1,4 @@
-\newcommand{\uvietitlepage}[3]{%
+\newcommand{\uvietitlepage}[4]{%
 \begin{titlepage}
 \BgThispage
 %
@@ -6,22 +6,22 @@
 \begin{tikzpicture}[overlay, remember picture]
 \node[anchor	= north west,
       xshift	= \logospacing,
-      yshift	=-\logospacing] 
+      yshift	=-\logospacing]
       at (current page.north west)
-     {\includegraphics[height = \logoheight]{../shared/images/uni_logo_astrophysik_cmyk.eps}}; 
+     {\includegraphics[height = \logoheight]{../shared/images/uni_logo_astrophysik_cmyk.eps}};
 \end{tikzpicture}
 %
 \begin{tikzpicture}[overlay, remember picture]
 \node[anchor	= north east,
       xshift	=-\logospacing,
-      yshift	=-\logospacing] 
+      yshift	=-\logospacing]
       at (current page.north east)
-     {\includegraphics[height = \logoheight]{../shared/images/uni_logo_farbe_02.eps}}; 
+     {\includegraphics[height = \logoheight]{../shared/images/uni_logo_farbe_02.eps}};
 \end{tikzpicture}
 %
 %
 %
-% main title, must not exceed 3 lines 
+% main title, must not exceed 3 lines
 \begin{tikzpicture}[overlay, remember picture]
 \node[anchor			= north west,
       xshift			= \logospacing,
@@ -38,7 +38,7 @@
       };
 \end{tikzpicture}
 %
-% subtitle, must not exceed 3 lines 
+% subtitle, must not exceed 3 lines
 \begin{tikzpicture}[overlay, remember picture]
 \node[anchor			= north west,
       xshift			= \logospacing,
@@ -61,12 +61,24 @@
 \begin{tikzpicture}[overlay, remember picture]
 \node[anchor=south east,		%anchor is upper left corner of the graphic
       xshift  = 0.5cm,		%shifting around
-      yshift  = -0.5cm] 
+      yshift  = -0.5cm]
      	at (current page.south east) %left upper corner of the page
-     {\includegraphics[width=14.0cm]{#3}}; 
+     {\includegraphics[width=8.0cm]{#3}};
 \end{tikzpicture}
 %
+
+{\ifthenelse{\isempty{#4}{}}{}{
+\begin{tikzpicture}[overlay, remember picture]
+\filldraw [fill=white, draw=white] (-4.5,-23.5) rectangle (4.3,-18.6);
 %
+\node[anchor=south west,		%anchor is upper left corner of the graphic
+      xshift  = 0.0cm,		%shifting around
+      yshift  = 0.05cm]
+     	at (current page.south west) %left upper corner of the page
+        {\includegraphics[]{#4}};
+\end{tikzpicture}
+}} %ifthenelse
+
 \end{titlepage}
 %
 \restoregeometry
