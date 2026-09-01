@@ -22,6 +22,8 @@
  * @param name the name of the elf section
  *
  * @return elf section structure pointer or NULL if not found
+ *
+ * @note returns NULL if name is NULL
  */
 
 struct elf_section *find_elf_sec(const struct elf_binary *m, const char *name)
@@ -51,6 +53,8 @@ struct elf_section *find_elf_sec(const struct elf_binary *m, const char *name)
  * @param idx the index of the elf section
  *
  * @return elf section structure pointer or NULL if not found
+ *
+ * @note returns NULL if idx is out of range
  */
 
 struct elf_section *find_elf_idx(const struct elf_binary *m, size_t idx)
@@ -68,7 +72,10 @@ struct elf_section *find_elf_idx(const struct elf_binary *m, size_t idx)
  *
  * @param m a struct elf_binary
  *
- * @return -1 on error
+ * @return 0 on success, -1 on error
+ *
+ * @note initialises the exec info fields of m and accumulates the size and
+ *	 alignment requirements of all SHF_ALLOC sections
  */
 
 int setup_elf_binary(struct elf_binary *m)

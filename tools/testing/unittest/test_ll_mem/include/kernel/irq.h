@@ -2,7 +2,7 @@
  * @file    include/kernel/irq.h
  * @author  Armin Luntzer (armin.luntzer@univie.ac.at)
  *
- * @ingroup irq
+ * @ingroup irqsys
  *
  * @copyright GPLv2
  *

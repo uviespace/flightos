@@ -41,8 +41,16 @@ static inline const char *printk_skip_level(const char *buffer)
 }
 
 /**
- * @brief see printf(3)
+ * @brief print a formatted message to the console, honouring kernel levels
  *
+ * @param fmt a printf(3)-style format string, optionally prefixed with a
+ *	      kernel level marker (e.g. KERN_ERR)
+ *
+ * @return the number of characters printed, or a negative value on error
+ *
+ * @note if the message carries a kernel level that is above the configured
+ *	 KERNEL_LEVEL, the message is silently dropped
+ * @note see printf(3)
  */
 
 int printk(const char *fmt, ...)

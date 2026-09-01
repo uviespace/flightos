@@ -1,0 +1,94 @@
+/**
+ * @defgroup interrupts FlightOS Interrupt Subsystem
+ *
+ * @brief Architecture-independent interrupt registration and dispatch with
+ *        architecture-specific controller and trap support.
+ *
+ * @page interrupts_overview Interrupt Subsystem Overview
+ *
+ * The interrupt subsystem separates the kernel interrupt-service contract from
+ * the processor and interrupt-controller mechanisms. Generic kernel and device
+ * code describe interrupt ownership, handler execution priority, CPU affinity,
+ * and controller priority through an abstract operation table. The selected
+ * architecture implements that table and connects controller events to the
+ * processor trap entry path.
+ *
+ * ## Concept and structure
+ *
+ * The high-level layer in `include/kernel/` and `kernel/` contains the handler
+ * return convention, request metadata, and one registered controller backend.
+ * Requests carry an interrupt number, immediate or deferred execution policy,
+ * a handler, and opaque handler data. The generic layer delegates hardware
+ * operations to the registered backend; support for multiple simultaneous
+ * backend objects is not present.
+ *
+ * The current SPARC backend maintains separate primary interrupt (IRL) and
+ * extended interrupt (EIRL) handler vectors. Handler registrations use fixed
+ * pools, and deferred work uses a separate fixed queue pool. Per-interrupt CPU
+ * affinity drives controller mask state. Optional interrupt statistics and rate
+ * protection are controlled by configuration; rate protection is disabled in
+ * the current source. Locking for all resources shared between CPUs is marked
+ * as incomplete in the backend and needs review.
+ *
+ * ## Architectural design
+ *
+ * The architecture path begins when the SPARC trap table receives an
+ * asynchronous interrupt. Interrupt levels 1 through 14 enter the common IRQ
+ * trap entry; level 15 is handled separately as NMI in the trap table. The IRQ
+ * entry saves the register state, configures the processor interrupt level
+ * according to nested-IRQ configuration, and passes control to the SPARC
+ * dispatcher. The dispatcher walks handlers for the selected primary or
+ * extended interrupt, runs immediate handlers on the interrupt path, and queues
+ * deferred handlers. The trap entry then restores the saved state and returns
+ * to interrupted execution.
+ *
+ * On LEON3 and LEON4, primary interrupt numbers are represented by controller
+ * bits 1 through 15 and extended interrupts occupy the 16 through 31 range.
+ * LEON2 uses a different extended-interrupt numbering convention, translated
+ * by the architecture macros. The exact controller behavior for every supported
+ * build configuration needs review.
+ *
+ * Local interrupt state is represented by the SPARC PSR PIL field. The
+ * architecture helpers save, disable, restore, or clear that field; generic
+ * code reaches them through the asm-generic wrapper.
+ *
+ * ## Layer relationship and portability
+ *
+ * During boot, the architecture initializes its interrupt-controller
+ * representation and publishes it to the generic kernel layer. The dependency
+ * direction is deliberate: high-level kernel services and device drivers
+ * depend on the generic contract, while that contract depends on the selected
+ * architecture backend for target-specific behavior. Immediate and deferred
+ * handler policies express the same separation in time: the architecture
+ * recognizes and dispatches the event, while the kernel-facing contract
+ * distinguishes work that may remain on the interrupt path from work that can
+ * be completed later.
+ *
+ * This design allows the high-level interrupt model to remain usable when a
+ * different processor or interrupt controller is selected. Porting the
+ * subsystem consequently requires a new architecture-side realization of the
+ * contract and its entry path, not changes to every kernel service that
+ * consumes interrupts.
+ *
+ * ## High-level to architecture mapping
+ *
+ * | High-level concern | Generic kernel interface/core | SPARC implementation |
+ * | --- | --- | --- |
+ * | Handler registration and backend contract | `include/kernel/irq.h`, `kernel/irq.c` | `arch/sparc/kernel/irq.c` |
+ * | Local interrupt state | `include/asm-generic/irqflags.h` | `arch/sparc/include/asm/irqflags.h`, `arch/sparc/kernel/irq.c` |
+ * | Controller access and IRQ numbering | no hardware-specific code | `arch/sparc/include/irq.h`, `arch/sparc/include/asm/irq.h`, `arch/sparc/kernel/irq.c` |
+ * | Trap entry and return path | no hardware-specific code | `arch/sparc/kernel/irqtrap.S`, `arch/sparc/include/asm/ttable.h` |
+ *
+ * The existing @ref irqsys group contains detailed declarations, backend
+ * documentation, and the original generic and architecture-specific diagrams.
+ * The diagrams below provide the subsystem overview without enumerating API
+ * calls.
+ *
+ * ## Diagrams
+ *
+ * @plantumlfile interrupts_architecture.puml
+ *
+ * @plantumlfile interrupts_flow.puml
+ *
+ * @plantumlfile interrupts_dispatch_activity.puml
+ */

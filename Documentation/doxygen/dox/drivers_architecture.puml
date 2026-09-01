@@ -1,0 +1,47 @@
+@startuml
+title FlightOS driver architecture
+!pragma layout ortho
+skinparam linetype ortho
+skinparam componentStyle rectangle
+
+package "High-level kernel/" {
+  [SPI core\nspictlr.c] as spi
+  [GRSPW2\ngrspw2.c] as spw
+  [NoC DMA\nnoc_dma.c] as dma
+  [Xentium\nxentium.c] as xen
+}
+package "Device clients" {
+  [AD7814] as ad
+  [ADC128S102] as adc
+  [Processing network] as pn
+}
+package "arch/sparc/" {
+  [LEON I/O\nasm/io.h] as io
+  [IRQ mapping and dispatch\nirq.h, kernel/irq.c] as irq
+  [Cache and physical address helpers] as cache
+}
+package "Target hardware" {
+  [GRSPI] as grspi
+  [GRSPW2 cores] as hwspw
+  [NoC DMA channels] as hwdma
+  [Xentium devices] as hwxen
+}
+
+ad --> spi
+adc --> spi
+spi --> grspi
+spw --> hwspw
+dma --> hwdma
+xen --> hwxen
+xen --> dma : reserved channels
+pn --> xen
+spi --> io
+spw --> io
+dma --> io
+xen --> io
+spw --> irq
+dma --> irq
+xen --> irq
+spw --> cache
+xen --> cache
+@enduml

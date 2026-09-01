@@ -1,3 +1,13 @@
+/**
+ * @file kernel/signals.c
+ *
+ * @brief kernel signal handling
+ *
+ * Provides the kernel-side POSIX-like signal implementation: sending signal
+ * info to a task, installing/removing signal handlers via sigaction, and
+ * cleaning up a task's pending signals and handlers when it is dropped.
+ */
+
 #include <kernel/signals.h>
 #include <errno.h>
 #include <kernel/kmem.h>
@@ -148,10 +158,15 @@ error:
 
 /**
  * @brief register a signal handler
- *
- * NOTE: this should not require locking, since a handler can only
+ * @note this should not require locking, since a handler can only
  * be registered from a running task, so will not be free'd while
  * the call is going on
+ *
+ * @param signal the signal number to register a handler for
+ * @param act    pointer to the signal action to install, or NULL to query
+ * @param oact   pointer to store the previous signal action, or NULL
+ *
+ * @return 0 on success, negative errno on error
  */
 
 int ksigaction(int signal, const struct ksig_action *act, struct ksig_action *oact)
@@ -213,7 +228,12 @@ int ksigaction(int signal, const struct ksig_action *act, struct ksig_action *oa
  * @brief queue a signal emission; will have no effect if a signal
  *	  is not registered to the particular task
  *
+ * @param signal the signal number to send
+ * @param info   pointer to signal info to deliver, or NULL
+ *
  * @note any signal passed to this function is currently treated as a broadcast
+ *
+ * @return 0 on success, negative errno on error
  */
 
 int ksignal_send_info(int signal, siginfo_t *info)
@@ -265,10 +285,14 @@ int ksignal_send_info(int signal, siginfo_t *info)
 }
 
 
-/*
- * NOTE: the individual schedulers call kthread_free() with scheduling locked,
+/**
+ * @brief clean up signal handlers and pending signals for a task
+ *
+ * @note the individual schedulers call kthread_free() with scheduling locked,
  * which in turn calls this function, so we should never encounter an issue
  * with someone calling ksignal_send_info() above
+ *
+ * @param task pointer to the task_struct to clean up
  */
 
 void ksignal_drop_task(struct task_struct *task)
@@ -313,6 +337,8 @@ void ksignal_drop_task(struct task_struct *task)
 
 /**
  * @brief check if there are pending signals
+ *
+ * @return nonzero if signals are pending, 0 otherwise
  */
 
 int ksignal_raised(void)

@@ -1,6 +1,7 @@
 /**
  * @file   leon3_memcfg.c
  * @ingroup leon3_memcfg
+ * @ingroup kmem
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  * @date   March, 2016
  *
@@ -663,4 +664,3 @@ void leon3_memcfg_configure_sram_flash_access(void)
 	iowrite32be(LEON3_MEMCFG2_SRAM, &memctrl->mcfg2);
 	iowrite32be(LEON3_MEMCFG3_SRAM, &memctrl->mcfg3);
 }
-

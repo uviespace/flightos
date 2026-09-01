@@ -18,8 +18,8 @@
 #include <kernel/xentium_dev.h>
 
 
-/**
- *  @bug there appears to be some kind of bug when accessing (AHB?) SDRAM
+/*
+ * XXX   there appears to be some kind of bug when accessing (AHB?) SDRAM
  *	 addresses from the Xentiums directly. Looks like it's using the wrong
  *	 memory content or suffering from some kind of caching effect (or timing
  *	 issues with it's NoC network bridge/DMA interaction).

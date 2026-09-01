@@ -1,0 +1,20 @@
+@startuml
+title Synchronous SPI transfer
+!pragma layout ortho
+skinparam linetype ortho
+
+start
+:device calls spi_sync_transfer();
+:build spi_msg and transfer list;
+:spi_sync() locks controller bus;
+:iterate non-empty transfers;
+:controller transfer_one();
+:GRSPI configures word width, mode, and clock;
+:assert device chip select;
+:write TX register;
+:poll RX-not-empty event;
+:read RX register and store data;
+:clear event and deassert chip select;
+:unlock controller bus;
+stop
+@enduml

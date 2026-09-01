@@ -1,7 +1,8 @@
 /**
 * @file arch/sparc/kernel/mmu.c
 *
-* @ingroup sparc
+ * @ingroup sparc
+ * @ingroup kmem
 *
 * @brief SPARC MMU initialisation, context, trap handling and sbrk()
 *
@@ -199,6 +200,15 @@ unsigned long mm_get_mmu_ctx(void)
 	return _mmu_ctx;
 }
 
+/**
+ * @brief release MMU mappings in the given virtual address range
+ *
+ * @param va_start the start virtual address
+ * @param va_stop the end virtual address
+ *
+ * @note the mappings in the current (active) MMU context are released
+ */
+
 void mm_release_mmu_mapping(unsigned long va_start, unsigned long va_stop)
 {
 	unsigned long ctx;
@@ -208,6 +218,20 @@ void mm_release_mmu_mapping(unsigned long va_start, unsigned long va_stop)
 
 	srmmu_release_pages(ctx, va_start, va_stop, page_free);
 }
+
+/**
+ * @brief move the system break (heap) pointer of the current context
+ *
+ * Allocates or releases memory mappings as needed, analogous to the
+ * POSIX sbrk() call.
+ *
+ * @param increment the number of bytes to add (or remove, if negative)
+ *	 to the program break
+ *
+ * @return the previous program break, or (void *)-1 on error
+ *
+ * @note the increment is aligned up to STACK_ALIGN
+ */
 
 void *kernel_sbrk(intptr_t increment)
 {
@@ -261,11 +285,31 @@ void *kernel_sbrk(intptr_t increment)
 }
 
 
+/**
+ * @brief translate a virtual address to its physical address
+ *
+ * @param va the virtual address
+ *
+ * @return the corresponding physical address, including the page offset
+ *	 of va
+ */
+
 unsigned long mm_get_physical_addr(unsigned long va)
 {
 	return srmmu_get_pa_page(mm_get_mmu_ctx(), va) | (va & 0xFFFUL);
 }
 
+
+/**
+ * @brief handle an MMU trap (data access exception)
+ *
+ * Reads the MMU fault status and address registers, logs the fault
+ * and, for invalid-address faults below the system break, allocates and
+ * maps a page on demand.
+ *
+ * @note panics on NULL pointer violations or accesses outside the
+ *	 legal memory bounds
+ */
 
 void mm_mmu_trap(void)
 {

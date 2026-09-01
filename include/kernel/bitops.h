@@ -54,6 +54,13 @@ static inline void __set_bit(int nr, volatile unsigned long *addr)
         *p  |= mask;
 }
 
+/**
+ * __clear_bit - Clear a bit in memory
+ * @nr: the bit to clear
+ * @addr: the address to start counting from
+ *
+ * Unlike clear_bit(), this function is non-atomic and may be reordered.
+ */
 static inline void __clear_bit(int nr, volatile unsigned long *addr)
 {
         unsigned long mask = BIT_MASK(nr);

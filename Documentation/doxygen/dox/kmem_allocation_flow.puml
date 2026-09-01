@@ -1,0 +1,21 @@
+@startuml
+title FlightOS allocation flow
+start
+:request memory;
+if (MMU enabled?) then (yes)
+  :use kernel heap tracking;
+  if (free tracked chunk available?) then (yes)
+    :reuse or split chunk;
+  else (no)
+    :grow virtual program break;
+    :obtain pages on demand;
+  endif
+else (no)
+  :use boot memory allocator;
+  :select a page-map range;
+  :allocate from buddy pool;
+  :subdivide through chunk manager;
+endif
+:return allocated storage;
+stop
+@enduml

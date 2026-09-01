@@ -1,6 +1,8 @@
 /**
  * @file   edac.c
- * @ingroup edac
+ * @ingroup kmem
+ * @ingroup edacsys
+ * @addtogroup edacsys
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  * @date   February, 2016
  *
@@ -14,24 +16,79 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @defgroup edac EDAC error handling
- * @brief Implements EDAC error handling and utility functions
+ * ## Role within the EDAC subsystem
  *
+ * This file is the architecture-specific counterpart of the high-level
+ * abstracted EDAC interface in kernel/edac.c. It implements the operations of
+ * a struct edac_dev (the static leon_edac) and registers them with the generic
+ * layer through leon_edac_init() -> edac_init(&leon_edac). leon_edac_init() is
+ * called from setup_arch() during boot (see the "Boot Flow" diagram in
+ * setup.c).
+ *
+ * The LEON backend populates the generic callback table with these operations:
+ *
+ *   - enable              -> enable_edac()
+ *                            (leon3_memcfg_enable_ram_edac(), CONFIG_LEON3)
+ *   - disable             -> disable_edac()
+ *                            (leon3_memcfg_disable_ram_edac(), CONFIG_LEON3)
+ *   - crit_seg_add        -> crit_seg_add()
+ *   - crit_seg_rem        -> crit_seg_rem()
+ *   - error_detected      -> error_detected()   (ahbstat_new_error())
+ *   - get_error_addr      -> get_error_addr()   (ahbstat_get_failing_addr())
+ *   - error_clear         -> error_clear()      (ahbstat_clear_new_error())
+ *   - inject_fault        -> inject_fault()
+ *                            (leon3_memcfg_bypass_write() + BCH checkbits)
+ *   - bypass_read         -> bypass_read()
+ *                            (leon3_memcfg_bypass_read(), CONFIG_LEON3)
+ *   - set_reset_handler   -> set_reset_handler()
  *
  * ## Overview
  *
  * This module implements handling of double-bit EDAC errors raised either via
  * SPARC v8 data access exception trap 0x9 or the AHB STATUS IRQ 0x1.
  *
- * ## Mode of Operation
- *
  * The @ref traps module is needed to install the custom data access exception
- * trap handler, the AHB irq handler must be installed via @ref irq_dispatch.
+ * trap handler, the AHB irq handler must be installed via the generic IRQ
+ * interface documented in @ref irqsys. The AHB STATUS IRQ (GR712_IRL1_AHBSTAT,
+ * IRQ 0x1) is requested from leon_edac_init() with ISR_PRIORITY_NOW and is
+ * handled by edac_ahb_irq().
  *
  * If an error is detected in normal memory, its location is reported. If the
- * source of the double bit error is the @ref iwf_flash, the last flash read
- * address is identified and reported.
+ * source of the double bit error is the IWF flash device (the corresponding
+ * documentation reference needs review), the last flash read address is
+ * identified and reported.
  *
+ * ## Error source classification
+ *
+ * The AHB status is investigated by edac_error(). Only a fresh AHB error is
+ * acted upon; the failing address is read and the AHB "new error" flag is
+ * cleared. A zero failing address is treated as non-memory related and
+ * ignored. A correctable (single-bit) error increments the single-fault
+ * statistics, triggers mem_repair() on the failing address and clears the
+ * error flag again. An uncorrectable (double-bit) error increments the
+ * double-fault statistics; if the failing address lies within a registered
+ * critical segment, the registered reset handler is invoked; otherwise the
+ * corrupted location is overwritten with all bits set.
+ *
+ * ## Critical segments
+ *
+ * Critical segments are tracked in a growable array of struct edac_crit_sec
+ * entries (crit_seg_add() grows the array by CRIT_REALLOC entries when full,
+ * crit_seg_rem() compacts it). A double-bit error within a critical segment
+ * triggers the reset handler installed by set_reset_handler().
+ *
+ * ## Performance counters / sysctl
+ *
+ * The backend exposes the EDAC statistics through a sysctl object named "edac"
+ * under the sysctl root, set up as a late initcall (edac_init_sysctl()) with
+ * read-only attributes singlefaults, doublefaults, lastsingleaddr and
+ * lastdoubleaddr.
+ *
+ * ## Checkbit generation
+ *
+ * This module provides BCH EDAC checkbit generation (bch_edac_checkbits(),
+ * based on the GR712-UM v2.3 p. 60 bit-index tables) that is used with
+ * @ref leon3_memcfg to inject single or double bit errors.
  *
  * @startuml {edac_handler.svg} "EDAC trap handler" width=10
  * :IRQ/trap;
@@ -48,6 +105,55 @@
  * end
  * @enduml
  *
+ * @startuml FlightOS LEON EDAC Error Flow
+ * title LEON EDAC Error Flow (arch/sparc/kernel/edac.c)
+ *
+ * skinparam activityBackgroundColor #FFF3E0
+ * skinparam activityBorderColor #333333
+ *
+ * |edac_ahb_irq()|
+ * start
+ * :edac_error();
+ * :return 0;
+ * stop
+ *
+ * |edac_error()|
+ * start
+ * if (ahbstat_new_error()) then (no)
+ *   :return 0 (ignore);
+ *   stop
+ * else (new error)
+ *   :addr = ahbstat_get_failing_addr();
+ *   :ahbstat_clear_new_error();
+ *   if (addr == 0) then (yes)
+ *     :return 0 (non-memory, ignore);
+ *     stop
+ *   else (address set)
+ *   endif
+ *   if (ahbstat_correctable_error()) then (yes)
+ *     :edac_single++;
+ *     :edac_last_single_addr = addr;
+ *     :mem_repair(addr);
+ *     :ahbstat_clear_new_error();
+ *     :return 0;
+ *     stop
+ *   else (uncorrectable)
+ *     :edac_double++;
+ *     :edac_last_double_addr = addr;
+ *     if (addr in critical section) then (yes)
+ *       if (do_reset) then (yes)
+ *         :do_reset(reset_data);
+ *       else (none)
+ *       endif
+ *     else (not critical)
+ *     endif
+ *     :iowrite32be(~0, addr); (overwrite)
+ *     :return 1;
+ *   endif
+ * endif
+ * stop
+ *
+ * @enduml
  *
  * ## Error Handling
  *
@@ -55,8 +161,19 @@
  *
  * ## Notes
  *
- * - This module provides EDAC checkbit generation that is used in @ref memcfg
- *   to inject single or double bit errors.
+ * - The data access exception trap 0x9 installation is present but commented
+ *   out (trap_handler_install(0x9, ...)); the active error path is the AHB
+ *   STATUS IRQ handler.
+ * - The AHB IRQ is raised on single-bit errors as well (GR712-UM sections
+ *   5.10.3 and 7 are noted as ambiguous in the source).
+ *
+ * ## Needs review
+ *
+ * - The IWF flash double-bit error source identification and the behaviour for
+ *   the flash case need review.
+ * - The leon_edac_init() error path for CONFIG_RAMSES_EM_2 (where
+ *   ahbstat_clear_new_error() is #ifndef'd out) needs review.
+ * - edacstat counter overflow / concurrent access is not protected.
  *
  */
 #include <ahb.h>
@@ -529,4 +646,3 @@ void leon_edac_init(void)
 #endif /* CONFIG_RAMSES_EM_2 */
 #endif /* CONFIG_LEON3 */
 }
-

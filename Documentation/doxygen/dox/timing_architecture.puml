@@ -1,0 +1,35 @@
+@startuml
+title FlightOS timing subsystem architecture
+top to bottom direction
+skinparam linetype ortho
+skinparam componentStyle rectangle
+
+package "High-level kernel" {
+  [Timekeeping] as time
+  [Clockevent core] as events
+  [Tick policy] as tick
+  [Watchdog policy] as watchdog
+  [Clocksource abstraction] as source
+  [Clockevent abstraction] as event
+}
+
+package "SPARC LEON implementation" {
+  [Uptime setup] as uptime
+  [Clockevent backend] as backend
+  [GRTIMER long count] as longcount
+  [GPTIMER register access] as gptimer
+  [GRTIMER register access] as grtimer
+  [SPARC timer IRQs] as irq
+}
+
+time --> source : elapsed time
+events --> event : device lifecycle
+tick --> events : tick device
+watchdog --> events : watchdog device
+uptime --> time : selected source
+longcount --> uptime : LEON3
+backend --> events : registered devices
+gptimer --> backend : LEON3/4 timers
+grtimer --> longcount : counter access
+backend --> irq : expiry interrupt
+@enduml

@@ -1,0 +1,295 @@
+/**
+ * @mainpage FlightOS
+ *
+ * @section intro Introduction
+ *
+ * FlightOS (formerly LeanOS) is a lightweight operating system for
+ * space-instrumentation software. The repository is maintained by the space
+ * instrumentation working group at the Department of Astrophysics of the
+ * University of Vienna. Its current implementation target is the SPARC v8
+ * family, primarily the LEON3-based GR712RC and GR740. The source tree also
+ * contains legacy support for the NoC and Xentium DSPs associated with the
+ * MPPB/SSDP processing platforms.
+ *
+ * The project grew out of evaluation work on MPPB hardware and was later
+ * developed around the SSDP concept. SSDP itself was abandoned, but the NoC
+ * and DSP support remained modular parts of the operating-system codebase.
+ * The repository contains a requirements specification, architectural design
+ * description, user manual, performance report, and test documentation under
+ * `Documentation/OS`; the source and the selected build configuration
+ * together determine the facilities provided by any given image.
+ *
+ * @section scope Scope and status
+ *
+ * FlightOS is a target-specific operating system rather than a general-purpose
+ * or fully portable operating system. The top-level build defaults to `sparc`,
+ * and `arch/sparc` is the only architecture directory currently present. The
+ * SPARC configuration provides LEON2, LEON3, and LEON4 selections; GR712RC
+ * and GR740 are the primary target platforms. The implementation is primarily
+ * C, with SPARC assembly used for machine-level entry, context switching,
+ * traps, and other target-specific interfaces.
+ *
+ * Functionality is selected at build time through a modified Linux kbuild
+ * system and Kconfig. The set of drivers, memory features, modules, DSP
+ * programs, samples, and startup code depends on the selected configuration.
+ * A build normally links the architecture code, common kernel, initialization
+ * code, projects, and common libraries into the `flightos` image. Optional
+ * modules and embedded archive images add further configuration-dependent
+ * behavior.
+ *
+ * FlightOS targets unmanned space applications at Software Criticality Level C
+ * or higher. The kernel is lightweight, with limited external dependencies,
+ * POSIX-oriented interfaces where applicable, modularity, and
+ * resource-conscious operation. The degree to which individual requirements
+ * are met depends on the selected configuration and its implementation.
+ *
+ * @section architecture Architectural design
+ *
+ * The architecture is organized into the following software boundaries:
+ *
+ * - User space contains applications and the C library. The library provides
+ *   the user-facing wrappers that reach kernel functionality through system
+ *   calls where such wrappers are implemented.
+ * - The kernel-facing system-call and control interfaces form the boundary to
+ *   privileged services. The system-control (`sysctl`) interface is a logical
+ *   tree of character-oriented entries registered by kernel components; entries
+ *   may expose configuration, state, statistics, or component-defined binary
+ *   data.
+ * - Architecture-independent kernel code in `kernel/` and reusable support in
+ *   `lib/` implement policies and generic data structures.
+ * - Architecture code in `arch/sparc/` supplies boot, trap and interrupt entry,
+ *   processor state, memory and MMU operations, timers, I/O, and other LEON or
+ *   SPARC-specific mechanisms.
+ *
+ * The source implements this boundary through generic headers under `include/`
+ * and architecture headers under `arch/sparc/include/`. Generic services call
+ * abstract operations supplied by the selected architecture rather than
+ * directly embedding hardware register access. A new architecture must provide
+ * the interfaces required by its selected configuration; the source-level
+ * separation does not make every component portable without such a backend.
+ *
+ * The dependency direction is from higher-level services toward lower
+ * abstraction layers. Hardware-specific details stay in architecture code or
+ * driver backends; generic scheduling, timing, interrupt, memory, and driver
+ * contracts remain usable by their consumers. The design favors component
+ * encapsulation and leaves detailed implementation choices in the source so
+ * that the codebase can evolve without changing its fundamental component
+ * boundaries.
+ *
+ * @subsection boot Boot and initialization
+ *
+ * The architecture setup path initializes the platform before the common
+ * kernel initialization path promotes the boot context to the main kernel
+ * task. Depending on configuration, startup uses compiler-provided or
+ * architecture-provided boot code. The initialization code runs registered
+ * initcalls, optionally loads an embedded module image, optionally runs the
+ * Xentium demonstration, and then enters the main kernel loop. A custom boot
+ * configuration can also invoke registered user-call functions. The exact
+ * user-space or application startup sequence is configuration- and
+ * platform-dependent.
+ *
+ * @subsection protection Protection and failure handling
+ *
+ * SPARC trap entry provides the transition into privileged handling for
+ * interrupts, exceptions, and system calls. When enabled, the SRMMU supplies
+ * virtual mappings and user/supervisor memory protection. The kernel provides
+ * logging, `BUG`/panic-style halt paths, reboot support, and architecture trap
+ * handlers. Halt and reboot carry a reason code from `include/kernel/reboot.h`
+ * (for example `REBOOT_WATCHDOG`, `REBOOT_EDAC`, `REBOOT_OUT_OF_MEM`); the
+ * architecture records this code and transitions to the platform-specific
+ * reset sequence. Safe-mode and recovery extensions are reserved for future
+ * work.
+ *
+ * @section components Major components
+ *
+ * @subsection scheduling Scheduling and threads
+ *
+ * `kernel/sched/` and `kernel/kthread.c` manage task control blocks, task
+ * states, stacks, CPU placement, synchronization, and context-switch requests.
+ * Round-robin and earliest-deadline-first scheduler policies are provided. SMP
+ * support, CPU affinity, task migration, and cross-CPU scheduler state are
+ * available through the configured scheduler and architecture paths. SPARC
+ * thread setup and context switching are supplied by
+ * `arch/sparc/kernel/thread.c` and the related assembly/layout headers. SMP
+ * configuration, affinity, deadlines, preemption, and cleanup behavior depend
+ * on the selected policy and configuration. Some areas—such as FPU lazy
+ * switching and complete SMP CPU-id handling—remain under active development.
+ *
+ * See @ref schedthread, @ref schedsys, and @ref threadsys.
+ *
+ * @subsection timing Timing
+ *
+ * `kernel/time.c`, `clockevent.c`, `tick.c`, and `watchdog.c` define generic
+ * timekeeping, clocksource, clockevent, tick, and watchdog abstractions.
+ * SPARC LEON code supplies timer register access and the hardware backend.
+ * The timing implementation supports periodic and one-shot/tickless operation
+ * where selected by the implementation and configuration. The current SPARC
+ * backends include LEON3/LEON4-specific uptime sources and general-purpose
+ * timer clockevents. Clocksource readout overhead and the minimum clockevent
+ * period are calibrated during initialization. Timing measurements for
+ * GR712 configurations are available in the performance report under
+ * `Documentation/OS/performance/`.
+ * See @ref timing and @ref time.
+ *
+ * @subsection interrupts Interrupts and traps
+ *
+ * `kernel/irq.c` defines the generic interrupt request and controller contract.
+ * The SPARC backend connects trap-table entry to primary and extended interrupt
+ * dispatch, immediate handlers, and deferred work. Interrupt statistics and
+ * protection options are Kconfig-controlled. The subsystem uses fixed resource
+ * pools for handler registration and deferred work; concurrency guarantees
+ * between CPUs are determined by the selected implementation and
+ * configuration. The interrupt subsystem pages contain detailed descriptions
+ * of the handler vectors, dispatch paths, and locking areas.
+ *
+ * See @ref interrupts and @ref irqsys.
+ *
+ * @subsection memory Memory management
+ *
+ * Memory management is layered from architecture boot memory and physical page
+ * discovery through reusable buddy/page/chunk managers and the kernel heap.
+ * `kernel/kmem.c` and the memory code in `lib/` provide the generic layers;
+ * `arch/sparc/kernel/bootmem.c`, `mm.c`, `mmu.c`, and `arch/sparc/mm/` provide
+ * the target realization. SRMMU mapping is optional and is available through
+ * the SPARC SRMMU support. The code also contains memory scrubbing (including
+ * full-roundtrip statistics) and EDAC interfaces, with SPARC LEON
+ * memory-controller support. The generic EDAC layer exposes error checking,
+ * critical memory regions, error-state handling, synthetic fault injection,
+ * and bypass reads; the architecture backend translates these into LEON
+ * memory-controller actions. Configuration controls the allocator layers and
+ * release behavior.
+ *
+ * See @ref kmem, @ref buddy_mm, @ref page, @ref chunk, @ref srmmu,
+ * and @ref edacsys.
+ *
+ * @subsection drivers Drivers and hardware services
+ *
+ * Driver code in `kernel/` exposes generic or device-facing interfaces while
+ * relying on SPARC LEON I/O, interrupt, cache, address, and DMA helpers. The
+ * current driver families include:
+ *
+ * - SPI controller and device support, including GRSPI, AD7814, and
+ *   ADC128S102 components.
+ * - GRSPW2 SpaceWire packet and routing support.
+ * - MPPB/SSDP NoC two-dimensional DMA with a configurable transfer queue.
+ * - Xentium host-side loading, mailbox command exchange, and processing-network
+ *   scheduling.
+ *
+ * GRSPW2 support, SPI controller infrastructure, and GRSPI support are
+ * independent device concerns. Drivers are enabled independently in Kconfig
+ * where applicable. Hardware address and DMA assumptions are target-specific,
+ * even when public headers are generic. See @ref drivers, @ref spi_driver,
+ * @ref grspw2, @ref noc_dma, and @ref xentium_driver.
+ *
+ * @subsection processing Processing networks and Xentium DSPs
+ *
+ * `lib/data_proc_task.c`, `data_proc_tracker.c`, and `data_proc_net.c` provide
+ * a generic task/tracker/network model. A processing task carries a data buffer
+ * and an ordered list of operation identifiers. Tracker nodes associate an
+ * operation identifier with a processing function and a critical pending-task
+ * level. The network routes a task to matching nodes and ultimately to a
+ * user-defined output node. This supports per-task routes, repeated operation
+ * identifiers, and processing functions that manipulate task steps, subject to
+ * the interfaces and ownership rules in the source.
+ *
+ * The Xentium driver maps the same model to loaded Xentium ELF programs. NoC
+ * DMA and mailbox messages transfer work between the host and DSP. DSP program
+ * sources and support libraries live under `dsp/xentium/`; Kconfig can build
+ * them and optionally embed generated images in an archive. The resulting
+ * pipelines are assembled from configuration-selected kernels and boot
+ * behavior.
+ *
+ * @subsection modules Modules, images, and symbols
+ *
+ * The ELF loader, archive support, symbol table, and module code implement the
+ * loadable-module path. Modules may be built into the image or represented as
+ * relocatable ELF objects; Kconfig also supports embedding an archive of
+ * generated modules and other payload data. The module image is loaded by
+ * initialization code when enabled. Refer to `kernel/module.c`,
+ * `kernel/elf_loader.c`, `kernel/ksym.c`, `lib/ar.c`, and their documented
+ * interfaces for the exact supported object format and lifecycle.
+ *
+ * The application loader in `kernel/application.c` accepts an ELF image in
+ * memory, loads its runtime sections, applies supported relocations, resolves
+ * the `_start` symbol, and starts the application in a kernel thread with the
+ * requested CPU affinity and argument vector. Relocatable images are allocated
+ * by the kernel. Executable images currently use their encoded addresses; a
+ * general relocation or reserved-memory mechanism for such images is not
+ * implemented.
+ *
+ * @subsection libc C library and applications
+ *
+ * `libc/` is a separate SPARC-targeted library tree containing string, memory,
+ * formatted-I/O, time, threading, signal, scheduling, sysctl, and device
+ * wrapper sources. Not all of POSIX or a hosted C runtime is present; the
+ * implemented functions and wrappers define the scope. The architecture
+ * supports a small, POSIX-oriented user API where applicable, with
+ * supporting C-library functionality in user space.
+ *
+ * @subsection testing Testing and examples
+ *
+ * Examples are under `samples/`. Host-side unit tests, mocks, and hardware-test
+ * scripts are under `tools/testing/`. The testing approach uses an adapted
+ * kselftest-style framework with human-readable results and shell exit status.
+ * Unit/integration tests, hardware-software tests, and acceptance tests are
+ * covered, with hardware constraints specified per test. Testing is incremental
+ * and version-dependent; compliance is only partially verified against the
+ * current test tree. The top-level `make unittest` target builds and runs the
+ * unit-test collection.
+ *
+ * @section requirements Motivation and requirements
+ *
+ * FlightOS addresses the management of LEON host resources and, as legacy
+ * platform functionality, a NoC-connected collection of Xentium DSPs for
+ * on-board astronomical data processing. Following the abandonment of the SSDP
+ * project, the operating-system concept was generalized to the LEON3 family of
+ * European space processors. The design uses modular processing components,
+ * explicit DMA and data-buffer management, and configuration-specific builds
+ * rather than a broad general-purpose feature set.
+ *
+ * The principal design concerns are:
+ *
+ * - SPARC/LEON boot, supervisor-mode separation, traps, interrupts, timers,
+ *   memory management, SMP, and optional SRMMU support.
+ * - Kernel tasks with priorities, synchronization, message queues, and
+ *   scheduling policies including fixed-priority and EDF operation.
+ * - A narrow system-call boundary, user-space library support, configurable
+ *   initialization, and a generic system-control tree.
+ * - Modular device support, application ELF loading, and loadable/embedded ELF
+ *   content, including GRSPW2, SPI, NoC, SpaceWire, and Xentium functionality.
+ * - Resource-conscious implementation, source-level interface documentation,
+ *   configuration through kbuild, and tests/examples maintained in the tree.
+ *
+ * Performance, safety, reliability, and verification objectives are part of
+ * the design scope. The source and the detailed Doxygen pages identify
+ * incomplete or experimental areas, including portions of SMP handling, timer
+ * policy, interrupt resource locking and protection, and error/recovery
+ * behavior. No stronger behavior is described here than what the current code
+ * establishes.
+ *
+ * @section navigation Documentation navigation
+ *
+ * The generated Doxygen pages document interfaces alongside the source. The
+ * subsystem groups linked above provide entry points to the relevant headers in
+ * `include/` and matching implementation or architecture backends. The
+ * requirements specification, architectural design description, user manual,
+ * performance report, project assurance plan, and test documentation are in
+ * `Documentation/OS/`; their LaTeX sources and pre-rendered PDFs use the
+ * historical LeanOS name in places.
+ *
+ * To generate HTML source documentation, install Doxygen and PlantUML and run
+ * `make` in `Documentation/doxygen`. To configure and build the target image,
+ * use `make menuconfig` followed by `make` at the repository root, with the
+ * appropriate SPARC cross-toolchain and target configuration.
+ *
+ * @section disclaimer Disclaimer
+ *
+ * Parts of this Doxygen documentation have been summarised or updated with the
+ * assistance of large language models. The descriptions should be treated as a
+ * guide to the code rather than as an authoritative specification. No code of
+ * FlightOS has ever been written or modified by an LLM, and none ever shall
+ * be. The only authoritative documentation is found in the documents located
+ * under `Documentation/OS`; where this Doxygen text does not match the current
+ * source, the source is definitive, and anything unclear on review of the code
+ * should be investigated before being relied upon.
+ */

@@ -31,6 +31,11 @@
 
 #ifndef __raw_readb
 #define __raw_readb __raw_readb
+/**
+ * @brief unbuffered read of a single byte from memory or a register
+ * @param addr: address to read from
+ * @return the 8-bit value read
+ */
 static inline uint8_t __raw_readb(const volatile void *addr)
 {
         return (*(const volatile uint8_t *) addr);
@@ -39,6 +44,11 @@ static inline uint8_t __raw_readb(const volatile void *addr)
 
 #ifndef __raw_readw
 #define __raw_readw __raw_readw
+/**
+ * @brief unbuffered read of a 16-bit word from memory or a register
+ * @param addr: address to read from
+ * @return the 16-bit value read
+ */
 static inline uint16_t __raw_readw(const volatile void *addr)
 {
         return (*(const volatile uint16_t *) addr);
@@ -47,6 +57,11 @@ static inline uint16_t __raw_readw(const volatile void *addr)
 
 #ifndef __raw_readl
 #define __raw_readl __raw_readl
+/**
+ * @brief unbuffered read of a 32-bit long from memory or a register
+ * @param addr: address to read from
+ * @return the 32-bit value read
+ */
 static inline uint32_t __raw_readl(const volatile void *addr)
 {
         return (*(const volatile uint32_t *) addr);
@@ -55,6 +70,11 @@ static inline uint32_t __raw_readl(const volatile void *addr)
 
 #ifndef __raw_writeb
 #define __raw_writeb __raw_writeb
+/**
+ * @brief unbuffered write of a single byte to memory or a register
+ * @param w: 8-bit value to write
+ * @param addr: address to write to
+ */
 static inline void __raw_writeb(uint8_t w, volatile void *addr)
 {
         (*(volatile uint8_t *) addr) = w;
@@ -63,6 +83,11 @@ static inline void __raw_writeb(uint8_t w, volatile void *addr)
 
 #ifndef __raw_writew
 #define __raw_writew __raw_writew
+/**
+ * @brief unbuffered write of a 16-bit word to memory or a register
+ * @param w: 16-bit value to write
+ * @param addr: address to write to
+ */
 static inline void __raw_writew(uint16_t w, volatile void *addr)
 {
         (*(volatile uint16_t *) addr) = w;
@@ -71,6 +96,11 @@ static inline void __raw_writew(uint16_t w, volatile void *addr)
 
 #ifndef __raw_writel
 #define __raw_writel __raw_writel
+/**
+ * @brief unbuffered write of a 32-bit long to memory or a register
+ * @param l: 32-bit value to write
+ * @param addr: address to write to
+ */
 static inline void __raw_writel(uint32_t l, volatile void *addr)
 {
         (*(volatile uint32_t *) addr) = l;

@@ -1,0 +1,36 @@
+@startuml
+title FlightOS interrupt subsystem architecture
+top to bottom direction
+skinparam linetype ortho
+skinparam componentStyle rectangle
+
+package "High-level kernel" {
+  [Interrupt consumers] as consumers
+  [Generic IRQ core] as core
+  [IRQ abstraction] as abstraction
+  [Deferred execution] as deferred
+}
+
+package "SPARC architecture" {
+  [LEON IRQ backend] as backend
+  [Primary IRL vectors] as irl
+  [Extended EIRL vectors] as eirl
+  [Deferred queue and pools] as queue
+  [IRQ trap entry] as entry
+  [SPARC trap table] as table
+  [LEON controller registers] as controller
+  [Local PSR interrupt state] as psr
+}
+
+consumers --> core : interrupt service contract
+core --> abstraction : backend operations
+core --> deferred : deferred work
+backend --> abstraction : implements
+backend --> irl : registered handlers
+backend --> eirl : registered handlers
+backend --> queue : deferred handlers
+table --> entry : asynchronous trap
+entry --> backend : dispatch event
+backend --> controller : mask, route, acknowledge
+backend --> psr : local interrupt state
+@enduml

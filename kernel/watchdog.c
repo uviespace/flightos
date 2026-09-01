@@ -1,11 +1,12 @@
 /**
- * @file kernel/tick.c
+ * @file kernel/watchdog.c
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  *
  *
  * @ingroup time
+ * @ingroup timing
  *
- * per-cpu tick device
+ * @brief Watchdog selection and timeout programming through clockevents.
  *
  * @note this roughly follows the concept found in linux ticks
  */
@@ -118,6 +119,8 @@ static void watchdog_setup_device(struct clock_event_device *dev)
 
 /**
  * @brief offer a new clock event device to the watchdog
+ *
+ * @param dev the clock event device to offer
  */
 
 void watchdog_check_device(struct clock_event_device *dev)
@@ -177,6 +180,9 @@ int watchdog_set_mode(enum watchdog_mode mode)
 
 /**
  * @brief set a handler for when the watchdog barks
+ *
+ * @param handler the callback function invoked on watchdog bark
+ * @param userdata an arbitrary pointer passed to the handler
  */
 
 void watchdog_set_handler(void (*handler)(void *), void *userdata)

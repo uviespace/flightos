@@ -1,3 +1,12 @@
+/**
+ * @file arch/sparc/projects/ariel.c
+ *
+ * @brief Ariel project board configuration
+ *
+ * Board-specific early setup for the Ariel project: configures the MRAM bank
+ * timing and the watchdog for this hardware platform.
+ */
+
 #include <kernel/init.h>
 #include <kernel/log2.h>
 #include <leon3_memcfg.h>
@@ -61,9 +70,14 @@ struct exchange_area {
 
 
 /**
- * @brief the dpu reset function
- * @param reset_type a reset type
- * @note this writes the exchange area specified in XXX
+ * @brief the dpu reset function; records CPU state in the exchange area
+ *        before halting the system
+ *
+ * @param irq the interrupt number that triggered the reset handler
+ * @param userdata a userdata pointer
+ *
+ * @note this writes the exchange area specified in XXX; most of the
+ *       implementation is disabled until the exchange area is implemented
  */
 
 irqreturn_t ariel_write_reset_info(unsigned int irq, void *userdata)

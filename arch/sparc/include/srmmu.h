@@ -3,6 +3,7 @@
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  *
  * @ingroup srmmu
+ * @ingroup kmem
  *
  * @see SPARCv8 Architecture Manual for more info
  */
@@ -213,33 +214,113 @@ struct srmmu_fault_status {
 
 
 
+/**
+ * @brief select a MMU context
+ *
+ * @param ctx_num the context number to select
+ *
+ * @return 0 on success, otherwise error
+ */
 int srmmu_select_ctx(unsigned long ctx_num);
+
+/**
+ * @brief enable MMU operation
+ */
 void srmmu_enable_mmu(void);
 
+/**
+ * @brief basic initialisation of the MMU
+ *
+ * @param alloc a pointer to a function used to allocate MMU context tables
+ * @param free a pointer to a function that returns MMU context tables to
+ *	 the allocator
+ *
+ * @return 0 on success, otherwise error
+ */
 int srmmu_init(void *(*alloc)(size_t size), void (*free)(void *addr));
 
+/**
+ * @brief map a virtual address range to a physical address range in 4 kiB pages
+ *
+ * @param ctx_num the context number to do the mapping in
+ * @param va the virtual address
+ * @param pa the physical address
+ * @param num_pages the number of SRMMU_SMALL_PAGE_SIZE pages
+ * @param perm the permissions to configure for the pages
+ *
+ * @return 0 on success
+ */
 int srmmu_do_small_mapping_range(unsigned long ctx_num,
 				 unsigned long va, unsigned long pa,
 				 unsigned long num_pages, unsigned long perm);
 
+/**
+ * @brief map a virtual address range to a physical address range in 16 MiB pages
+ *
+ * @param ctx_num the context number to do the mapping in
+ * @param va the virtual address
+ * @param pa the physical address
+ * @param num_pages the number of SRMMU_LARGE_PAGE_SIZE pages
+ * @param perm the permissions to configure for the pages
+ *
+ * @return 0 on success
+ */
 int srmmu_do_large_mapping_range(unsigned long ctx_num,
 				 unsigned long va, unsigned long pa,
 				 unsigned long num_pages, unsigned long perm);
 
+/**
+ * @brief map a 4 kiB page from a virtual address to a physical address
+ *
+ * @param ctx_num the context number to do the mapping in
+ * @param va the virtual address
+ * @param pa the physical address
+ * @param perm the permissions to configure for the page
+ *
+ * @return 0 on success
+ */
 int srmmu_do_small_mapping(unsigned long ctx_num,
 			   unsigned long va, unsigned long pa,
 			   unsigned long perm);
 
 
+/**
+ * @brief map a 16 MiB page from a virtual address to a physical address
+ *
+ * @param ctx_num the context number to do the mapping in
+ * @param va the virtual address
+ * @param pa the physical address
+ * @param perm the permissions to configure for the page
+ *
+ * @return 0 on success
+ */
 int srmmu_do_large_mapping(unsigned long ctx_num,
 			   unsigned long va, unsigned long pa,
 			   unsigned long perm);
 
 
+/**
+ * @brief recursively release pages by address
+ *
+ * @param ctx_num the context number
+ * @param va the start virtual address
+ * @param va_end the end virtual address
+ * @param free_page a function pages are returned to
+ *
+ * @note the addresses are assumed aligned to the page size
+ */
 void srmmu_release_pages(unsigned long ctx_num,
 			 unsigned long va, unsigned long va_end,
 			 void  (*free_page)(void *addr));
 
+/**
+ * @brief get the physical address of the page mapped to a virtual address
+ *
+ * @param ctx the context number to look up the mapping in
+ * @param va the virtual address
+ *
+ * @return the physical address, or 0 if the address is not mapped
+ */
 unsigned long srmmu_get_pa_page(unsigned long ctx, unsigned long va);
 
 #endif /*_SPARC_SRMMU_H_ */

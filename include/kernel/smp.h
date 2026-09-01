@@ -21,10 +21,21 @@
 #define _KERNEL_SMP_H_
 
 
+/**
+ * @brief initialize secondary CPUs
+ */
 extern void smp_init(void);
 
+/**
+ * @brief get the current CPU id
+ * @return id of the calling CPU
+ */
 extern int smp_cpu_id(void);
 
+/**
+ * @brief send a reschedule IPI to a remote CPU
+ * @param cpu: target CPU id to reschedule
+ */
 extern void smp_send_reschedule(int cpu);
 
 

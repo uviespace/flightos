@@ -151,6 +151,8 @@ EXPORT_SYMBOL(strsep);
  *
  * @param s       the string to be searched
  * @param accept  the string segment to search for
+ *
+ * @returns the number of leading characters in s that are part of accept
  */
 
 size_t strspn(const char *s, const char *accept)
@@ -230,7 +232,7 @@ EXPORT_SYMBOL(strtok);
 /**
  * @brief return a pointer to a new string which is a duplicate of string s
  *
- * @parm s the string to duplicate
+ * @param s the string to duplicate
  *
  * @note the pointer is allocated using kmalloc() and may be freed with kfree()
  */
@@ -458,11 +460,9 @@ EXPORT_SYMBOL(bzero);
 /**
  * @brief writes the string s and a trailing newline to stdout
  *
- * @param str    the destination buffer
- * @param format the format string buffer
- * @param ...    arguments to the format string
+ * @param s the string to write to stdout
  *
- * @return the number of characters written to buf
+ * @return the number of characters written to stdout
  */
 
 int puts(const char *s)

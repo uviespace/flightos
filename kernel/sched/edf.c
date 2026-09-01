@@ -1,5 +1,9 @@
 /**
  * @file kernel/sched/edf.c
+ * @ingroup schedthread
+ * @ingroup schedsys
+ *
+ * @brief Earliest Deadline First scheduler implementation.
  */
 
 
@@ -47,6 +51,17 @@ static void edf_unlock(void)
 	spin_unlock(&edf_spinlock);
 }
 
+
+/**
+ * @brief print the contents of an EDF task queue
+ *
+ * @param tq the task queue to print
+ * @param cpu the cpu index of the queue to print
+ * @param now the current ktime
+ *
+ * @note intended for debugging; prints per-task deadline, wakeup, remaining
+ *	 and total runtime, slice count, wcet and average runtime
+ */
 
 void sched_print_edf_list_internal(struct task_queue *tq, int cpu, ktime now)
 {
@@ -1102,6 +1117,13 @@ error:
 
 /**
  * @brief returns the next ktime when a task will become ready
+ *
+ * @param tq the task queue to scan
+ * @param cpu the cpu index of the queue to scan
+ * @param now the current ktime
+ *
+ * @return the ktime until the earliest task wakeup, ignoring busy tasks; a
+ *	       large value if no pending wakeup is awaited
  */
 
 ktime edf_task_ready_ns(struct task_queue *tq, int cpu, ktime now)

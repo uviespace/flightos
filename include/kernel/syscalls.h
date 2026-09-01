@@ -1,5 +1,5 @@
 /**
- * @file include/kernel/syscall.h
+ * @file include/kernel/syscalls.h
  *
  * @ingroup syscall
  *
@@ -35,18 +35,29 @@
 #define __SC_TEST(t, a) (void)BUILD_BUG_ON_ZERO(!__TYPE_IS_LL(t) && sizeof(t) > sizeof(long))
 
 
+/** @brief define a syscall taking no arguments */
 #define SYSCALL_DEFINE0(sname)					\
 	long sys_##sname(void)
 
+/** @brief define a syscall taking 1 argument */
 #define SYSCALL_DEFINE1(name, ...) SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
+/** @brief define a syscall taking 2 arguments */
 #define SYSCALL_DEFINE2(name, ...) SYSCALL_DEFINEx(2, _##name, __VA_ARGS__)
+/** @brief define a syscall taking 3 arguments */
 #define SYSCALL_DEFINE3(name, ...) SYSCALL_DEFINEx(3, _##name, __VA_ARGS__)
+/** @brief define a syscall taking 4 arguments */
 #define SYSCALL_DEFINE4(name, ...) SYSCALL_DEFINEx(4, _##name, __VA_ARGS__)
+/** @brief define a syscall taking 5 arguments */
 #define SYSCALL_DEFINE5(name, ...) SYSCALL_DEFINEx(5, _##name, __VA_ARGS__)
+/** @brief define a syscall taking 6 arguments */
 #define SYSCALL_DEFINE6(name, ...) SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
 
 
 
+/**
+ * @brief the core helper that expands into a syscall definition of arity x,
+ *        including argument type sanitization
+ */
 #define SYSCALL_DEFINEx(x, name, ...)						\
 	__diag_push();								\
 	__diag_ignore(GCC, 7, "-Wattribute-alias",				\

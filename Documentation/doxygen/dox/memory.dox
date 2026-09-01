@@ -1,0 +1,107 @@
+/**
+ * @defgroup kmem FlightOS Memory Subsystem
+ *
+ * @brief Layered management of physical memory, virtual mappings, kernel-heap
+ *        storage, and background memory maintenance.
+ *
+ * @page kmem_overview Memory Subsystem Overview
+ *
+ * The memory subsystem is split into a high-level interface and an
+ * architecture-specific implementation. The high-level side defines the
+ * allocator contracts and the generic storage managers. The architecture side
+ * discovers physical memory, supplies the initial backing storage, and controls
+ * address translation.
+ *
+ * ## Concept and structure
+ *
+ * The generic storage path has three levels:
+ *
+ * - The buddy-system manager tracks power-of-two blocks in a memory pool. Its
+ *   free-block lists, allocation-order table, and bitmap are supplied by the
+ *   platform setup.
+ * - The page-map manager associates memory ranges with buddy pools and selects
+ *   among those ranges for page and contiguous-chunk allocation.
+ * - The chunk manager subdivides buffers obtained from a higher-tier manager.
+ *   The SPARC boot allocator uses it above the page-map manager.
+ *
+ * The kernel heap is a separate higher-level allocator. With `CONFIG_MMU`, it
+ * grows and contracts a virtual program-break range and tracks allocations in
+ * an ordered linked structure. Without `CONFIG_MMU`, its allocation path is
+ * the boot-memory path. Physically contiguous allocations use the boot-memory
+ * path and are released through the common free interface.
+ *
+ * The memory scrubber is a maintenance component in the same subsystem. It
+ * keeps configured address ranges and processes them in word-sized batches from
+ * a kernel thread. Its hardware-level effect beyond the observed reads needs
+ * review.
+ *
+ * ## EDAC integration
+ *
+ * Error Detection And Correction (EDAC) separates the kernel's error-handling
+ * contract from the error-detection mechanisms of the target memory system and
+ * controller. The generic EDAC layer provides the stable interface used by
+ * kernel and application code for error checking, critical memory regions,
+ * error-state handling, synthetic fault injection, and reads that bypass the
+ * correction logic. Detailed EDAC API documentation is available in the
+ * @ref edacsys group.
+ *
+ * On the current SPARC target, the LEON memory controller detects single-bit
+ * and double-bit memory errors. Errors are reported through the SPARCv8 data
+ * access exception path or the AHB STATUS interrupt. The architecture backend
+ * translates the generic EDAC contract into controller actions, maintains
+ * critical-segment and statistics state, generates BCH checkbits for fault
+ * injection, and connects the controller to the SPARC trap and AHB interrupt
+ * paths.
+ *
+ * During boot, the architecture initializes its controller representation and
+ * publishes it to the generic kernel layer. Kernel services and applications
+ * depend on the generic contract, while the contract depends on the selected
+ * architecture backend for target-specific behavior. The reset-handler and
+ * critical-segment concepts provide the policy boundary: the kernel exposes an
+ * abstract mechanism for identifying memory that must survive, and the
+ * architecture determines the response when an uncorrectable error affects one
+ * of those regions.
+ *
+ * The design permits a different memory controller to provide another backend
+ * without changing every kernel service or application that consumes EDAC.
+ *
+ * ## High-level and architecture-specific mapping
+ *
+ * The high-level interfaces are declared in `include/kernel/` and implemented
+ * by `kernel/` and `lib/`. The principal mappings are:
+ *
+ * | High-level concern | Generic code | SPARC implementation |
+ * | --- | --- | --- |
+ * | Kernel heap | `kernel/kmem.c`, `include/kernel/kmem.h` | `arch/sparc/kernel/mmu.c` supplies the MMU-backed program-break implementation; `arch/sparc/kernel/bootmem.c` supplies the non-MMU backing path |
+ * | Early and physical allocation | `include/kernel/bootmem.h`, `include/kernel/page.h`, `lib/page.c`, `lib/mm.c`, `lib/chunk.c` | `arch/sparc/kernel/bootmem.c`, `arch/sparc/kernel/mm.c`, `arch/sparc/kernel/page.c` |
+ * | Virtual address translation | `include/kernel/sbrk.h` | `arch/sparc/kernel/mmu.c`, `arch/sparc/mm/srmmu.c`, `arch/sparc/mm/srmmu_access.c` |
+ * | Hardware memory configuration | abstract interface: needs review | `arch/sparc/lib/leon3_memcfg.c`, `arch/sparc/include/leon3_memcfg.h` |
+ * | Memory error detection and correction | `kernel/edac.c`, `include/kernel/edac.h`, `kernel/memscrub.c` | `arch/sparc/kernel/edac.c`, `arch/sparc/lib/leon3_memcfg.c` |
+ *
+ * The table describes source-level ownership, not an assertion that every
+ * configuration enables every path. Configuration-dependent behavior should be
+ * checked against the selected build configuration.
+ *
+ * Further declarations and implementation details are documented on the
+ * @ref kmem group page and its linked specialized groups: @ref buddy_mm,
+ * @ref page, @ref chunk, and @ref srmmu.
+ *
+ * ## Diagrams
+ *
+ * The following diagrams are rendered from the checked-in PlantUML sources:
+ *
+ * ### Architecture
+ *
+ * @plantumlfile kmem_architecture.puml
+ *
+ * ### Allocation flow
+ *
+ * @plantumlfile kmem_allocation_flow.puml
+ *
+ * ### MMU page-fault activity
+ *
+ * @plantumlfile kmem_page_fault_activity.puml
+ *
+ * They describe the observed architecture, allocation flow, and MMU page-fault
+ * activity without adding behavior not present in the source.
+ */

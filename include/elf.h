@@ -533,17 +533,28 @@ typedef struct elf64_shdr {
 
 /* begin configurable section */
 
+/** @brief ELF header type (32-bit) */
 typedef Elf32_Ehdr Elf_Ehdr;
+/** @brief ELF section header type (32-bit) */
 typedef Elf32_Shdr Elf_Shdr;
+/** @brief ELF program header type (32-bit) */
 typedef Elf32_Phdr Elf_Phdr;
+/** @brief ELF dynamic array type (32-bit) */
 typedef Elf32_Dyn  Elf_Dyn;
+/** @brief ELF relocation (no addend) type (32-bit) */
 typedef Elf32_Rel  Elf_Rel;
+/** @brief ELF relocation (with addend) type (32-bit) */
 typedef Elf32_Rela Elf_Rela;
+/** @brief ELF file offset type (32-bit) */
 typedef Elf32_Off  Elf_Off;
+/** @brief ELF address type (32-bit) */
 typedef Elf32_Addr Elf_Addr;
+/** @brief ELF symbol type (32-bit) */
 typedef Elf32_Sym  Elf_Sym;
 
+/** @brief extract the symbol index from a relocation info word */
 #define ELF_R_SYM(x)    ELF32_R_SYM(x)
+/** @brief extract the relocation type from a relocation info word */
 #define ELF_R_TYPE(x)   ELF32_R_TYPE(x)
 
 
@@ -553,7 +564,9 @@ typedef Elf32_Sym  Elf_Sym;
  * because I am lazy :)
  */
 #if 1
+/** @brief the ELF data endianness used by this build (big-endian) */
 #define ELF_ENDIAN	ELFDATA2MSB
+/** @brief the ELF machine type used by this build (SPARC) */
 #define EM_MACHINE	EM_SPARC
 #else
 #define ELF_ENDIAN	ELFDATA2LSB
@@ -561,11 +574,28 @@ typedef Elf32_Sym  Elf_Sym;
 #endif
 
 
+/**
+ * @brief verify that a binary is a supported ELF machine type
+ * @param x: pointer to the ELF header
+ * @return non-zero if the machine matches, 0 otherwise
+ */
 #define elf_check_arch(x) ((x)->e_machine == EM_MACHINE)
+
+/**
+ * @brief verify that a binary uses the supported ELF endianness
+ * @param x: pointer to the ELF header
+ * @return non-zero if the endianness matches, 0 otherwise
+ */
 #define elf_check_endian(x) ((x)->e_ident[EI_DATA] == ELF_ENDIAN)
 
 
 /* implemented in arch code */
+
+/**
+ * @brief validate an ELF header (arch-specific)
+ * @param ehdr: the ELF header to validate
+ * @return 0 if the header is valid, negative error code otherwise
+ */
 int elf_header_check(Elf_Ehdr *ehdr);
 
 

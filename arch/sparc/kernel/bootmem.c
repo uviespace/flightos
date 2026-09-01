@@ -2,6 +2,7 @@
  * @file arch/sparc/kernel/bootmem.c
  *
  * @ingroup sparc
+ * @ingroup kmem
  *
  * @brief uses @ref chunk to manage the physical RAM banks
  *
@@ -165,7 +166,13 @@ static void bootmem_init_page_map_node(struct page_map_node **pg_node)
 
 
 /**
- * @brief initialise the boot memory
+ * @brief initialise the boot memory allocator
+ *
+ * Sets up the page map and buddy system from the physical RAM banks,
+ * reserves the kernel image section and initialises the boot memory
+ * allocator (chunk pool).
+ *
+ * @note must be called before any other boot memory operation
  */
 
 void bootmem_init(void)

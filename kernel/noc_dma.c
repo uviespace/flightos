@@ -20,6 +20,14 @@
  * Channels may be reserved for exclusive external use via
  * noc_dma_reserve_channel() and returned by noc_dma_release_channel().
  *
+ * The high-level API accepts linear or two-dimensional transfer descriptions.
+ * The implementation owns eight statically mapped channel records, a fixed
+ * transfer-slot pool, and a configurable pending queue. A free channel is
+ * programmed from the queued request; its completion IRQ invokes the supplied
+ * callback, returns the slot and channel to their pools, and starts another
+ * queued request. Callbacks run in interrupt context. Stuck-channel recovery
+ * and some SSDP interrupt assumptions need review.
+ *
  *
  *
  * @note parameter limits are usually not checked, as they are implicit by type
@@ -730,6 +738,8 @@ module_exit(noc_dma_exit);
 
 /**
  * @brief reserve a NoC DMA channel for external use
+ *
+ * @return a pointer to the reserved channel, or NULL if none available
  */
 
 struct noc_dma_channel *noc_dma_reserve_channel(void)
@@ -740,7 +750,9 @@ EXPORT_SYMBOL(noc_dma_reserve_channel);
 
 
 /**
- * @brief return a reserved channel
+ * @brief return a reserved channel to the pool
+ *
+ * @param c a pointer to the previously reserved NoC DMA channel
  */
 
 void noc_dma_release_channel(struct noc_dma_channel *c)
@@ -766,7 +778,7 @@ EXPORT_SYMBOL(noc_dma_release_channel);
  *
  * @param x_elem the number of elements in x
  * @param y_elem the number of elements in y
- * @param size the element size (BYTE, HALFWORD, WORD, DOUBLEWORD)
+ * @param elem_size the element size (BYTE, HALFWORD, WORD, DOUBLEWORD)
  *
  * @param x_stride_src the width of stride in source x
  * @param x_stride_dst the width of stride in destination x
@@ -774,11 +786,16 @@ EXPORT_SYMBOL(noc_dma_release_channel);
  * @param y_stride_src the width of stride in source y
  * @param y_stride_dst the width of stride in destination y
  *
+ * @param dma_priority the DMA transfer priority
+ *
  * @param mtu the maximum transfer unit of a NoC packet
  *
  * @param callback a user-supplied callback function, executed on successful
  *	           transfer
  * @param userdata a pointer to arbitrary userdata, passed to callback function
+ *
+ * @return 0 on success, -EINVAL on invalid parameters,
+ *         -EBUSY if no transfer slot is available
  */
 
 int noc_dma_req_xfer(void *src, void *dst, uint16_t x_elem, uint16_t y_elem,
@@ -877,13 +894,17 @@ EXPORT_SYMBOL(noc_dma_req_xfer);
  * @param dst the destination address
  *
  * @param elem the number of elements
- * @param size the element size (BYTE, HALFWORD, WORD, DOUBLEWORD)
+ * @param elem_size the element size (BYTE, HALFWORD, WORD, DOUBLEWORD)
+ *
+ * @param dma_priority the DMA transfer priority
  *
  * @param mtu the maximum transfer unit of a NoC packet
  *
  * @param callback a user-supplied callback function, executed on successful
  *	           transfer
  * @param userdata a pointer to arbitrary userdata, passed to callback function
+ *
+ * @return 0 on success, negative error code on failure
  */
 
 int noc_dma_req_lin_xfer(void *src, void *dst,

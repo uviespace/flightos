@@ -1,6 +1,15 @@
 /**
  * @file   memscrub.c
  * @ingroup memscrub
+ * @defgroup memscrub Memory Scrubber
+ * @ingroup kmem
+ *
+ * @brief Background memory scrubbing and scrub-range management.
+ *
+ * The scrubber stores configured ranges, reads each range in bounded word
+ * batches, and runs the work in a kernel thread. The source does not establish
+ * whether the hardware read has side effects beyond the observed I/O read;
+ * needs review.
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  * @date   March, 2016
  *
@@ -211,9 +220,9 @@ static int mem_do_scrub(void *data)
 /**
  * @brief add a memory segment to scrub
  *
- * @param being	the start address
- * @param end   the end address (uppper bound, not included in scrub)
- * @param len	the number of words to scrub per scrubbing cycle
+ * @param begin the start address
+ * @param end   the end address (upper bound, not included in scrub)
+ * @param wpc	the number of words to scrub per scrubbing cycle
  *
  * @note the addresses must be word-aligned
  *
@@ -260,7 +269,7 @@ EXPORT_SYMBOL(memscrub_seg_add);
 /**
  * @brief remove a memory segment from scrubber
  *
- * @param being	the start address
+ * @param begin the start address
  * @param end   the end address (upper bound, not included)
  *
  * @returns 0 on success, otherwise error
@@ -304,6 +313,15 @@ EXPORT_SYMBOL(memscrub_seg_rem);
 
 
 
+
+/**
+ * @brief initialise the memory scrubber kernel thread
+ *
+ * @return 0 on success, BUG otherwise
+ *
+ * @note creates a single scrubbing thread affined to cpu 0, running for at
+ *	 most 2 ms every 125 ms (~1.6 % CPU) under an EDF scheduling policy
+ */
 
 int memscrub_init(void)
 {
@@ -355,4 +373,3 @@ static int memscrub_init_sysctl(void)
 	return 0;
 }
 late_initcall(memscrub_init_sysctl);
-

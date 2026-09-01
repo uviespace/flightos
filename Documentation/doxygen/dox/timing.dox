@@ -1,0 +1,97 @@
+/**
+ * @defgroup timing FlightOS Timing Subsystem
+ *
+ * @brief Layered timekeeping, clockevent, tick, and watchdog support.
+ *
+ * @page timing_overview Timing Subsystem Overview
+ *
+ * The timing subsystem separates time representation and policy from timer
+ * hardware. The high-level kernel layer defines the clocksource, clockevent,
+ * tick, and watchdog abstractions. The architecture layer supplies the LEON
+ * timer register access and connects timer expiry to the interrupt subsystem.
+ *
+ * ## Concept and structure
+ *
+ * Timekeeping reads an elapsed-time clocksource and represents the result as a
+ * `timespec` or as `ktime`, where the source comments define `ktime` as
+ * nanoseconds since boot. A timekeeper stores the selected clocksource and a
+ * measured readout overhead. Time-value conversion, normalization, comparison,
+ * and delta operations are generic kernel functionality.
+ *
+ * Clockevents represent timers that generate future events. Each device
+ * advertises supported modes and programming limits, and provides callbacks for
+ * event programming, state changes, and optional suspend/resume handling. The
+ * generic clockevent layer keeps a device list and offers devices to the
+ * watchdog and tick layers.
+ *
+ * ## Clockevent subsystem detail
+ *
+ * The clockevent design has four observable parts. Tick management, watchdog
+ * management, and scheduler timing are consumers. The generic clockevent core
+ * owns device registration, validation, selection, state transitions, and
+ * event programming. The `clock_event_device` abstraction carries the event
+ * handler, event-programming operations, supported modes, timing limits,
+ * conversion multiplier, state, identity, interrupt number, and optional
+ * suspend/resume operations. The architecture backend implements that
+ * abstraction against the hardware timer.
+ *
+ * On SPARC LEON, the backend uses the general-purpose timer unit. Timer
+ * expiry reaches the generic event handler through the timer interrupt path.
+ * The clockevent implementation contains the detailed dependency diagram for
+ * this design; architecture-level and policy-level views are also maintained
+ * in the diagrams below.
+ *
+ * Tick management keeps one selected event device per configured CPU. It checks
+ * device suitability, calibrates a minimum effective tick period using the
+ * uptime clock, and supports periodic and one-shot operation. The source marks
+ * device preference and scheduler re-evaluation as incomplete in places;
+ * behavior beyond the implemented checks needs review.
+ *
+ * The watchdog uses a clockevent device advertising watchdog capability. It
+ * installs a timeout handler, assigns the selected device to CPU 0 in the
+ * current implementation, and programs a timeout through the common event
+ * abstraction.
+ *
+ * ## Architectural design
+ *
+ * The high-level side is in `include/kernel/` and `kernel/`. It does not access
+ * timer registers directly. A clocksource supplies elapsed time, while
+ * clockevents supply expiry notifications. Tick and watchdog policy consume the
+ * clockevent abstraction rather than depending on a specific timer block.
+ *
+ * The SPARC side is split into setup glue and register-level libraries. On
+ * LEON3, the uptime source uses two chained GRTIMER counters through the
+ * long-count support. On LEON4, uptime uses the processor up-counters in
+ * `%asr22-23`. The SPARC clockevent backend exposes LEON general-purpose timers
+ * as clockevent devices; the source configures four devices for LEON3 and five
+ * for LEON4. On LEON3, the fourth timer is marked watchdog-capable.
+ *
+ * Clocksource enable and disable callbacks in the current SPARC uptime source
+ * are stubs that log and trigger `BUG`; their intended lifecycle is needs
+ * review. The source also contains explicit notes about timer autodetection and
+ * some calibration and scheduling policy that are not implemented.
+ *
+ * ## High-level to architecture mapping
+ *
+ * | High-level concern | Kernel interface/core | SPARC implementation |
+ * | --- | --- | --- |
+ * | Time representation and clocksource selection | `include/kernel/time.h`, `include/kernel/clocksource.h`, `kernel/time.c` | `arch/sparc/kernel/time.c`, `arch/sparc/include/asm/time.h`, `arch/sparc/lib/grtimer_longcount.c` |
+ * | Clockevent abstraction and device lifecycle | `include/kernel/clockevent.h`, `kernel/clockevent.c` | `arch/sparc/kernel/clockevent.c`, `arch/sparc/include/asm/clockevent.h` |
+ * | Tick policy and calibration | `include/kernel/tick.h`, `kernel/tick.c` | Uses the architecture-provided clockevent and interrupt interfaces; additional architecture-specific policy needs review |
+ * | Watchdog policy | `include/kernel/watchdog.h`, `kernel/watchdog.c` | LEON GPTIMER watchdog capability and event backend in `arch/sparc/kernel/clockevent.c` |
+ * | Timer register access | no hardware-specific code | `arch/sparc/include/gptimer.h`, `arch/sparc/include/grtimer.h`, `arch/sparc/include/grtimer_longcount.h`, `arch/sparc/lib/gptimer.c`, `arch/sparc/lib/grtimer.c`, `arch/sparc/lib/grtimer_longcount.c` |
+ *
+ * The overview intentionally does not enumerate callable APIs. See the
+ * specialized @ref time group and the documented headers and implementation
+ * files for detailed declarations and behavior.
+ *
+ * ## Diagrams
+ *
+ * @plantumlfile timing_architecture.puml
+ *
+ * @plantumlfile timing_clockevent_dependencies.puml
+ *
+ * @plantumlfile timing_event_flow.puml
+ *
+ * @plantumlfile timing_tick_activity.puml
+ */

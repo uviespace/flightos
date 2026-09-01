@@ -1,6 +1,7 @@
 /**
  * @file   arch/sparc/lib/grtimer_longcount.c
  * @ingroup time
+ * @ingroup timing
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   July, 2016
  *
@@ -14,7 +15,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @brief implements a long-counting (uptime) clock using the LEON3 GRTIMER
+ * @brief Long-counting LEON3 GRTIMER uptime clock support.
  *
  */
 
@@ -130,12 +131,12 @@ void grtimer_longcount_get_uptime(struct grtimer_unit *rtu,
 
 
 /**
- * @brief
- *	get the number of seconds elapsed between timestamps taken from the
- *	longcount timer
+ * @brief get the number of seconds elapsed between timestamps taken from the
+ *        longcount timer
  *
- * @brief param time1 a struct grtime_uptime
- * @brief param time0 a struct grtime_uptime
+ * @param rtu a struct grtimer_unit
+ * @param time1 a struct grtimer_uptime
+ * @param time0 a struct grtimer_uptime
  *
  * @return time difference in seconds represented as double
  */

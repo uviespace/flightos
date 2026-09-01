@@ -1,0 +1,24 @@
+@startuml
+title FlightOS scheduling activity
+skinparam linetype ortho
+
+start
+:Check whether scheduling is enabled;
+if (current task exists?) then (yes)
+  :Disable local interrupts;
+  :Account current task runtime;
+  :Ask registered schedulers in priority order;
+  if (runnable task selected?) then (yes)
+    :Limit slice by next scheduler readiness;
+    :Program next tick;
+    :Select normal or signal task core;
+    :Switch SPARC context;
+    :Re-enable local interrupts;
+  else (no)
+    :Fail-fast invariant needs review;
+  endif
+else (no)
+  :Return during early boot;
+endif
+stop
+@enduml

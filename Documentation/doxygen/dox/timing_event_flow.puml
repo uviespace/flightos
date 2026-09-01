@@ -1,0 +1,27 @@
+@startuml
+title FlightOS clockevent device flow
+skinparam linetype ortho
+
+start
+:Architecture creates a timer device;
+:Device advertises modes, limits, and callbacks;
+:Generic clockevent layer validates the device;
+if (watchdog capable?) then (yes)
+  :Offer device to watchdog policy;
+  if (accepted?) then (yes)
+    :Select watchdog device;
+  else (no)
+    :Offer device to tick policy;
+  endif
+else (no)
+  :Offer device to tick policy;
+endif
+if (accepted by tick policy?) then (yes)
+  :Select per-CPU tick device;
+  :Calibrate minimum effective tick period;
+  :Configure periodic or one-shot operation;
+else (no)
+  :Leave device unused;
+endif
+stop
+@enduml

@@ -1,5 +1,5 @@
 /**
- * @file arch/sparc/include/memrepair.h
+ * @file arch/sparc/include/asm/memrepair.h
  */
 
 #ifndef _ARCH_SPARC_ASM_MEMREPAIR_H_

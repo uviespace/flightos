@@ -41,6 +41,15 @@
  * which corresponds to the call to pn_create_output_node() when using the
  * generic @ref data_proc_net implementation
  *
+ * The high-level interface loads Xentium ELF programs, creates processing
+ * network nodes from exported operation codes, accepts proc_task objects, and
+ * dispatches completed tasks through a configured output node. The current
+ * implementation has two hard-coded Xentium devices, reserves one NoC DMA
+ * channel per device, sends the entry point and message pointer through
+ * mailboxes, and handles task or memory commands from the Xentium interrupt.
+ * It rejects CONFIG_MMU builds. Kernel unload, relocatable images, resource
+ * locking quality, and the configuration-structure copy need review.
+ *
  *
  * Note that the user is responsible to free the data pointer of the task
  * and the task itself (i.e. pt_destroy()), the same way that one would with
@@ -554,6 +563,9 @@ static int xen_load_task(struct proc_tracker *pt)
 
 /**
  * @brief schedule a processing cycle
+ *
+ * Iterates over available Xentium cores and loads pending tracker nodes
+ * for processing. Uses a spinlock to prevent concurrent scheduling.
  */
 
 void xentium_schedule_next_internal(void)
@@ -838,6 +850,14 @@ static int xentium_setup_kernel(struct xen_kernel *m)
 
 /**
  * @brief check if this is a valid Xentium ELF binary
+ *
+ * Validates the ELF header fields including endianness, magic numbers,
+ * class, and version. Swaps endianness if the binary is big-endian.
+ *
+ * @param ehdr pointer to the ELF header to validate
+ *
+ * @return 0 if the header is valid, -1 otherwise
+ *
  * @note this requires elf32-big instead of elf32-xentium in linker script
  *	 target
  */
@@ -1009,7 +1029,15 @@ error:
 
 
 /**
- * load the kernels configuration data
+ * @brief load a kernel's configuration data from its ELF binary
+ *
+ * Locates the _xen_kernel_param symbol in the ELF binary and extracts
+ * the kernel configuration. If the kernel requires internal data storage,
+ * it is allocated and written back to the kernel's memory location.
+ *
+ * @param x the Xentium kernel structure with a valid ELF header
+ *
+ * @return pointer to the allocated kernel configuration, or NULL on error
  */
 
 struct xen_kernel_cfg *xentium_config_kernel(struct xen_kernel *x)
@@ -1217,7 +1245,14 @@ EXPORT_SYMBOL(xentium_kernel_add);
 
 
 /**
- * @brief set the output function of the network
+ * @brief set the output function of the processing network
+ *
+ * Creates the output node for the Xentium processing network using the
+ * provided output callback function.
+ *
+ * @param op_output the output function to call when tasks reach the output node
+ *
+ * @return 0 on success, -1 on error
  */
 
 int xentium_config_output_node(op_func_t op_output)
@@ -1231,9 +1266,14 @@ EXPORT_SYMBOL(xentium_config_output_node);
 
 
 /**
- * @brief add a new task to the network
+ * @brief add a new task to the processing network
  *
- * @returns 0 on success, -EBUSY if new task cannot be added at this time
+ * Inserts a processing task into the Xentium processing network input
+ * and triggers processing if the network is not locked.
+ *
+ * @param t the processing task to insert into the network
+ *
+ * @return 0 on success, -EBUSY if the network lock cannot be acquired
  */
 
 int xentium_input_task(struct proc_task *t)
@@ -1257,11 +1297,14 @@ EXPORT_SYMBOL(xentium_input_task);
 /**
  * @brief try to schedule the next processing cycle
  *
+ * Attempts to schedule pending tracker nodes for processing on available
+ * Xentium cores.
+ *
  * @note This is not usually needed, because adding a new task at the input
  *       of the network will cause it to be scheduled immediately if possible.
  *       All subsequent interaction with a Xentium will then re-trigger
  *       processing of pending nodes until all tasks in the network reach the
- *       output stage
+ *       output stage.
  */
 
 void xentium_schedule_next(void)
@@ -1272,9 +1315,13 @@ EXPORT_SYMBOL(xentium_schedule_next);
 
 
 /**
- * @brief process the outputs of the network
+ * @brief process the outputs of the processing network
  *
- * @note This is to be called by the user at their discretion.
+ * Executes the output node previously configured by
+ * xentium_config_output_node() for all completed tasks.
+ *
+ * @note This is to be called by the user at their discretion to retrieve
+ *       and deallocate tasks from the output node.
  */
 
 void xentium_output_tasks(void)

@@ -3,6 +3,7 @@
  * @file arch/sparc/mm/srmmu.c
  *
  * @ingroup srmmu
+ * @ingroup kmem
  * @defgroup srmmu SPARC Reference MMU
  *
  * @brief access to the SPARC Reference MMU (SRMMU)
@@ -155,6 +156,7 @@
 static unsigned long *_mmu_ctp;	      /* table of mmu context table pointers */
 static unsigned long  _mmu_num_ctp;   /* number of contexts in the ctp       */
 static struct mmu_ctx *_mmu_ctx;      /* the currently configured context    */
+static unsigned long *ctp;            /* the context table pointer table     */
 
 
 
@@ -911,7 +913,7 @@ static void srmmu_release_lvl1_pages(struct mmu_ctx *ctx,
  * @param ctx_num the context number
  * @param va the start virtual address
  * @param va_end the end virtual address
- * @parma free_page a function pages are returned to
+ * @param free_page a function pages are returned to
  *
  * @note the addresses are assumed aligned to the page size
  */
@@ -937,7 +939,7 @@ void srmmu_release_pages(unsigned long ctx_num,
  * @param ctx_num the context number to do the mapping in
  * @param va the virtual address
  * @param pa the physical address
- * @parma perm the permissions to configure for the page
+ * @param perm the permissions to configure for the page
  *
  * @note the addresses are assumed to be aligned to the requested page size
  *
@@ -982,8 +984,8 @@ int srmmu_do_large_mapping(unsigned long ctx_num,
  * @param ctx_num the context number to do the mapping in
  * @param va the virtual address
  * @param pa the physical address
- * @param pages the number of SRMMU_LARGE_PAGE_SIZE pages
- * @parma perm the permissions to configure for the pages
+ * @param num_pages the number of SRMMU_LARGE_PAGE_SIZE pages
+ * @param perm the permissions to configure for the pages
  *
  * @return 0 on success
  */
@@ -1029,7 +1031,7 @@ int srmmu_do_large_mapping_range(unsigned long ctx_num,
  * @param ctx_num the context number to do the mapping in
  * @param va the virtual address
  * @param pa the physical address
- * @parma perm the permissions to configure for the page
+ * @param perm the permissions to configure for the page
  *
  * @note the addresses are assumed to be aligned to the requested page size
  *
@@ -1085,8 +1087,8 @@ int srmmu_do_small_mapping(unsigned long ctx_num,
  * @param ctx_num the context number to do the mapping in
  * @param va the virtual address
  * @param pa the physical address
- * @param pages the number of SRMMU_SMALL_PAGE_SIZE pages
- * @parma perm the permissions to configure for the pages
+ * @param num_pages the number of SRMMU_SMALL_PAGE_SIZE pages
+ * @param perm the permissions to configure for the pages
  *
  * @return 0 on success
  */
@@ -1127,6 +1129,11 @@ int srmmu_do_small_mapping_range(unsigned long ctx_num,
 
 /**
  * @brief get the physical address of the page mapped to a virtual address
+ *
+ * @param ctx the context number to look up the mapping in
+ * @param va the virtual address
+ *
+ * @return the physical address, or 0 if the address is not mapped
  */
 
 unsigned long srmmu_get_pa_page(unsigned long ctx, unsigned long va)
@@ -1185,6 +1192,24 @@ void srmmu_enable_mmu(void)
 
 
 /**
+ * @brief per-CPU initialisation of the MMU
+ *
+ * Sets up the context table pointer, selects context 0 and enables
+ * the MMU on the current CPU.
+ *
+ * @note requires a prior call to srmmu_init()
+ */
+
+void srmmu_init_per_cpu(void)
+{
+	mmu_set_ctp(ctp);
+	mmu_set_current_ctx(0);
+	srmmu_select_ctx(0);
+	srmmu_enable_mmu();
+}
+
+
+/**
  * @brief basic initialisation of the MMU
  *
  * @param alloc a pointer to a function we can use to allocate MMU context
@@ -1197,16 +1222,6 @@ void srmmu_enable_mmu(void)
  * @note requires at least one mapping and a call to srmmu_enable_mmu()
  *	 to function
  */
-
-	unsigned long *ctp;
-void srmmu_init_per_cpu(void)
-{
-	mmu_set_ctp(ctp);
-	mmu_set_current_ctx(0);
-	srmmu_select_ctx(0);
-	srmmu_enable_mmu();
-}
-
 
 int srmmu_init(void *(*alloc)(size_t size), void  (*free)(void *addr))
 {

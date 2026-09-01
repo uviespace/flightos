@@ -3,6 +3,7 @@
  * @file lib/mm.c
  *
  * @ingroup buddy_mm
+ * @ingroup kmem
  * @defgroup buddy_mm Buddy-System Memory Manager
  * @brief a buddy-system memory manager
  *
@@ -307,9 +308,12 @@ static void *mm_find_neighbour(struct mm_pool *mp,
 /**
  * @brief merge a block with a neighbouring block
  *
- * @param
+ * @param mp	a struct mm_pool
+ * @param blk	a struct mm_blk_lnk to merge with its neighbour
+ * @param order	the order of the block to merge
  *
- * @return the address of the merged next-order block
+ * @return the address of the merged next-order block, or NULL if the
+ *	   neighbour block cannot be merged
  */
 
 static struct mm_blk_lnk *mm_merge_blk(struct mm_pool *mp,
@@ -580,7 +584,6 @@ exit:
  *
  * @param mp    a struct mm_pool
  * @param addr  the address of the block
- * @param order the order of the block
  *
  */
 

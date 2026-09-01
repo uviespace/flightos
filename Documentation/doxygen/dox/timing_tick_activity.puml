@@ -1,0 +1,27 @@
+@startuml
+title FlightOS tick-device calibration activity
+skinparam linetype ortho
+
+start
+:Select the current CPU's tick device;
+if (device available?) then (no)
+  :Return no-device status;
+  stop
+endif
+:Prefer one-shot mode;
+if (one-shot supported?) then (yes)
+  :Enter one-shot mode;
+else (no)
+  if (periodic supported?) then (yes)
+    :Enter periodic mode;
+  else (no)
+    :Abort calibration;
+    stop
+  endif
+endif
+:Measure elapsed time between timer events;
+:Repeat calibration samples;
+:Set minimum effective period to twice the measured mean;
+:Configure periodic tick mode;
+stop
+@enduml

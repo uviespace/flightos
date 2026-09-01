@@ -1,6 +1,7 @@
 /**
  * @file   arch/sparc/lib/grtimer.c
  * @ingroup time
+ * @ingroup timing
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   July, 2016
  *
@@ -15,8 +16,7 @@
  * more details.
  *
  *
- * @brief Implements access to the LEON3 General Purpose Timer Unit with
- *	  Time Latch Capability
+ * @brief Low-level access to the LEON3 General Purpose Timer Unit with time latch capability.
  *
  * @see GR712RC user manual chapter 12
  */
@@ -29,7 +29,7 @@
 /**
  * @brief set scaler reload value of the timer block
  * @param rtu a struct grtimer_unit
- *
+ * @param value the scaler reload value to set
  */
 
 void grtimer_set_scaler_reload(struct grtimer_unit *rtu, uint32_t value)
@@ -42,6 +42,7 @@ void grtimer_set_scaler_reload(struct grtimer_unit *rtu, uint32_t value)
  * @brief get scaler reload value of the timer block
  * @param rtu a struct grtimer_unit
  *
+ * @return the scaler reload value
  */
 
 uint32_t grtimer_get_scaler_reload(struct grtimer_unit *rtu)
@@ -224,6 +225,8 @@ void grtimer_clear_chained(struct grtimer_unit *rtu, uint32_t timer)
  * @brief get status of interrupt pending status
  * @param rtu a struct grtimer_unit
  * @param timer the selected timer
+ *
+ * @return the interrupt pending status flag
  */
 
 uint32_t grtimer_get_interrupt_pending_status(struct grtimer_unit *rtu,
@@ -254,7 +257,8 @@ void grtimer_clear_interrupt_pending_status(struct grtimer_unit *rtu,
 /**
  * @brief get number of implemented general purpose timers
  * @param rtu a struct grtimer_unit
- * @param timer the selected timer
+ *
+ * @return the number of implemented timers
  */
 
 uint32_t grtimer_get_num_implemented(struct grtimer_unit *rtu)
@@ -266,7 +270,8 @@ uint32_t grtimer_get_num_implemented(struct grtimer_unit *rtu)
 /**
  * @brief get interrupt ID of first implemented timer
  * @param rtu a struct grtimer_unit
- * @param timer the selected timer
+ *
+ * @return the interrupt ID of the first implemented timer
  */
 
 uint32_t grtimer_get_first_timer_irq_id(struct grtimer_unit *rtu)
@@ -292,7 +297,8 @@ void grtimer_set_value(struct grtimer_unit *rtu, uint32_t timer, uint32_t value)
  * @brief get the value of a grtimer
  * @param rtu a struct grtimer_unit
  * @param timer the selected timer
- * @param value the timer counter value to set
+ *
+ * @return the timer counter value
  */
 
 uint32_t grtimer_get_value(struct grtimer_unit *rtu, uint32_t timer)
@@ -319,6 +325,8 @@ void grtimer_set_reload(struct grtimer_unit *rtu,
  * @brief get the reload of a grtimer
  * @param rtu a struct grtimer_unit
  * @param timer the selected timer
+ *
+ * @return the timer counter reload value
  */
 
 uint32_t grtimer_get_reload(struct grtimer_unit *rtu, uint32_t timer)
@@ -379,6 +387,8 @@ void grtimer_enable_latch(struct grtimer_unit *rtu)
  * @brief get the latch value of a grtimer
  * @param rtu a struct grtimer_unit
  * @param timer the selected timer
+ *
+ * @return the latched timer counter value
  */
 
 uint32_t grtimer_get_latch_value(struct grtimer_unit *rtu, uint32_t timer)

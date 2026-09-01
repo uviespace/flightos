@@ -1,3 +1,16 @@
+/**
+ * @file kernel/ad7814_spi.c
+ *
+ * @ingroup spi_driver
+ * @defgroup ad7814_driver AD7814 SPI temperature sensor
+ *
+ * @brief SPI client for reading an AD7814 temperature sensor.
+ *
+ * Provides an API to read the temperature from an AD7814 sensor connected
+ * over SPI and to register a chip-select line for it. The driver is only
+ * compiled when DEMO_AD7814 is defined.
+ */
+
 #include <errno.h>
 #include <limits.h>
 #include <kernel/printk.h>
@@ -125,6 +138,8 @@ static void ad7814_poll(void)
 
 /**
  * @brief returns the temperature in degrees celsius
+ *
+ * @return the measured temperature as a float
  */
 
 float ad7814_get_temp(void)
@@ -163,8 +178,14 @@ float ad7814_get_temp(void)
 /**
  * @brief register an AD7814 for operation
  *
- * @note: for now, the user must supply a chip select function for this
- * to work
+ * @param chip_select a user-supplied chip select function (active low
+ *        assertion via boolean argument)
+ *
+ * @return 0 on success, -EADDRINUSE if already registered,
+ *         -ENODEV if no SPI controller is available
+ *
+ * @note the user must supply a chip select function for this to work;
+ *       only one AD7814 may be registered at a time
  */
 
 int ad7814_register(void (*chip_select)(bool))
@@ -187,6 +208,8 @@ int ad7814_register(void (*chip_select)(bool))
 
 /**
  * @brief de-register the AD7814
+ *
+ * @return 0 on success, -ENODEV if no device is registered
  */
 
 int ad7814_deregister(void)

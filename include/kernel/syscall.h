@@ -1,3 +1,12 @@
+/**
+ * @file include/kernel/syscall.h
+ *
+ * @brief low-level syscall invocation macros
+ *
+ * Provides the SYSCALL0..SYSCALL6 macros that invoke a syscall from kernel
+ * code by its number, passing up to six arguments in registers.
+ */
+
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
 
@@ -18,6 +27,17 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
  */
 
 
+/**
+ * @brief issue a syscall with 6 arguments
+ * @param id: the syscall id
+ * @param a0: first argument
+ * @param a1: second argument
+ * @param a2: third argument
+ * @param a3: fourth argument
+ * @param a4: fifth argument
+ * @param a5: sixth argument
+ * @return the syscall return value
+ */
 #define SYSCALL6(id, a0, a1, a2, a3, a4, a5)			\
 ({								\
 	long _a0 = (long) (a0);					\
@@ -53,6 +73,16 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 	_o0;	/* retval */					\
 })
 
+/**
+ * @brief issue a syscall with 5 arguments
+ * @param id: the syscall id
+ * @param a0: first argument
+ * @param a1: second argument
+ * @param a2: third argument
+ * @param a3: fourth argument
+ * @param a4: fifth argument
+ * @return the syscall return value
+ */
 #define SYSCALL5(id, a0, a1, a2, a3, a4)			\
 ({								\
 	long _a0 = (long) (a0);					\
@@ -85,6 +115,15 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 	_o0;	/* retval */					\
 })
 
+/**
+ * @brief issue a syscall with 4 arguments
+ * @param id: the syscall id
+ * @param a0: first argument
+ * @param a1: second argument
+ * @param a2: third argument
+ * @param a3: fourth argument
+ * @return the syscall return value
+ */
 #define SYSCALL4(id, a0, a1, a2, a3)				\
 ({								\
 	long _a0 = (long) (a0);					\
@@ -113,6 +152,14 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 	_o0;	/* retval */					\
 })
 
+/**
+ * @brief issue a syscall with 3 arguments
+ * @param id: the syscall id
+ * @param a0: first argument
+ * @param a1: second argument
+ * @param a2: third argument
+ * @return the syscall return value
+ */
 #define SYSCALL3(id, a0, a1, a2)				\
 ({								\
 	long _a0 = (long) (a0);					\
@@ -140,6 +187,13 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 
 
 
+/**
+ * @brief issue a syscall with 2 arguments
+ * @param id: the syscall id
+ * @param a0: first argument
+ * @param a1: second argument
+ * @return the syscall return value
+ */
 #define SYSCALL2(id, a0, a1)					\
 ({								\
 	long _a0 = (long) (a0);					\
@@ -162,6 +216,12 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 })
 
 
+/**
+ * @brief issue a syscall with 1 argument
+ * @param id: the syscall id
+ * @param a0: first argument
+ * @return the syscall return value
+ */
 #define SYSCALL1(id, a0)					\
 ({								\
 	long _a0 = (long) (a0);					\
@@ -180,6 +240,11 @@ __diag_ignore(GCC, 7, "-Wpedantic", "need braced groups")
 	_o0;	/* retval */					\
 })
 
+/**
+ * @brief issue a syscall with no arguments
+ * @param id: the syscall id
+ * @return the syscall return value
+ */
 #define SYSCALL0(id)						\
 ({								\
 	long _g1 = (id);					\

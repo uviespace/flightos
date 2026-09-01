@@ -1,5 +1,5 @@
 /**
- * @file include/errno_base.h
+ * @file include/errno-base.h
  * from linux/include/asm-generic/errno-base.h
  */
 

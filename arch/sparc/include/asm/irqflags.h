@@ -1,5 +1,8 @@
 /**
  * @file    sparc/include/asm/irqflags.h
+ * @ingroup interrupts
+ *
+ * @brief local interrupt enable/save/restore helpers
  *
  * @copyright GPLv2
  *
@@ -17,11 +20,33 @@
 #ifndef _ARCH_SPARC_ASM_IRQFLAGS_H_
 #define _ARCH_SPARC_ASM_IRQFLAGS_H_
 
+/**
+ * @brief enable local interrupts
+ *
+ * Clears the PSR PIL field so that all interrupt levels are enabled.
+ */
 void arch_local_irq_enable(void);
+
+/**
+ * @brief save the interrupt state and disable interrupts
+ *
+ * @return the previous interrupt state (PSR), usable with
+ *	 arch_local_irq_restore()
+ */
 unsigned long arch_local_irq_save(void);
+
+/**
+ * @brief restore the previous local interrupt state
+ *
+ * @param flags the interrupt state to restore, previously obtained
+ *	 from arch_local_irq_save()
+ */
 void arch_local_irq_restore(unsigned long flags);
 
 
+/**
+ * @brief disable local interrupts
+ */
 static inline void arch_local_irq_disable(void)
 {
 	arch_local_irq_save();

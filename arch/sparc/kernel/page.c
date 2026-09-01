@@ -2,6 +2,7 @@
  * @file arch/sparc/kernel/page.c
  *
  * @ingroup sparc
+ * @ingroup kmem
  *
  * things we need statically allocated in the image (i.e. in .bss)
  * at boot for page map/memory pool management

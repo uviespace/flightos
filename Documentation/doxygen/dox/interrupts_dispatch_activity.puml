@@ -1,0 +1,29 @@
+@startuml
+title SPARC IRQ dispatch activity
+skinparam linetype ortho
+
+start
+:Receive interrupt level;
+if (primary interrupt?) then (yes)
+  :Select primary IRL vector;
+else (extended)
+  :Decode and select EIRL vector;
+endif
+:Visit registered handlers;
+if (immediate execution policy?) then (yes)
+  :Execute handler immediately;
+else (deferred)
+  if (deferred queue has capacity?) then (yes)
+    :Add handler to deferred queue;
+  else (no)
+    :Fallback behavior needs review;
+  endif
+endif
+:Continue through vector;
+if (rate protection enabled?) then (yes)
+  :Apply configured rate protection;
+else (no)
+  :Leave rate protection disabled;
+endif
+stop
+@enduml

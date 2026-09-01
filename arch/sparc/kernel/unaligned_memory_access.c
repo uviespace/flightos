@@ -246,6 +246,19 @@ static void mna_store(uint8_t *dst, uint8_t *src, int size)
 
 
 
+/**
+ * @brief handle an unaligned memory access from kernel mode
+ *
+ * Decodes the faulting instruction, emulates the unaligned load or store
+ * and advances the program counter.
+ *
+ * @param regs the register state at the time of the trap
+ * @param insn the faulting (unaligned) instruction
+ *
+ * @note unaligned access on this platform is considered an implementation
+ *	 error (a form of FDIR); unsupported instructions cause a panic
+ */
+
 void kernel_mna_trap(struct pt_regs *regs, uint32_t insn)
 {
 	int type;
@@ -298,6 +311,16 @@ exit:
 	regs->pc   = regs->npc;
 	regs->npc += 4;
 }
+
+/**
+ * @brief handle an unaligned memory access from user mode
+ *
+ * @param regs the register state at the time of the trap
+ * @param insn the faulting (unaligned) instruction
+ *
+ * @note the user mode handler currently delegates to the kernel mode
+ *	 handler
+ */
 
 void user_mna_trap(struct pt_regs *regs, uint32_t insn)
 {

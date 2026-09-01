@@ -5,6 +5,69 @@
  *
  * @ingroup syscall
  *
+ *
+ * @startuml FlightOS Syscall Flow
+ * title Syscall Dispatch Flow
+ *
+ * skinparam sequence {
+ *   ArrowColor #333333
+ *   LifeLineBorderColor #333333
+ *   ParticipantBackgroundColor #E3F2FD
+ * }
+ *
+ * participant "User Code" as USER
+ * participant "ttable.S" as TTABLE
+ * participant "etrap.S" as ETRAP
+ * participant "syscalls.c" as SYSCALLS
+ * participant "Handler" as HANDLER
+ * participant "rtrap.S" as RTRAP
+ *
+ * USER -> TTABLE : ta 0x80\n(syscall trap)
+ * activate TTABLE
+ *
+ * TTABLE -> ETRAP : syscall_trap
+ * activate ETRAP
+ *
+ * ETRAP -> ETRAP : range-check %g1 vs __NR_syscalls
+ *
+ * alt out of range
+ *   ETRAP -> ETRAP : retval = 7 (ENOSYS)\nstore to frame
+ * else valid syscall
+ *   ETRAP -> ETRAP : load syscall_tbl[%g1]
+ *   ETRAP -> ETRAP : SAVE_ALL_HEAD\nbuild pt_regs frame\nre-enable traps
+ *
+ *   ETRAP -> SYSCALLS : call handler(%o0..%o5)
+ *   activate SYSCALLS
+ *   SYSCALLS -> HANDLER : dispatch to specific handler
+ *   activate HANDLER
+ *   HANDLER --> SYSCALLS : return value
+ *   deactivate HANDLER
+ *   SYSCALLS --> ETRAP : retval in %o0
+ *   deactivate SYSCALLS
+ *   ETRAP -> ETRAP : store retval to PT_I0
+ * end
+ *
+ * ETRAP -> RTRAP : ret_sys_call -> ret_trap_entry
+ * activate RTRAP
+ * RTRAP -> RTRAP : restore registers\nLOAD_PT_ALL\nfix WIM if needed
+ * RTRAP -> RTRAP : jmp %t_pc, rett %t_npc
+ * RTRAP --> USER : return to user code
+ * deactivate RTRAP
+ * deactivate ETRAP
+ * deactivate TTABLE
+ *
+ * note over SYSCALLS
+ *   Syscall table (syscalls.c):
+ *   sys_read, sys_write, sys_alloc,
+ *   sys_free, sys_gettime, sys_nanosleep,
+ *   sys_grspw2, sys_thread_create,
+ *   sys_sched_yield, sys_watchdog,
+ *   sys_edac_inject_fault, ...
+ * end note
+ *
+ * @enduml
+ *
+ *
  */
 
 
@@ -101,6 +164,17 @@ SYSCALL_DEFINE3(write, int, fd, void *, s, size_t, count)
 	return 1;
 }
 #endif
+
+/**
+ * @brief default handler for unimplemented syscalls
+ *
+ * Prints a message indicating the syscall number is not implemented.
+ *
+ * @param a unused syscall argument
+ * @param s unused syscall argument
+ *
+ * @return 0 always
+ */
 
 long sys_ni_syscall(int a, char *s)
 {
@@ -356,12 +430,23 @@ SYSCALL_DEFINE3(edac_inject_fault, void *, addr, uint32_t, mem_value, uint32_t, 
 
 
 #include <kernel/syscall.h>
+
+/**
+ * @brief invoke the sched_yield syscall
+ *
+ * @return the return code of the sched_yield syscall
+ */
 __attribute__((noinline))
 int syscall_sched_yield(void)
 {
 	return SYSCALL0(__NR_sched_yield);
 }
 
+/**
+ * @brief invoke the schedule syscall
+ *
+ * @return the return code of the schedule syscall
+ */
 __attribute__((noinline))
 int syscall_schedule(void)
 {

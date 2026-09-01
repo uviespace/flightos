@@ -2,6 +2,7 @@
  * @file lib/chunk.c
  *
  * @ingroup chunk
+ * @ingroup kmem
  * @defgroup chunk Memory Chunk Allocator
  *
  * @brief a chunk-based memory allocator

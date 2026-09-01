@@ -1,5 +1,8 @@
 /**
  * @file arch/sparc/include/asm/time.h
+ * @ingroup timing
+ *
+ * @brief SPARC timer frequency, conversion, and uptime definitions.
  */
 
 #ifndef _SPARC_TIME_H_
@@ -68,6 +71,12 @@ compile_time_assert((SPARC_CPU_CPS <= 1000000000UL),
 
 
 
+/**
+ * @brief initialise the SPARC uptime clock source
+ *
+ * @note uses the grtimer longcount (LEON3) or the up-counters in %asr22-23
+ *	 (LEON4) as the clock source
+ */
 void sparc_uptime_init(void);
 
 #endif /* _SPARC_TIME_H_ */

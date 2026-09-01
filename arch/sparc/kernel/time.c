@@ -1,5 +1,9 @@
 /**
  * @file arch/sparc/kernel/time.c
+ * @ingroup timing
+ * @ingroup sparc
+ *
+ * @brief SPARC LEON uptime clocksource setup.
  */
 
 #include <asm/time.h>
@@ -140,6 +144,13 @@ static struct clocksource uptime_clock = {
 
 };
 
+
+/**
+ * @brief initialise the SPARC uptime clock source
+ *
+ * @note uses the grtimer longcount (LEON3) or the up-counters in
+ *	 %asr22-23 (LEON4) as the clock source
+ */
 
 void sparc_uptime_init(void)
 {

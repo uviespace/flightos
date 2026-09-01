@@ -5,6 +5,206 @@
  * @defgroup sparc SPARC
  * @brief the SPARC architecture-specific implementation
  *
+ * This file implements the SPARC-specific architecture setup, including
+ * memory initialisation, MMU bring-up, interrupt, EDAC, clockevent and SMP
+ * initialisation, and hands control to the scheduler.
+ *
+ * ## System Architecture
+ *
+ * @startuml FlightOS Architecture Overview
+ * title FlightOS System Architecture
+ *
+ * !pragma layout ortho
+ *
+ * skinparam component {
+ *   BackgroundColor<<kernel>> #E8F5E9
+ *   BackgroundColor<<lib>> #E3F2FD
+ *   BackgroundColor<<arch>> #FFF3E0
+ *   BackgroundColor<<hw>> #FCE4EC
+ *   BorderColor #333333
+ * }
+ * skinparam arrowColor #333333
+ *
+ * package "User Space" <<Cloud>> {
+ *   [Applications]
+ * }
+ *
+ * package "Kernel (kernel/)" <<kernel>> {
+ *   [Scheduler\nsched/] as SCHED
+ *   [Thread Mgmt\nkthread.c] as KTHREAD
+ *   [Syscalls\nsyscalls.c] as SYSCALLS
+ *   [Clock Events\nclockevent.c] as CLKEVT
+ *   [Tick\ntick.c] as TICK
+ *   [IRQ Core\nirq.c] as IRQCORE
+ *   [EDAC\nedac.c + memscrub.c] as EDAC
+ *   [Module Loader\nmodule.c] as MODULE
+ *   [SPI Core\nspictlr.c] as SPI
+ *   [Memory\nkmem.c] as KMEM
+ *   [TTY\ntty.c] as TTY
+ * }
+ *
+ * package "Library (lib/)" <<lib>> {
+ *   [Memory Mgmt\nmm.c + page.c] as MM
+ *   [String\nstring.c] as STRING
+ *   [ELF Parser\nelf.c] as ELF
+ *   [Chunk Alloc\nchunk.c] as CHUNK
+ *   [AR Parser\nar.c] as AR
+ *   [Data Proc\ndata_proc_*.c] as DATAPROC
+ * }
+ *
+ * package "Architecture (arch/sparc/)" <<arch>> {
+ *   [Setup & Init\nsetup.c] as SETUP
+ *   [IRQ Arch\nirq.c] as IRQARCH
+ *   [MMU\nmmu.c + srmmu.c] as MMU
+ *   [Trap Handlers\ntraps.c] as TRAPS
+ *   [Clockevent Arch\nclockevent.c] as CLKEVTARCH
+ *   [EDAC Arch\nedac.c] as EDACARCH
+ *   [SMP\nsmp.c] as SMP
+ *   [Boot Memory\nbootmem.c] as BOOTMEM
+ *   [Module Arch\nmodule.c] as MODULEARCH
+ *
+ *   package "Hardware Lib (arch/sparc/lib/)" <<arch>> {
+ *     [GPTimer\ngptimer.c] as GPTIMER
+ *     [GRTimer\ngrtimer.c] as GRTIMER
+ *     [LEON3 DSU\nleon3_dsu.c] as DSU
+ *     [AHB Bus\nahb.c] as AHB
+ *     [Mem Config\nleon3_memcfg.c] as MEMCFG
+ *   }
+ * }
+ *
+ * package "Hardware" <<hw>> {
+ *   [LEON3/4 CPU]
+ *   [GPTimer / GRTimer]
+ *   [SRMMU]
+ *   [SpaceWire (GRSPW2)]
+ *   [SPI Bus (GRSPI)]
+ *   [AHB Bus]
+ *   [Memory Controllers]
+ * }
+ *
+ * ' Kernel -> Lib connections
+ * KMEM -down-> MM : page alloc
+ * KMEM -down-> CHUNK : block alloc
+ * MODULE -down-> ELF : parse ELF
+ * MODULE -down-> AR : parse archives
+ * KTHREAD -down-> STRING : string ops
+ * SYSCALLS -down-> DATAPROC : data processing
+ *
+ * ' Kernel internal connections
+ * KTHREAD -right-> SCHED
+ * TICK -right-> CLKEVT
+ * IRQCORE -up-> SYSCALLS
+ * EDAC -right-> KMEM
+ *
+ * ' Kernel -> Arch connections
+ * SETUP -up-> KMEM : kmem_init
+ * SETUP -up-> SCHED : sched_enable
+ * SETUP -up-> SMP : smp_init
+ * IRQCORE <-down-> IRQARCH : irq_dev
+ * CLKEVT <-down-> CLKEVTARCH : clock_event_device
+ * EDAC <-down-> EDACARCH : edac_dev
+ * MMU -up-> KMEM : page_alloc
+ * MODULE -down-> MODULEARCH : apply_relocate
+ *
+ * ' Arch -> HW connections
+ * IRQARCH -down-> [LEON3/4 CPU]
+ * CLKEVTARCH -down-> GPTIMER
+ * GRTIMER -down-> [GPTimer / GRTimer]
+ * MMU -down-> [SRMMU]
+ * SPI -down-> [SPI Bus (GRSPI)]
+ * EDACARCH -down-> [Memory Controllers]
+ * AHB -down-> [AHB Bus]
+ * DSU -down-> [LEON3/4 CPU]
+ *
+ * @enduml
+ *
+ * ## Boot Sequence
+ *
+ * @startuml FlightOS Boot Flow
+ * title Boot Flow - CPU0 Sequence
+ *
+ * skinparam sequence {
+ *   ArrowColor #333333
+ *   LifeLineBorderColor #333333
+ *   ParticipantBackgroundColor #E8F5E9
+ * }
+ *
+ * participant "ttable.S" as TTABLE
+ * participant "head.S" as HEAD
+ * participant "init/main.c" as MAIN
+ * participant "setup.c" as SETUP
+ * participant "bootmem.c" as BOOTMEM
+ * participant "mmu.c" as MMU
+ * participant "kmem.c" as KMEM
+ * participant "irq.c\n(arch)" as IRQARCH
+ * participant "irq.c\n(kernel)" as IRQCORE
+ * participant "edac.c\n(arch)" as EDAC
+ * participant "clockevent.c\n(arch)" as CLKEVT
+ * participant "smp.c" as SMP
+ * participant "sched/core.c" as SCHED
+ *
+ * TTABLE -> HEAD : _start -> kernel_entry
+ * activate HEAD
+ *
+ * HEAD -> HEAD : set trapbase, zero BSS
+ * HEAD -> HEAD : setup WIM, PSR
+ * HEAD -> HEAD : enable traps
+ *
+ * HEAD -> MAIN : call do_basic_setup
+ * activate MAIN
+ * MAIN -> MAIN : do_initcalls()\n(sched_rr_init, sched_edf_init)
+ *
+ * HEAD -> SETUP : call kernel_main
+ * activate SETUP
+ *
+ * SETUP -> SETUP : setup_arch()
+ * activate SETUP #LightBlue
+ *
+ * SETUP -> SETUP : leon3_flush()\nenable icache/dcache
+ *
+ * SETUP -> SETUP : mem_init()\nconfigure sp_banks[]
+ *
+ * SETUP -> BOOTMEM : paging_init()
+ * activate BOOTMEM
+ * BOOTMEM -> BOOTMEM : bootmem_init()\npage_map_init()\nchunk_pool_init()
+ * BOOTMEM --> SETUP
+ *
+ * SETUP -> MMU : mm_mmu_paging_init()\n(if CONFIG_MMU)
+ * activate MMU
+ * MMU -> MMU : get_srmmu_type()\nmm_init_leon()\nsrmmu_init()\n1:1 mappings\nsrmmu_enable_mmu()
+ * MMU --> SETUP
+ *
+ * SETUP -> KMEM : kmem_init()
+ * activate KMEM
+ * KMEM --> SETUP : BUG_ON failure
+ *
+ * SETUP -> SETUP : reserve_kernel_stack()\nstack_migrate()
+ *
+ * SETUP -> IRQARCH : leon_irq_init()
+ * activate IRQARCH
+ * IRQARCH -> IRQCORE : irq_init(&leon_irq)
+ * IRQCORE --> IRQARCH
+ * IRQARCH --> SETUP
+ *
+ * SETUP -> EDAC : leon_edac_init()
+ * SETUP -> SETUP : sparc_uptime_init()
+ * SETUP -> CLKEVT : sparc_clockevent_init()
+ * SETUP -> SMP : smp_init()\nboot_cpus()
+ *
+ * loop for each secondary CPU
+ *   SMP -> SMP : cpu_wake(i)\nwait cpu_ready[i]
+ * end
+ *
+ * SETUP -> SCHED : sched_enable()
+ * SETUP --> MAIN
+ *
+ * MAIN -> MAIN : kthread_init_main()\n(elevate boot thread)
+ *
+ * loop forever
+ *   MAIN -> MAIN : main_kernel_loop()\ncpu_load_update()
+ * end
+ *
+ * @enduml
  */
 
 #include <string.h> /* memset() */
@@ -255,7 +455,15 @@ int cpu_ready[CONFIG_SMP_CPUS_MAX];
 
 
 #include <asm/io.h>
-/* wake a cpu by writing to the multiprocessor status register */
+/**
+ * @brief wake a secondary CPU
+ *
+ * @param cpu_id the id of the CPU to wake
+ *
+ * @note implemented by writing to the multiprocessor status register;
+ *	 on LEON3, the DSU is also configured
+ */
+
 void cpu_wake(uint32_t cpu_id)
 {
 #ifdef CONFIG_LEON3
@@ -378,6 +586,13 @@ void main_kernel_loop(void)
 #include <kernel/kthread.h>
 void srmmu_init_per_cpu(void);
 extern struct task_struct *kernel[];
+/**
+ * @brief entry point for secondary CPUs
+ *
+ * Sets up the per-CPU MMU, kernel stack and clockevent device, then
+ * enters the per-CPU main kernel loop.
+ */
+
 void smp_cpu_entry(void)
 {
 

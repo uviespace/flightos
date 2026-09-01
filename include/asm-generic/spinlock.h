@@ -29,6 +29,11 @@ struct spinlock {
 
 #ifndef __spin_lock_save_irq
 #define __spin_lock_save_irq __spin_lock_save_irq
+
+/**
+ * @brief lock a spinlock while saving and disabling IRQs
+ * @return saved IRQ flags (may be 0 in generic placeholder)
+ */
 static unsigned long spin_lock_save_irq(void)
 {
 	return 0;
@@ -38,6 +43,10 @@ static unsigned long spin_lock_save_irq(void)
 
 #ifndef __spin_lock_restore_irq
 #define __spin_lock_restore_irq __spin_lock_restore_irq
+/**
+ * @brief unlock a spinlock while restoring IRQ flags
+ * @param psr: IRQ flags to restore
+ */
 static void spin_lock_restore_irq(__attribute__((unused)) uint32_t psr)
 {
 }
@@ -46,6 +55,10 @@ static void spin_lock_restore_irq(__attribute__((unused)) uint32_t psr)
 
 #ifndef __spin_lock
 #define __spin_lock __spin_lock
+/**
+ * @brief acquire a spinlock (generic no-op placeholder)
+ * @param lock: the spinlock to acquire
+ */
 static void spin_lock(__attribute__((unused)) struct spinlock *lock)
 {
 }
@@ -54,6 +67,11 @@ static void spin_lock(__attribute__((unused)) struct spinlock *lock)
 
 #ifndef __spin_is_locked
 #define __spin_is_locked __spin_is_locked
+/**
+ * @brief check whether a spinlock is held (generic placeholder)
+ * @param lock: the spinlock to check
+ * @return non-zero if locked, 0 otherwise
+ */
 static int spin_is_locked(__attribute__((unused)) struct spinlock *lock)
 {
 	return 0;
@@ -63,6 +81,10 @@ static int spin_is_locked(__attribute__((unused)) struct spinlock *lock)
 
 #ifndef __spin_unlock_wait
 #define __spin_unlock_wait __spin_unlock_wait
+/**
+ * @brief wait until a spinlock is unlocked (generic no-op placeholder)
+ * @param lock: the spinlock to wait on
+ */
 static void spin_unlock_wait(__attribute__((unused)) struct spinlock *lock)
 {
 }
@@ -70,6 +92,11 @@ static void spin_unlock_wait(__attribute__((unused)) struct spinlock *lock)
 
 #ifndef __spin_try_lock
 #define __spin_try_lock __spin_try_lock
+/**
+ * @brief try to acquire a spinlock without blocking (generic placeholder)
+ * @param lock: the spinlock to try
+ * @return non-zero on success (lock acquired), 0 on failure
+ */
 static int spin_try_lock(__attribute__((unused)) struct spinlock *lock)
 {
 	return 0;
@@ -78,6 +105,10 @@ static int spin_try_lock(__attribute__((unused)) struct spinlock *lock)
 
 #ifndef __spin_unlock
 #define __spin_unlock __spin_unlock
+/**
+ * @brief release a spinlock (generic no-op placeholder)
+ * @param lock: the spinlock to release
+ */
 static void spin_unlock(__attribute__((unused)) struct spinlock *lock)
 {
 }

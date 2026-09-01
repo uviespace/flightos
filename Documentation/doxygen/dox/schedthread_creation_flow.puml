@@ -1,0 +1,31 @@
+@startuml
+title FlightOS kernel-thread creation flow
+skinparam linetype ortho
+
+start
+:Allocate task control block;
+:Allocate configured-size task stack;
+if (stack allocation succeeds?) then (yes)
+  :Initialize architecture task core;
+  :Assign task name and default policy;
+  :Set task state to new;
+else (no)
+  :Release partial task resources;
+  :Return allocation failure;
+  stop
+endif
+:Return non-runnable task;
+:Caller requests task wakeup;
+if (task is still new?) then (yes)
+  :Enqueue task;
+  :Apply scheduler wake policy;
+  :Set first wakeup time;
+  if (CPU affinity is specified?) then (yes)
+    :Request reschedule on selected CPU;
+  else (no)
+  endif
+else (no)
+  :Reject wakeup;
+endif
+stop
+@enduml

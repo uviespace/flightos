@@ -4,6 +4,12 @@
  * @ingroup xentium_driver
  *
  * @note this file may also be included in xentium kernel code
+ *
+ * @brief Shared Xentium capability, command, and host-message definitions.
+ *
+ * The host driver and Xentium programs use these declarations to describe an
+ * operation-code kernel and exchange task, memory, and completion commands
+ * through the mailbox mapping below.
  */
 
 #ifndef _KERNEL_XENTIUM_IO_H_
@@ -14,25 +20,25 @@
 #include <data_proc_net.h>
 
 /**
- * used in Xentium kernels to define their parameters and capabilities
- * at compile-time
+ * @brief used in Xentium kernels to define their parameters and capabilities
+ *        at compile-time
  */
 struct xen_kernel_cfg {
-	char *name;
-	unsigned long op_code;
+	char *name;			/*!< kernel name */
+	unsigned long op_code;		/*!< operation code */
 
-	unsigned long crit_buf_lvl;
+	unsigned long crit_buf_lvl;	/*!< critical buffer level */
 
-	void  *data;	/* permanent kernel storage, allocated by driver */
-	size_t size;	/* bytes to allocate */
+	void  *data;	/*!< permanent kernel storage, allocated by driver */
+	size_t size;	/*!< bytes to allocate */
 };
 
 /**
- * Xentium commands; some map to data proc net return codes
- * extra parameter(s) may be passed in cmd_param of xen_msg_data structure,
- * e.g. the number of bytes requested for TASK_DATA_REALLOC
+ * @brief Xentium commands; some map to data proc net return codes
+ *
+ * @note extra parameter(s) may be passed in cmd_param of xen_msg_data
+ *       structure, e.g. the number of bytes requested for TASK_DATA_REALLOC
  */
-
 enum xen_cmd {
 	TASK_SUCCESS = PN_TASK_SUCCESS,	/*!< ready for next task in node */
 	TASK_STOP    = PN_TASK_STOP,    /*!< success, but abort processing node */
@@ -50,12 +56,11 @@ enum xen_cmd {
 
 
 /**
- * structure for message passing between host and Xentium
+ * @brief structure for message passing between host and Xentium
  */
-
 struct xen_msg_data {
 
-	struct proc_task *t;
+	struct proc_task *t;		/*!< the processing task (if any) */
 	unsigned long xen_id;		/*!< the Xentium's id */
 
 	struct noc_dma_channel *dma;	/*!< the reserved DMA channel */
@@ -70,9 +75,13 @@ struct xen_msg_data {
 
 
 /* wait/status masks for the Xentium mailboxes */
+/** @brief wait/status mask for mailbox 0 */
 #define XEN_WAITMASK_MBOX_0  1
+/** @brief wait/status mask for mailbox 1 */
 #define XEN_WAITMASK_MBOX_1  2
+/** @brief wait/status mask for mailbox 2 */
 #define XEN_WAITMASK_MBOX_2  4
+/** @brief wait/status mask for mailbox 3 */
 #define XEN_WAITMASK_MBOX_3  8
 
 /*
@@ -82,11 +91,15 @@ struct xen_msg_data {
  * the write done by the xentíum itself
  */
 
+/** @brief xentium endpoint mailbox */
 #define XEN_EP_MBOX		0
 
+/** @brief command mailbox */
 #define XEN_CMD_MBOX		1
+/** @brief command mailbox wait/status mask */
 #define XEN_CMD_MBOX_MASK	XEN_WAITMASK_MBOX_1
 
+/** @brief message mailbox */
 #define XEN_MSG_MBOX		2
 
 

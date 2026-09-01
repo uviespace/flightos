@@ -4,6 +4,8 @@
  * @defgroup page Page Map Manager
  *
  * @brief a page map manager and allocator
+ *
+ * @ingroup kmem
  * 
  * Manages a memory pool managed by @ref buddy_mm 
  *
@@ -39,8 +41,7 @@ static struct list_head page_map_list_empty;
 /**
  * @brief set the map that is used by page_alloc() and page_free() etc.
  *
- * @param pg		a page map
- * @param nodes		the number of nodes the map can hold
+ * @param pg	a NULL-terminated array of page map nodes
  *
  */
 
@@ -390,6 +391,10 @@ void page_free(void *page)
 		}
 	}
 }
+
+/**
+ * @brief dump memory allocator statistics for all page maps
+ */
 
 void page_print_mm_alloc(void)
 {

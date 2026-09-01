@@ -1,3 +1,12 @@
+/**
+ * @file include/kernel/elf.h
+ *
+ * @brief ELF definitions and helper declarations
+ *
+ * Defines ELF constants, base types and structures, plus declarations of the
+ * helpers used by the kernel to parse ELF files.
+ */
+
 #ifndef _KERNEL_ELF_H_
 #define _KERNEL_ELF_H_
 
@@ -561,55 +570,207 @@ typedef Elf32_Sym  Elf_Sym;
 
 
 /* implemented in arch code */
+/**
+ * @brief validate an ELF header (architecture-specific)
+ * @param ehdr: pointer to the ELF header
+ * @return 0 on success, negative error code on failure
+ */
 int elf_header_check(Elf_Ehdr *ehdr);
 
 
 
+/**
+ * @brief get the first section header of an ELF binary
+ * @param ehdr: pointer to the ELF header
+ * @return pointer to the section header table
+ */
 Elf_Shdr *elf_get_shdr(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief find the index of the first allocatable section at or after offset
+ * @param ehdr: pointer to the ELF header
+ * @param offset: section index to start searching from
+ * @return index of the found section, or -1 if none found
+ */
 size_t elf_find_shdr_alloc_idx(const Elf_Ehdr *ehdr, const size_t offset);
 
+/**
+ * @brief get the total size of all common (tentative) symbols
+ * @param ehdr: pointer to the ELF header
+ * @return total common size in bytes
+ */
 size_t elf_get_common_size(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief get the number of common objects and optionally their names
+ * @param ehdr: pointer to the ELF header
+ * @param objname: optional output array of common object names
+ * @return number of common objects
+ */
 size_t elf_get_common_objects(const Elf_Ehdr *ehdr, char **objname);
 
+/**
+ * @brief get a section header by index
+ * @param ehdr: pointer to the ELF header
+ * @param idx: section index
+ * @return pointer to the section header, or NULL if not found
+ */
 Elf_Shdr *elf_get_sec_by_idx(const Elf_Ehdr *ehdr, const size_t idx);
+
+/**
+ * @brief get the section header string table
+ * @param ehdr: pointer to the ELF header
+ * @return pointer to the section name string table section header
+ */
 Elf_Shdr *elf_get_sec_shstrtab(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief get a section name string from the section string table
+ * @param ehdr: pointer to the ELF header
+ * @param idx: byte offset of the string in the shstrtab
+ * @return pointer to the section name string
+ */
 char *elf_get_shstrtab_str(const Elf_Ehdr *ehdr, size_t idx);
 
+/**
+ * @brief find a section header by name
+ * @param ehdr: pointer to the ELF header
+ * @param name: section name to find
+ * @return pointer to the section header, or NULL if not found
+ */
 Elf_Shdr *elf_find_sec(const Elf_Ehdr *ehdr, const char *name);
 
+/**
+ * @brief get the string table for symbols
+ * @param ehdr: pointer to the ELF header
+ * @return pointer to the string table
+ */
 char *elf_get_strtab(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief get a symbol name string from the string table
+ * @param ehdr: pointer to the ELF header
+ * @param idx: byte offset of the string in the strtab
+ * @return pointer to the symbol name string
+ */
 char *elf_get_strtab_str(const Elf_Ehdr *ehdr, size_t idx);
 
+/**
+ * @brief get the dynamic string table
+ * @param ehdr: pointer to the ELF header
+ * @return pointer to the dynamic string table
+ */
 char *elf_get_dynstr(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief get a dynamic string from the dynamic string table
+ * @param ehdr: pointer to the ELF header
+ * @param idx: byte offset of the string in the dynstr
+ * @return pointer to the dynamic string
+ */
 char *elf_get_dynstr_str(const Elf_Ehdr *ehdr, size_t idx);
 
+/**
+ * @brief get a symbol name from the symbol string table
+ * @param ehdr: pointer to the ELF header
+ * @param idx: byte offset of the string
+ * @return pointer to the symbol name string
+ */
 char *elf_get_symbol_str(const Elf_Ehdr *ehdr, size_t idx);
 
+/**
+ * @brief get the value of a symbol by name
+ * @param ehdr: pointer to the ELF header
+ * @param name: symbol name to look up
+ * @param value: output pointer for the symbol value
+ * @return 0 on success, negative error code on failure
+ */
 unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
 				   const char *name, unsigned long *value);
 
+/**
+ * @brief get the type of a symbol by name
+ * @param ehdr: pointer to the ELF header
+ * @param name: symbol name to look up
+ * @return symbol type, or 0 if not found
+ */
 unsigned long elf_get_symbol_type(const Elf_Ehdr *ehdr, const char *name);
+
+/**
+ * @brief get the size of a symbol by name
+ * @param ehdr: pointer to the ELF header
+ * @param name: symbol name to look up
+ * @return symbol size in bytes
+ */
 size_t elf_get_symbol_size(const Elf_Ehdr *ehdr, const char *name);
 
+/**
+ * @brief find a section index by type, starting search at offset
+ * @param ehdr: pointer to the ELF header
+ * @param sh_type: section type to search for
+ * @param offset: section index to start searching from
+ * @return index of the found section, or -1 if none found
+ */
 size_t elf_find_sec_idx_by_type(const Elf_Ehdr *ehdr,
 				const uint32_t sh_type,
 				const size_t offset);
 
+/**
+ * @brief get the number of allocatable sections
+ * @param ehdr: pointer to the ELF header
+ * @return number of allocatable sections
+ */
 size_t elf_get_num_alloc_sections(const Elf_Ehdr *ehdr);
 
+/**
+ * @brief get the number of dynamic entries
+ * @param ehdr: pointer to the ELF header
+ * @return number of dynamic entries
+ */
 size_t elf_get_num_dyn_entries(const Elf_Ehdr *ehdr);
 
+/**
+ * @brief find a dynamic entry by tag, starting search at offset
+ * @param ehdr: pointer to the ELF header
+ * @param d_tag: dynamic tag to search for
+ * @param offset: entry index to start searching from
+ * @return pointer to the dynamic entry, or NULL if not found
+ */
 Elf_Dyn *elf_find_dyn(const Elf_Ehdr *ehdr,
 			 const unsigned long d_tag,
 			 const unsigned int offset);
 
+/**
+ * @brief swap the byte order of an ELF header in place
+ * @param ehdr: pointer to the ELF header
+ */
 void elf_hdr_endianess_swap(Elf_Ehdr *ehdr);
 
+/**
+ * @brief dump the string table for debugging
+ * @param ehdr: pointer to the ELF header
+ */
 void elf_dump_strtab(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief dump the symbol table for debugging
+ * @param ehdr: pointer to the ELF header
+ */
 void elf_dump_symtab(const Elf_Ehdr *ehdr);
+
+/**
+ * @brief dump all sections for debugging
+ * @param ehdr: pointer to the ELF header
+ */
 void elf_dump_sections(const Elf_Ehdr *ehdr);
 
 
+/**
+ * @brief get the section index of a symbol by name
+ * @param ehdr: pointer to the ELF header
+ * @param name: symbol name to look up
+ * @return the symbol's section index
+ */
 unsigned short elf_get_symbol_shndx(const Elf_Ehdr *ehdr,
 				    const char *name);
 #endif /* _KERNEL_ELF_H_ */

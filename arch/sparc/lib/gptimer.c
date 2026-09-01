@@ -1,6 +1,7 @@
 /**
  * @file   arch/sparc/lib/gptimer.c
  * @ingroup time
+ * @ingroup timing
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   July, 2016
  *
@@ -14,7 +15,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @brief implements access to the LEON3 General Purpose Timer Unit
+ * @brief Low-level access to the LEON3 General Purpose Timer Unit.
  * @see GR712RC user manual chapter 11
  *
  */
@@ -27,7 +28,7 @@
 /**
  * @brief set scaler reload value of the timer block
  * @param ptu a struct gptimer_unit
- *
+ * @param value the scaler reload value to set
  */
 
 void gptimer_set_scaler_reload(struct gptimer_unit *ptu, uint32_t value)
@@ -40,6 +41,7 @@ void gptimer_set_scaler_reload(struct gptimer_unit *ptu, uint32_t value)
  * @brief get scaler reload value of the timer block
  * @param ptu a struct gptimer_unit
  *
+ * @return the scaler reload value
  */
 
 uint32_t gptimer_get_scaler_reload(struct gptimer_unit *ptu)
@@ -220,6 +222,8 @@ void gptimer_clear_chained(struct gptimer_unit *ptu, uint32_t timer)
  * @brief get status of interrupt pending status
  * @param ptu a struct gptimer_unit
  * @param timer the selected timer
+ *
+ * @return the interrupt pending status flag
  */
 
 uint32_t gptimer_get_interrupt_pending_status(struct gptimer_unit *ptu,
@@ -250,7 +254,8 @@ void gptimer_clear_interrupt_pending_status(struct gptimer_unit *ptu,
 /**
  * @brief get number of implemented general purpose timers
  * @param ptu a struct gptimer_unit
- * @param timer the selected timer
+ *
+ * @return the number of implemented timers
  */
 
 uint32_t gptimer_get_num_implemented(struct gptimer_unit *ptu)
@@ -262,7 +267,8 @@ uint32_t gptimer_get_num_implemented(struct gptimer_unit *ptu)
 /**
  * @brief get interrupt ID of first implemented timer
  * @param ptu a struct gptimer_unit
- * @param timer the selected timer
+ *
+ * @return the interrupt ID of the first implemented timer
  */
 
 uint32_t gptimer_get_first_timer_irq_id(struct gptimer_unit *ptu)
@@ -288,7 +294,8 @@ void gptimer_set_value(struct gptimer_unit *ptu, uint32_t timer, uint32_t value)
  * @brief get the value of a gptimer
  * @param ptu a struct gptimer_unit
  * @param timer the selected timer
- * @param value the timer counter value to set
+ *
+ * @return the timer counter value
  */
 
 uint32_t gptimer_get_value(struct gptimer_unit *ptu, uint32_t timer)
@@ -315,7 +322,8 @@ void gptimer_set_reload(struct gptimer_unit *ptu,
  * @brief get the reload of a gptimer
  * @param ptu a struct gptimer_unit
  * @param timer the selected timer
- * @param reload the timer counter reload to set
+ *
+ * @return the timer counter reload value
  */
 
 uint32_t gptimer_get_reload(struct gptimer_unit *ptu, uint32_t timer)

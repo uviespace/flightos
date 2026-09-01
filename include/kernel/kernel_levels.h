@@ -59,6 +59,10 @@
         printk(KERN_DEBUG fmt, ##__VA_ARGS__)
 
 
+/**
+ * @brief set the kernel log level
+ * @param lvl: new log level (0-7)
+ */
 void printk_set_level(int lvl);
 
 

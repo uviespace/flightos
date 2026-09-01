@@ -1,0 +1,25 @@
+@startuml
+title SPARC invalid-address activity observed in MMU trap handling
+start
+:MMU reports an invalid-address fault;
+:read fault status and address;
+if (fault address is zero?) then (yes)
+  :panic for NULL pointer violation;
+  stop
+endif
+if (address is below legal lower bound?) then (yes)
+  :panic for reserved-memory access;
+  stop
+endif
+if (address is above HIGHMEM boundary?) then (yes)
+  :panic for bounds violation;
+  stop
+endif
+if (address is below current program break?) then (yes)
+  :allocate a physical page;
+  :map a small SRMMU page;
+else (no)
+  :panic for system-break violation;
+endif
+stop
+@enduml

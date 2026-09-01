@@ -1,0 +1,22 @@
+@startuml
+title NoC DMA transfer activity
+!pragma layout ortho
+skinparam linetype ortho
+
+start
+:noc_dma_req_xfer() or noc_dma_req_lin_xfer();
+:allocate transfer slot;
+:append transfer to queue;
+if (channel available?) then (yes)
+  :remove channel from pool;
+  :program source, destination, sizes, strides, and control;
+  :start channel;
+else (no)
+  :wait in transfer queue;
+endif
+:channel completion IRQ;
+:invoke supplied callback in IRQ handler;
+:return transfer and channel to pools;
+:start next queued transfer;
+stop
+@enduml

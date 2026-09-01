@@ -4,9 +4,12 @@
  *
  *
  * @ingroup time
+ * @ingroup timing
  *
+ * @brief Generic clockevent registration, selection, state, and programming.
  * @note This roughly follows the concept found in linux clockevents
  *	 All glory to the Hypnotoad!
+ *
  */
 
 
@@ -46,6 +49,9 @@ unsigned long clockevents_delta2ticks(unsigned long delta,
 /**
  * @brief check if a timeout is in the legal range for the device
  *
+ * @param dev the clock event device to check against
+ * @param nanoseconds the timeout value in nanoseconds to validate
+ *
  * @returns true if in range, false otherwise
  */
 
@@ -64,6 +70,8 @@ bool clockevents_timout_in_range(struct clock_event_device *dev,
 /**
  * @brief check if a device supports periodic ticks
  *
+ * @param dev the clock event device to query
+ *
  * @returns true if the feature is supported
  */
 
@@ -78,6 +86,8 @@ bool clockevents_feature_periodic(struct clock_event_device *dev)
 
 /**
  * @brief check if a device supports oneshot ticks
+ *
+ * @param dev the clock event device to query
  *
  * @returns true if the feature is supported
  */
@@ -94,6 +104,8 @@ bool clockevents_feature_oneshot(struct clock_event_device *dev)
 /**
  * @brief check if a device is watchdog-capable
  *
+ * @param dev the clock event device to query
+ *
  * @returns true if the feature is supported
  */
 
@@ -109,7 +121,10 @@ bool clockevents_feature_watchdog(struct clock_event_device *dev)
 /**
  * @brief check if a device supports a given state
  *
- * @returns true if a feature is supported
+ * @param dev the clock event device to query
+ * @param state the clock event state to check
+ *
+ * @returns true if the state is supported
  *
  * @note only operative modes (periodic, oneshot are considered)
  */
@@ -169,6 +184,9 @@ void clockevents_set_state(struct clock_event_device *dev,
 
 /**
  * @brief set the event handler for a clock event device
+ *
+ * @param dev the clock event device to configure
+ * @param event_handler the callback invoked when the clock event fires
  */
 
 void clockevents_set_handler(struct clock_event_device *dev,
@@ -229,6 +247,8 @@ void clockevents_exchange_device(struct clock_event_device *old,
 
 /**
  * @brief register a clock event device
+ *
+ * @param dev the clock event device to register
  */
 
 void clockevents_register_device(struct clock_event_device *dev)
@@ -326,9 +346,12 @@ int clockevents_offer_device(void)
 /**
  * @brief program a clock event
  *
- * returns 0 on success, -ETIME if expiration time is in the past
+ * @param dev the clock event device to program
+ * @param expires the absolute time at which the event should fire
  *
- * @warn if the timeout exceeds the bounds of the programmable range
+ * @return 0 on success, -ETIME if expiration time is in the past
+ *
+ * @note if the timeout exceeds the bounds of the programmable range
  *	 for the device, it is forcibly clamped without warning
  *
  * @note if the clock event device is in periodic mode, the delta between
@@ -370,7 +393,10 @@ int clockevents_program_event(struct clock_event_device *dev,
 /**
  * @brief program a clockevent timeout in nanoseconds
  *
- * returns 0 on success, 1 if range was clamped
+ * @param dev the clock event device to program
+ * @param nanoseconds the timeout value in nanoseconds
+ *
+ * @return 0 on success, 1 if range was clamped
  *
  * @warn if the timeout exceeds the bounds of the programmable range
  *	 for the device, it is forcibly clamped
@@ -392,6 +418,4 @@ int clockevents_program_timeout_ns(struct clock_event_device *dev,
 
 	return evt != nanoseconds;
 }
-
-
 

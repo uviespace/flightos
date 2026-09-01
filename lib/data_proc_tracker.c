@@ -73,7 +73,7 @@ int pt_track_level_critical(struct proc_tracker *pt)
  *
  * @param pt a struct proc_tracker
  *
- * return number of tasks tracked
+ * @return number of tasks tracked
  */
 
 int pt_track_get_usage(struct proc_tracker *pt)
@@ -254,10 +254,9 @@ void pt_track_sort_seq(struct proc_tracker *pt)
 /**
  * @brief create a processing tracker
  *
- * @param the function executing the op of this tracker
- * @param data optional data to pass to the the tracker
- * @param op_code the identfier of this tracker
- * @param tasks_crit the number of tasks after which the tracker is
+ * @param op the function executing the op of this tracker
+ * @param op_code the identifier of this tracker
+ * @param n_tasks_crit the number of tasks after which the tracker is
  *	  considered filled to a critical level, must be at least 1
  *
  * @return processing tracker or NULL on error

@@ -15,7 +15,8 @@
  * more details.
  *
  * @defgroup grspw2 GRSPW2 driver
- * @brief Driver for the GRSPW2 IP core
+ * @ingroup drivers
+ * @brief Driver for the GRSPW2 IP core.
  *
  * ## Overview
  *
@@ -24,6 +25,14 @@
  * It maintains its own ring-buffer-like tables of transfer descriptors that are
  * used by the GRSPW2 core. These can store up to 64 TX and 128 RX packets at a
  * time.
+ *
+ * The high-level API configures cores and descriptor tables, submits or fetches
+ * packets, and optionally configures unidirectional routing. The implementation
+ * uses register and descriptor addresses directly, registers link/DMA error
+ * handlers, and copies routed packets into the destination TX queue. Normal
+ * packet operation is polling-oriented; routing and selected drop modes use
+ * internally managed interrupts. Descriptor races and portability of the
+ * 32-bit DMA addresses need review.
  *
  * ## Mode of Operation
  *
@@ -427,6 +436,8 @@ static void grspw2_spw_softreset(struct grspw2_regs *regs)
  * @brief hard reset a SpW core
  *	- set reset bit high
  *	- clear timer register
+ *
+ * @param regs pointer to the SpW core register space
  */
 
 void grspw2_spw_hardreset(struct grspw2_regs *regs)
@@ -482,7 +493,10 @@ static void grspw2_set_node_addr(struct grspw2_regs *regs, uint8_t nodeaddr)
 
 /**
  * @brief set the destination key of a SpW node
- * XXX: should be static and part of core configuration
+ * @note XXX: should be static and part of core configuration
+ *
+ * @param regs    pointer to the SpW core register space
+ * @param destkey the destination key value to set
  */
 
 void grspw2_set_dest_key(struct grspw2_regs *regs, uint8_t destkey)
@@ -493,6 +507,8 @@ void grspw2_set_dest_key(struct grspw2_regs *regs, uint8_t destkey)
 
 /**
  * @brief enable rmap command processing
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_set_rmap(struct grspw2_core_cfg *cfg)
@@ -508,6 +524,8 @@ void grspw2_set_rmap(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief disable rmap command processing
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_clear_rmap(struct grspw2_core_cfg *cfg)
@@ -524,6 +542,8 @@ void grspw2_clear_rmap(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief enable promiscuous mode
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_set_promiscuous(struct grspw2_core_cfg *cfg)
@@ -539,6 +559,8 @@ void grspw2_set_promiscuous(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief disable promiscuous mode
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_unset_promiscuous(struct grspw2_core_cfg *cfg)
@@ -612,6 +634,8 @@ static void grspw2_unset_linkstart(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief enable link error interrupts
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_set_link_error_irq(struct grspw2_core_cfg *cfg)
@@ -626,6 +650,8 @@ void grspw2_set_link_error_irq(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief disable link error interrupts
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_unset_link_error_irq(struct grspw2_core_cfg *cfg)
@@ -640,6 +666,8 @@ void grspw2_unset_link_error_irq(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief enable time code reception
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_set_time_rx(struct grspw2_core_cfg *cfg)
@@ -698,6 +726,8 @@ static void grspw2_clear_status(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief set Receive Interrupt enable bit in the DMA register
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_rx_interrupt_enable(struct grspw2_core_cfg *cfg)
@@ -716,6 +746,8 @@ void grspw2_rx_interrupt_enable(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief clear Receive Interrupt enable bit in the DMA register
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_rx_interrupt_disable(struct grspw2_core_cfg *cfg)
@@ -768,6 +800,8 @@ static void grspw2_tx_interrupt_disable(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief enable tick out interrupt
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_tick_out_interrupt_enable(struct grspw2_core_cfg *cfg)
@@ -872,6 +906,14 @@ static int32_t grspw2_set_tx_desc_table_addr(struct grspw2_core_cfg *cfg,
 
 /**
  * @brief init rx descriptor table pointers and attach to "free" list
+ *
+ * @param cfg      pointer to the core configuration
+ * @param mem      pointer to the descriptor table memory
+ * @param tbl_size size of the descriptor table in bytes
+ * @param pkt_buf  pointer to the packet buffer memory
+ * @param pkt_size size of each packet buffer in bytes
+ *
+ * @return 0 on success, -1 on error
  */
 
 int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
@@ -924,6 +966,16 @@ int32_t grspw2_rx_desc_table_init(struct grspw2_core_cfg *cfg,
 
 /**
  * @brief init tx descriptor table pointers and attach to "free" list
+ *
+ * @param cfg       pointer to the core configuration
+ * @param mem       pointer to the descriptor table memory
+ * @param tbl_size  size of the descriptor table in bytes
+ * @param hdr_buf   pointer to the header buffer memory
+ * @param hdr_size  size of each header buffer in bytes
+ * @param data_buf  pointer to the data buffer memory
+ * @param data_size size of each data buffer in bytes
+ *
+ * @return 0 on success, -1 on error
  */
 
 int32_t grspw2_tx_desc_table_init(struct grspw2_core_cfg *cfg,
@@ -1644,6 +1696,10 @@ static void grspw2_configure_dma(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief get timecnt field of grspw2 time register
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return the time counter value
  */
 
 uint32_t grspw2_get_timecnt(struct grspw2_core_cfg *cfg)
@@ -1655,6 +1711,10 @@ uint32_t grspw2_get_timecnt(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief get link status
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return the link status register value
  */
 
 uint32_t grspw2_get_link_status(struct grspw2_core_cfg *cfg)
@@ -1687,6 +1747,8 @@ static int grspw2_protocol_invalid(struct grspw2_core_cfg *cfg,
 /**
  * @brief transmit a SpW time code; there should be at least 4 system
  *        clocks and 25 transmit clocks inbetween calls, see GR712RC UM, p.108
+ *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_tick_in(struct grspw2_core_cfg *cfg)
@@ -1700,8 +1762,12 @@ void grspw2_tick_in(struct grspw2_core_cfg *cfg)
 }
 
 /**
- * @brief	interrupt handler for packet routing
- * @note	only a single node is supported at the moment
+ * @brief interrupt handler for packet routing
+ * @note only a single node is supported at the moment
+ *
+ * @param userdata pointer to the grspw2_core_cfg of the source core
+ *
+ * @return 0 on success
  */
 
 int32_t grspw2_route(void *userdata)
@@ -1751,6 +1817,11 @@ static irqreturn_t grspw2_route_call(unsigned int irq, void *userdata)
 
 /**
  * @brief enable routing between SpW cores
+ *
+ * @param cfg   pointer to the source core configuration
+ * @param route pointer to the destination core configuration
+ *
+ * @return 0 on success
  */
 
 int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
@@ -1794,6 +1865,11 @@ int32_t grspw2_enable_routing(struct grspw2_core_cfg *cfg,
 /**
  * @brief enable interactive routing between SpW cores
  * @note call grspw2_route() to route received descriptors
+ *
+ * @param cfg   pointer to the source core configuration
+ * @param route pointer to the destination core configuration
+ *
+ * @return 0 on success
  */
 
 int32_t grspw2_enable_routing_noirq(struct grspw2_core_cfg *cfg,
@@ -1810,6 +1886,10 @@ int32_t grspw2_enable_routing_noirq(struct grspw2_core_cfg *cfg,
 
 /**
  * @brief disable routing between SpW cores
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return 0 on success
  */
 
 int32_t grspw2_disable_routing(struct grspw2_core_cfg *cfg)
@@ -1832,6 +1912,10 @@ int32_t grspw2_disable_routing(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief retrieve number of packets available
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return number of available received packets
  */
 
 uint32_t grspw2_get_num_pkts_avail(struct grspw2_core_cfg *cfg)
@@ -1853,6 +1937,10 @@ uint32_t grspw2_get_num_pkts_avail(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief get number of available free tx descriptors
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return number of free TX descriptors
  */
 
 uint32_t grspw2_get_num_free_tx_desc_avail(struct grspw2_core_cfg *cfg)
@@ -1872,6 +1960,10 @@ uint32_t grspw2_get_num_free_tx_desc_avail(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief get number of available rx descriptors
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return number of free RX descriptors
  */
 
 uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg)
@@ -1892,7 +1984,9 @@ uint32_t grspw2_get_num_free_rx_desc_avail(struct grspw2_core_cfg *cfg)
 /**
  * @brief check the EEP status of the next packet
  *
- * @returns 1 if EEP is present, 0 otherwise
+ * @param cfg pointer to the core configuration
+ *
+ * @return 1 if EEP is present, 0 otherwise
  */
 
 int grspw2_get_next_pkt_eep(struct grspw2_core_cfg *cfg)
@@ -1964,6 +2058,7 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
  * @brief enable auto-drop of the oldest packet from the descriptor table
  *	  in situations where the RX table runs full
  *
+ * @param cfg    pointer to the core configuration
  * @param n_drop the number of packets to drop at once
  *
  * @note the actual number of packets to be dropped depends on the configured
@@ -1982,7 +2077,7 @@ static irqreturn_t grspw2_auto_drop_call(unsigned int irq, void *userdata)
  *	 generation rate is at the limit of its own SpW device and all of its
  *	 packet buffers are full.
  *
- * @returns the number of n_drop, < 0 on error
+ * @return the number of n_drop, < 0 on error
  */
 
 int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
@@ -2035,7 +2130,9 @@ int grspw2_auto_drop_enable(struct grspw2_core_cfg *cfg, uint8_t n_drop)
  * @brief disable auto-drop of the oldest packet from the descriptor table
  *	  in situations where the table runs full
  *
- * @returns 0 on success, otherwise error
+ * @param cfg pointer to the core configuration
+ *
+ * @return 0 on success, otherwise error
  */
 
 int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
@@ -2062,8 +2159,9 @@ int grspw2_auto_drop_disable(struct grspw2_core_cfg *cfg)
 
 
 /**
- * enable dropping of packets with a mismatching protocol byte
+ * @brief enable dropping of packets with a mismatching protocol byte
  *
+ * @param cfg pointer to the core configuration
  * @param idx the index of the protocol byte in the header
  * @param id  the protocol identifier
  */
@@ -2078,8 +2176,9 @@ void grspw2_protocol_id_drop_enable(struct grspw2_core_cfg *cfg, uint8_t idx, ui
 
 
 /**
- * disable dropping of packets with a mismatching protocol byte
+ * @brief disable dropping of packets with a mismatching protocol byte
  *
+ * @param cfg pointer to the core configuration
  */
 
 void grspw2_protocol_id_drop_disable(struct grspw2_core_cfg *cfg)
@@ -2090,6 +2189,10 @@ void grspw2_protocol_id_drop_disable(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief retrieve the size of the next packet
+ *
+ * @param cfg pointer to the core configuration
+ *
+ * @return the size of the next received packet, 0 if none available
  */
 
 uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg)
@@ -2122,8 +2225,11 @@ uint32_t grspw2_get_next_pkt_size(struct grspw2_core_cfg *cfg)
 /**
  * @brief retrieve a packet
  *
- * @param pkt if the packet return buffer
+ * @param cfg pointer to the core configuration
+ * @param pkt pointer to the packet return buffer
  *	  if NULL, the size of the pending packet is returned
+ *
+ * @return the size of the received packet, 0 if none available
  */
 
 uint32_t grspw2_get_pkt(struct grspw2_core_cfg *cfg, uint8_t *pkt)
@@ -2205,9 +2311,10 @@ exit:
 /**
  * @brief retrieve the reference to a packet buffer
  *
+ * @param cfg pointer to the core configuration
  * @param pkt the return reference pointer
  *
- * @returns the size if the packet
+ * @return the size of the packet
  *
  * @note this is a low level function; use with grspw2_get_next_pkt_size()
  *	 to determine the size of the received buffer and grspw2_drop_pkt()
@@ -2241,6 +2348,9 @@ uint32_t grspw2_get_pkt_ref(struct grspw2_core_cfg *cfg, uint8_t **pkt)
 
 /**
  * @brief drop a packet
+ *
+ * @param cfg pointer to the core configuration
+ *
  * @return 1 if packet was dropped, 0 otherwise
  */
 
@@ -2292,6 +2402,14 @@ uint32_t grspw2_drop_pkt(struct grspw2_core_cfg *cfg)
 
 /**
  * @brief add a packet
+ *
+ * @param cfg       pointer to the core configuration
+ * @param hdr       pointer to the header data
+ * @param hdr_size  size of the header in bytes
+ * @param data      pointer to the packet data
+ * @param data_size size of the packet data in bytes
+ *
+ * @return 0 on success, < 0 on error
  */
 
 int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
@@ -2315,6 +2433,15 @@ int32_t grspw2_add_pkt(struct grspw2_core_cfg *cfg,
 
 /**
  * @brief add an RMAP packet
+ *
+ * @param cfg           pointer to the core configuration
+ * @param hdr           pointer to the header data
+ * @param hdr_size      size of the header in bytes
+ * @param non_crc_bytes number of non-CRC bytes in the header
+ * @param data          pointer to the packet data
+ * @param data_size     size of the packet data in bytes
+ *
+ * @return 0 on success, < 0 on error
  */
 
 int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
@@ -2340,9 +2467,11 @@ int32_t grspw2_add_rmap(struct grspw2_core_cfg *cfg,
 
 
 /**
-  * @brief start core operation
-  * @param link_start	0: do not set link start bit, otherwise set
-  * @param auto_start	0: do not set auto start bit, otherwise set
+ * @brief start core operation
+ *
+ * @param cfg         pointer to the core configuration
+ * @param link_start  0: do not set link start bit, otherwise set
+ * @param auto_start  0: do not set auto start bit, otherwise set
  */
 
 void grspw2_core_start(struct grspw2_core_cfg *cfg, int link_start, int auto_start)
@@ -2362,6 +2491,18 @@ void grspw2_core_start(struct grspw2_core_cfg *cfg, int link_start, int auto_sta
 
 /**
  * @brief (re)initialise a grspw2 core
+ *
+ * @param cfg              pointer to the core configuration
+ * @param core_addr        base address of the SpW core registers
+ * @param node_addr        SpaceWire node address
+ * @param link_start       link start divisor value (0 to skip)
+ * @param link_run         link run divisor value (0 to skip)
+ * @param mtu              maximum transmission unit
+ * @param core_irq         interrupt number for link errors
+ * @param ahb_irq          interrupt number for AHB DMA errors
+ * @param strip_hdr_bytes  number of header bytes to strip from received packets
+ *
+ * @return 0 on success, -EINVAL on error
  */
 #define SYSCTL_STRING_SIZE 8
 
@@ -2448,8 +2589,8 @@ error:
 
 #if (__sparc__)
 /**
- * set the external clock to the grspw2 core
- * does not actually belong here...
+ * @brief set the external clock to the grspw2 core
+ * @note does not actually belong here
  */
 
 void set_gr712_spw_clock(void)

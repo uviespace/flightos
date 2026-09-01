@@ -1,5 +1,5 @@
 /**
- * @file   include/kernel/compiler.h
+ * @file   include/compiler.h
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   2015
  *
@@ -24,26 +24,36 @@
 /**
  * Compile time check usable outside of function scope.
  * Stolen from Linux (hpi_internal.h, compiler.h)
+ * @param cond: the condition to check at compile time
+ * @param msg: the error message macro-name
  */
 #define compile_time_assert(cond, msg) typedef char ASSERT_##msg[(cond) ? 1 : -1]
 
+/** @brief get the return address of the given call frame */
 #define __caller(x) __builtin_return_address((x))
 
+/** @brief evaluate to non-zero if two types are the same */
 #define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
 
+/** @brief always evaluates to zero */
 #define BUILD_BUG_ON_ZERO(e) (0)
 
 /**
  * same with the stuff below
  */
 
+/** @brief branch prediction hint: condition is likely true */
 #define likely(x)      __builtin_expect(!!(x), 1)
+
+/** @brief branch prediction hint: condition is unlikely true */
 #define unlikely(x)    __builtin_expect(!!(x), 0)
 
 
+/** @brief number of elements in a static array */
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 /* optimisation barrier */
+/** @brief compiler optimization barrier */
 #define barrier() __asm__ __volatile__("": : :"memory")
 
 

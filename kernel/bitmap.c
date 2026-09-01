@@ -12,8 +12,10 @@
 /**
  * @brief print a bitmap
  *
- * @param bitarr an array
+ * @param bitarr an array of bits to print, one word per entry
  * @param nr the number of bits to print
+ *
+ * @return void
  *
  * @note assumes big endian
  */

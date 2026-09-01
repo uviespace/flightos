@@ -25,6 +25,12 @@
 int tty_read(void *buf, size_t nbyte);
 #endif
 
+/**
+ * @brief write data to the TTY device
+ * @param buf: pointer to the data buffer to write
+ * @param nbyte: number of bytes to write
+ * @return number of bytes written, or negative error code on failure
+ */
 int tty_write(void *buf, size_t nbyte);
 
 #endif /* _KERNEL_TTY_H_ */

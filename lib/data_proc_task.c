@@ -303,7 +303,7 @@ size_t pt_get_nmemb(struct proc_task *t)
  *
  * @param t a struct proc_task
  *
- * @return the byte size ofthe buffer
+ * @return the byte size of the buffer
  */
 
 size_t pt_get_size(struct proc_task *t)
@@ -437,9 +437,8 @@ void pt_set_seq(struct proc_task *t, unsigned long seq)
  * @param data a pointer to a data buffer (may be NULL)
  * @param size the byte size of the buffer
  * @param steps the number of processing steps to allocate initially
- *
- * @param an arbitrary type identifier
- * @param an arbitrary sequence number
+ * @param type an arbitrary type identifier
+ * @param seq an arbitrary sequence number
  *
  * @return a pointer to the newly created task or NULL on error
  */

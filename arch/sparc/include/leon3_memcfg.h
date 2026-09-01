@@ -1,6 +1,8 @@
 /**
- * @file   arch/sparc/include/leon3_leon3_memcfg.h
+ * @file   arch/sparc/include/leon3_memcfg.h
+ * @brief  LEON3 Memory Configuration Register definitions
  * @ingroup leon3_memcfg
+ * @ingroup kmem
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   March, 2016
  */
@@ -81,28 +83,119 @@
 
 
 
+/**
+ * @brief enable the ram edac
+ */
+
 void leon3_memcfg_enable_ram_edac(void);
+
+/**
+ * @brief disable the ram edac
+ */
+
 void leon3_memcfg_disable_ram_edac(void);
 
+/**
+ * @brief enable edac ram bypass write
+ */
+
 void leon3_memcfg_enable_edac_write_bypass(void);
+
+/**
+ * @brief disable edac ram bypass write
+ */
+
 void leon3_memcfg_disable_edac_write_bypass(void);
 
+/**
+ * @brief enable edac ram bypass read
+ */
+
 void leon3_memcfg_enable_edac_read_bypass(void);
+
+/**
+ * @brief disable edac ram bypass read
+ */
+
 void leon3_memcfg_disable_edac_read_bypass(void);
 
+/**
+ * @brief perform a bypass read and retrieve the checkbits
+ *
+ * @param addr the address pointer to read from
+ * @param tcb checkbits storage
+ *
+ * @return data word at address
+ */
+
 uint32_t leon3_memcfg_bypass_read(void *addr, uint8_t *tcb);
+
+/**
+ * @brief set custom checkbits and perform a bypass write
+ *
+ * @param addr the address pointer to write to
+ * @param value the data word to write
+ * @param tcb the checkbits to set
+ */
+
 void leon3_memcfg_bypass_write(void *addr, uint32_t value, uint8_t tcb);
+
+/**
+ * @brief enable flash and ram access for use with IASW/IBSW
+ */
 
 void leon3_memcfg_configure_sram_flash_access(void);
 
 
+/**
+ * @brief set RAM bank size
+ *
+ * @param bank_size the RAM bank size value to set
+ *
+ * @note bank_size = lg2(kilobytes / 8)
+ */
+
 void leon3_memcfg_set_ram_bank_size(uint32_t bank_size);
+
+/**
+ * @brief set RAM width
+ *
+ * @param ram_width the RAM width value to set
+ *
+ * @note 00 = 8 bits, 1X = 32 bits
+ */
+
 void leon3_memcfg_set_ram_width(uint32_t ram_width);
 
+/**
+ * @brief set RAM read waitstates
+ *
+ * @param wait_states the number of read wait states to set
+ *
+ * @note 00 = 0, 01 = 1, 10 = 2, 11 = 3
+ */
+
 void leon3_memcfg_set_ram_read_waitstates(uint32_t wait_states);
+
+/**
+ * @brief set RAM write waitstates
+ *
+ * @param wait_states the number of write wait states to set
+ *
+ * @note 00 = 0, 01 = 1, 10 = 2, 11 = 3
+ */
+
 void leon3_memcfg_set_ram_write_waitstates(uint32_t wait_states);
-void leon3_memcfg_set_ram_width(uint32_t ram_width);
+
+/**
+ * @brief enable read-modify-write cycles
+ */
+
 void leon3_memcfg_set_read_modify_write(void);
+
+/**
+ * @brief enable SRAM
+ */
 
 void leon3_memcfg_clear_sram_disable(void);
 

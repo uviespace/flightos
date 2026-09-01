@@ -1,5 +1,9 @@
 /**
  * @file include/kernel/kthread.h
+ * @ingroup schedthread
+ * @ingroup threadsys
+ *
+ * @brief High-level kernel-thread lifecycle, task state, and scheduling interface.
  */
 
 
@@ -19,26 +23,35 @@
 
 compile_time_assert(!(CONFIG_STACK_SIZE & STACK_ALIGN), STACK_SIZE_UNALIGNED);
 
+/** @brief per-CPU pointer to the currently running thread_info */
 extern struct thread_info *current_set[];
 
-
+/** @brief special value indicating no CPU affinity for a task */
 #define KTHREAD_CPU_AFFINITY_NONE	(-1)
 
 
 /* task states */
 
+/** @brief task is runnable and may be scheduled */
 #define TASK_RUN	0x0000
+/** @brief task is idle */
 #define TASK_IDLE	0x0001
+/** @brief task is newly created */
 #define TASK_NEW	0x0002
+/** @brief task has terminated */
 #define TASK_DEAD	0x0004
+/** @brief task is busy (waiting for resources) */
 #define TASK_BUSY	0x0005
 
 /* task flags */
-#define TASK_RUN_ONCE	(1 << 0)	/* execute for only one time slice */
-#define TASK_NO_CLEAN	(1 << 30)	/* user takes care of cleanup */
-#define TASK_NO_CHECK	(1 << 31)	/* skip any validation checks */
+/** @brief execute task for only one time slice */
+#define TASK_RUN_ONCE	(1 << 0)
+/** @brief caller takes care of cleanup */
+#define TASK_NO_CLEAN	(1 << 30)
+/** @brief skip validation checks */
+#define TASK_NO_CHECK	(1 << 31)
 
-/* maximum length of task name string */
+/** @brief maximum length of a task name string */
 #define TASK_NAME_LEN	64
 
 
@@ -87,102 +100,147 @@ extern struct thread_info *current_set[];
  */
 
 
+/**
+ * @brief core thread execution context
+ *
+ * Holds the essential thread state: stack, thread_info, and the
+ * thread entry function. A task_struct may have multiple task_core
+ * instances (e.g., for signal handler stacks).
+ */
 struct task_core {
 
-	struct thread_info		thread_info;
+	struct thread_info		thread_info;	/*!< thread info for scheduler */
 
-	void				*stack;
-	void				*stack_top;
-	void				*stack_bottom;
+	void				*stack;		/*!< stack memory base */
+	void				*stack_top;	/*!< top of the stack */
+	void				*stack_bottom;	/*!< bottom of the stack */
 
-	int				(*thread_fn)(void *data);
-	void				*data;
+	int				(*thread_fn)(void *data); /*!< thread entry function */
+	void				*data;		/*!< argument passed to thread_fn */
 };
 
 
 
+/**
+ * @brief kernel task structure
+ *
+ * Main control block for a kernel thread. Contains scheduling state,
+ * timing information, signal handling, and hierarchical relationships.
+ */
 struct task_struct {
 
-	struct task_core		*active;
-	struct task_core		 tsk;
-	struct task_core		*sig;
+	struct task_core		*active;	/*!< currently active task_core */
+	struct task_core		 tsk;		/*!< primary thread core */
+	struct task_core		*sig;		/*!< signal handler task core (or NULL) */
+
+	volatile long			state;		/*!< task state: -1 unrunnable, 0 runnable, >0 stopped */
+
+	int				on_cpu;		/*!< CPU id this task is running on */
+	char				*name;		/*!< human-readable task name */
+
+	unsigned long stack_canary; /*!< stack corruption detection pattern */
+
+	struct scheduler		*sched;		/*!< scheduler this task is assigned to */
+
+	struct sched_attr		attr;		/*!< scheduling attributes */
+
+	int				unused;		/*!< padding for alignment (bcc workaround) */
+
+	ktime				runtime;	/*!< remaining runtime in current period */
+	ktime				wakeup;		/*!< start of next period */
+	ktime				deadline;	/*!< deadline of current period */
+
+	ktime				create;		/*!< time of task creation */
+
+	ktime				wakeup_first;	/*!< time of first wakeup */
+	ktime				exec_start;	/*!< start of current execution slice */
+	ktime				exec_stop;	/*!< end of current execution slice */
+	ktime				total;		/*!< total accumulated runtime */
+	unsigned long			slices;		/*!< number of scheduled slices */
+
+	unsigned long			flags;		/*!< task flags (TASK_RUN_ONCE, etc.) */
 
 
-	/* -1 unrunnable, 0 runnable, >0 stopped: */
-	volatile long			state;
+	struct task_struct		*parent;	/*!< parent task */
+	struct list_head		node;		/*!< node in scheduler queue */
+	struct list_head		siblings;	/*!< list of sibling tasks */
+	struct list_head		children;	/*!< list of child tasks */
 
-	int				on_cpu;
-	char				*name;
-
-
-	/* XXX
-	 * We can use a guard pattern in a canary, so we can detect if the stack
-	 * was corrupted. Since we do not need security, just safety, this
-	 * can be any kind of pattern TBD
-	 */
-	unsigned long stack_canary;
-
-
-	struct scheduler		*sched;
-
-	struct sched_attr		attr;
-
-
-	/* XXX TODO: check whether this bug persists in more recent versions
-	 * bcc is SO extremely stupid, it misaligns 64-bit types and generates
-	 * ldd's to laod them; also, it does not respect the aligned attribute
-	 */
-	int				unused;
-
-	ktime				runtime; /* remaining runtime in this period  */
-	ktime				wakeup; /* start of next period */
-	ktime				deadline; /* deadline of current period */
-
-	ktime				create; /* start of next period */
-
-	ktime				wakeup_first;
-	ktime				exec_start;
-	ktime				exec_stop;
-	ktime				total;
-	unsigned long			slices;
-
-	unsigned long			flags;
-
-
-	/* Tasks may have a parent and any number of siblings or children.
-	 * If the parent is killed or terminated, so are all siblings and
-	 * children.
-	 */
-	struct task_struct		*parent;
-	struct list_head		node;
-	struct list_head		siblings;
-	struct list_head		children;
-
-	struct list_head		ksig_queue;
-	struct list_head		ksig_handlers;
-	size_t				sig_cnt;
+	struct list_head		ksig_queue;	/*!< queued signal info */
+	struct list_head		ksig_handlers;	/*!< registered signal handlers */
+	size_t				sig_cnt;	/*!< number of pending signals */
 
 
 }  __attribute__ ((aligned (8)));
 
+/**
+ * @brief create a new kernel thread
+ * @param thread_fn: entry point function for the thread
+ * @param data: opaque pointer passed to thread_fn
+ * @param cpu: CPU id to bind the thread to, or -1 for no affinity
+ * @param namefmt: printf-style format string for the task name
+ * @return pointer to the new task_struct, or NULL on failure
+ */
 struct task_struct *kthread_create(int (*thread_fn)(void *data),
 				   void *data, int cpu,
 				   const char *namefmt,
 				   ...);
 
+/**
+ * @brief initialize the main (bootstrap) kernel thread
+ * @return pointer to the main task_struct
+ */
 struct task_struct *kthread_init_main(void);
+
+/**
+ * @brief wake up a task and make it runnable
+ * @param task: the task to wake up
+ * @return 0 on success, negative error code on failure
+ */
 int kthread_wake_up(struct task_struct *task);
 
+/**
+ * @brief free a kernel thread and release its resources
+ * @param task: the task to free
+ */
 void kthread_free(struct task_struct *task);
 
+/**
+ * @brief set EDF (Earliest Deadline First) scheduling for a task
+ * @param task: the task to configure
+ * @param period_us: scheduling period in microseconds
+ * @param deadline_rel_us: relative deadline from period start in microseconds
+ * @param wcet_us: worst-case execution time in microseconds
+ * @return 0 on success, negative error code on failure
+ */
 int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			   unsigned long deadline_rel_us, unsigned long wcet_us);
 
+/**
+ * @brief set Round-Robin scheduling for a task
+ * @param task: the task to configure
+ * @param priority: static priority level
+ * @return 0 on success, negative error code on failure
+ */
 int kthread_set_sched_rr(struct task_struct *task, unsigned long priority);
 
+/**
+ * @brief get the total accumulated runtime of all tasks
+ * @return total runtime in nanoseconds since boot
+ */
 ktime kthread_get_total_runtime(void);
+
+/**
+ * @brief reset the total accumulated runtime counter to zero
+ */
 void kthread_clear_total_runtime(void);
 
+/**
+ * @brief create a signal handler stack for a task
+ * @param task: the task to add a signal stack to
+ * @param thread_fn: signal handler entry point
+ * @return 0 on success, negative error code on failure
+ */
 int kthread_sigstack_create(struct task_struct *task,
 			   int (*thread_fn)(void *data));
 

@@ -1,5 +1,8 @@
 /**
  * @file arch/sparc/include/irq.h
+ * @ingroup interrupts
+ *
+ * @brief LEON interrupt controller initialisation and definitions
  */
 
 #ifndef _SPARC_IRQ_H_
@@ -8,6 +11,9 @@
 #include <asm/leon_reg.h>
 
 
+/**
+ * @brief initialise the IRQ subsystem on the LEON
+ */
 void leon_irq_init(void);
 
 

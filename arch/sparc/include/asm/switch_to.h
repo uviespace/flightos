@@ -1,5 +1,7 @@
 /**
  * @file    sparc/include/asm/switch_to.h
+ * @ingroup schedthread
+ * @ingroup threadsys
  *
  * @copyright GPLv2
  *
@@ -11,6 +13,8 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * @brief SPARC register-window context-switch preparation and switching macros.
  *
  *
  * When implementing the actual task switching segment, I came up with
@@ -209,4 +213,3 @@ __asm__ __volatile__(							\
 
 
 #endif /* _ARCH_SPARC_ASM_SWITCH_TO_H_ */
-

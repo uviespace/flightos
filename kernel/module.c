@@ -425,6 +425,8 @@ static int module_relocate(struct elf_binary *m)
  *
  * @param m a struct elf_binary
  *
+ * @note calls the module's exit handler (if registered) and frees all
+ *       allocated section and memory resources
  */
 
 void module_unload(struct elf_binary *m)
@@ -455,6 +457,10 @@ void module_unload(struct elf_binary *m)
  * @param p the address where the module ELF file is located
  *
  * @return 0 on success, -1 on error
+ *
+ * @note on success, the module's _module_init() entry point is
+ *       automatically invoked; the module is tracked internally for
+ *       listing via modules_list_loaded()
  */
 
 int module_load(struct elf_binary *m, void *p)

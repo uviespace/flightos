@@ -1,8 +1,10 @@
 /**
- * @brief SRMMU register access functions
+ * @file arch/sparc/mm/srmmu_access.c
+ * @brief SPARC SRMMU register and cache/TLB access.
  * @author Armin Luntzer (armin.luntzer@univie.ac.at)
  *
  * @ingroup srmmu
+ * @ingroup kmem
  *
  * @note only LEON ASI is supported
  */
@@ -97,7 +99,7 @@ unsigned int srmmu_get_mmu_impl(void)
 
 
 /**
- * @brief get the SRMMU implementation
+ * @brief get the SRMMU version
  *
  * @return the implementation version
  */
@@ -130,7 +132,7 @@ void srmmu_set_ctx_tbl_addr(unsigned long addr)
 
 
 /**
- * @brief select the MMU contest
+ * @brief select the MMU context
  *
  * @param ctx the context to select
  *
@@ -147,7 +149,11 @@ void srmmu_set_ctx(unsigned int ctx)
 
 
 /**
- * TODO
+ * @brief write to the SRMMU control register
+ *
+ * @param regval the value to write to the MMU control register
+ *
+ * @note only LEON ASI is supported
  */
 
 void srmmu_set_mmureg(unsigned long regval)
@@ -163,7 +169,7 @@ void srmmu_set_mmureg(unsigned long regval)
 
 /**
  * @brief flush all leon caches
- 
+ *
  * TODO: clean up magic, should be part of leon asm
  */
 
@@ -176,7 +182,7 @@ void leon_flush_cache_all(void)
 
 
 /**
- * @brief flush the the transation lookaside buffer
+ * @brief flush the entire translation lookaside buffer
  *
  * TODO: clean up magic, should be part of leon asm
  */

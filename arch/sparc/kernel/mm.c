@@ -2,6 +2,9 @@
  * @file arch/sparc/kernel/mm.c
  *
  * @ingroup sparc
+ * @ingroup kmem
+ *
+ * @brief SPARC memory-bank state used by the page-map bootstrap.
  */
 
 #include <mm.h>

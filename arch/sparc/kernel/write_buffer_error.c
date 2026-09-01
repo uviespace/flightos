@@ -11,6 +11,13 @@
 
 #include <asm/leon.h>
 
+/**
+ * @brief handle a write buffer error from a data access exception
+ *
+ * @note this is a form of FDIR, as all unaligned access on this
+ *	 platform should be considered an implementation error
+ */
+
 void kernel_write_buffer_error(void)
 {
 	leon3_flush_dcache();

@@ -2,9 +2,6 @@
 /**
  * @file lib/libc_bitops.c
  *
- * @ingroup libc
- * @defgroup functions expected by the compiler
- *
  * @note these can be overridden by linking architecture-specific implementation
  *
  * @note add as needed
@@ -52,9 +49,12 @@ static int fls(int x)
 
 
 /**
- * @brief returns the number of leading 0-bits in a,
- *	  starting at the most significant bit position.
- *	  If a is zero, the result is undefined.
+ * @brief returns the number of leading 0-bits in a, starting at the most
+ *        significant bit position. If a is zero, the result is undefined.
+ *
+ * @param a the value to count leading zeros in
+ *
+ * @return the number of leading zero bits
  */
 
 int __attribute__((weak)) __clzsi2(unsigned int a)
@@ -63,6 +63,15 @@ int __attribute__((weak)) __clzsi2(unsigned int a)
 }
 EXPORT_SYMBOL(__clzsi2);
 
+
+/**
+ * @brief returns the number of leading 0-bits in val, starting at the most
+ *        significant bit position. If val is zero, the result is undefined.
+ *
+ * @param val the value to count leading zeros in
+ *
+ * @return the number of leading zero bits
+ */
 
 int __attribute__((weak)) __clzdi2(long val)
 {

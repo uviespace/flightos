@@ -1,5 +1,5 @@
 /**
- * @file   lib/sysctl.c
+ * @file   kernel/sysctl.c
  * @ingroup sysctl
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @author Linus Torvalds et al.
@@ -41,9 +41,6 @@
  * i.e. more than a few times per second.
  * You can store the reference to the object, which will save some
  * time while searching the tree.
- *
- *
- * @note explicit references to linux source files are not always given
  *
  * @example sysctl_demo.c
  */
@@ -231,7 +228,7 @@ EXPORT_SYMBOL(sysobj_add);
 
 /**
  * @brief create and add a sysobject to a parent
- * @parm name the name of a sysobj
+ * @param name the name of a sysobj
  * @param parent an optional parent to the sysobject
  * @return a reference to the newly created sysobject or NULL on error
  */
@@ -570,9 +567,9 @@ EXPORT_SYMBOL(sysset_of_obj);
 
 /**
  * @brief determines the sysset which contains the sysobject by its path
- * @param sysset a struct sysset
- * @param sobj a struct sysobj
- * @return a reference to the syssset found
+ * @param sysset a struct sysset (may be NULL to use the sysctl root)
+ * @param path the path of the sysobject to look up
+ * @return a reference to the sysset found
  *
  * @note if sysset is NULL, the default sysctl root is used for the search
  */

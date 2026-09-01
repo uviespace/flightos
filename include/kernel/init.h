@@ -46,7 +46,14 @@ typedef void (*exitcall_t)(void);
 #define late_initcall(fn)               __define_initcall(fn, 7)
 
 
+/**
+ * @brief perform architecture-specific early initialization
+ */
 void setup_arch(void);
+
+/**
+ * @brief enter the main kernel loop (idle loop with scheduling)
+ */
 void main_kernel_loop(void);
 
 #endif /* _KERNEL_INIT_H_ */

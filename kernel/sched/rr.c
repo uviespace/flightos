@@ -1,6 +1,8 @@
 /**
- * @file kernel/sched/round_robin.c
+ * @file kernel/sched/rr.c
  *
+ * @ingroup schedthread
+ * @ingroup schedsys
  * @brief round-robin scheduler
  *
  * Selects the first non-busy task which can run on the current CPU.
@@ -314,7 +316,13 @@ static int rr_check_sched_attr(struct sched_attr *attr)
 
 
 /**
- * @brief return the time until the the next task is ready
+ * @brief return the time until the next task is ready
+ *
+ * @param tq the task queue (unused)
+ * @param cpu the cpu index (unused)
+ * @param now the current ktime (unused)
+ *
+ * @return 0, since RR tasks are always ready
  *
  * @note RR tasks are always "ready" and they do not have deadlines,
  *	 so this function always returns 0

@@ -1,0 +1,102 @@
+/**
+ * @defgroup schedthread FlightOS Scheduling and Thread Creation Subsystem
+ *
+ * @brief Pluggable task scheduling and architecture-backed kernel-thread
+ *        creation and context switching.
+ *
+ * @page schedthread_overview Scheduling and Thread Creation Overview
+ *
+ * The scheduling and thread creation subsystem has two closely related parts.
+ * The scheduler selects runnable tasks and determines their next execution
+ * interval. The kernel-thread layer creates task objects, allocates their
+ * stacks, assigns scheduling attributes, and makes new tasks runnable. The
+ * architecture layer supplies the processor-specific task context and the
+ * transition between saved contexts.
+ *
+ * ## Concept and structure
+ *
+ * A task is represented by a task control block containing an active task core,
+ * scheduling attributes, state, CPU placement, runtime accounting, task
+ * relationships, and signal-related lists. A task core contains the thread
+ * entry point, its argument, and stack bounds. The task structure can also
+ * reference a separate signal task core.
+ *
+ * Tasks move through per-CPU wake, run, dead, and cleanup lists owned by each
+ * scheduler instance. A newly created task starts in the new state. Waking it
+ * first enqueues it and then lets the selected scheduler place it into runnable
+ * state. When a task finishes, the architecture startup path marks it dead;
+ * scheduler-specific cleanup later releases its resources. The exact lifetime
+ * of every task state transition outside these observed paths needs review.
+ *
+ * The scheduler core stores registered scheduler instances in priority order.
+ * Each instance supplies policy operations for attribute validation, enqueueing,
+ * waking, task selection, timeslice calculation, and determining the next
+ * readiness time. The source provides round-robin and earliest-deadline-first
+ * policies. The default policy assigned during kernel-thread setup is
+ * round-robin with priority 100.
+ *
+ * ## Scheduling policies
+ *
+ * Round-robin selects the first eligible runnable task on the current CPU. Its
+ * runtime is derived from task priority and a multiple of the calibrated
+ * minimum tick period. When the runtime is consumed, the task runtime is reset
+ * and the task is moved to the end of the run queue.
+ *
+ * EDF stores period, worst-case execution time, and relative deadline in the
+ * task scheduling attributes. It performs validation and schedulability checks,
+ * assigns an eligible CPU, and maintains wakeup and deadline ordering. Tasks
+ * without a period are treated by the implementation as one-shot tasks. The
+ * source contains experimental utilisation limits and delayed cleanup; details
+ * beyond the implemented checks need review.
+ *
+ * ## Thread creation and execution
+ *
+ * Generic thread creation allocates a task structure and a configured-size
+ * stack, optionally paints the stack, initializes architecture state, assigns a
+ * name and default scheduling policy, and leaves the task new rather than
+ * runnable. A separate wakeup operation enqueues and wakes the task and may
+ * send a reschedule request when CPU affinity is specified.
+ *
+ * The bootstrap path promotes the current execution context into the initial
+ * kernel task for a CPU. Signal handling may add a second task core with its
+ * own stack and entry point. Resource cleanup releases signal state, stack,
+ * name, and task storage unless the no-cleanup flag is set.
+ *
+ * ## Architectural design
+ *
+ * The generic scheduler and thread layers are declared in `include/kernel/`
+ * and implemented in `kernel/`. They operate on abstract task and scheduler
+ * structures and delegate processor state to the asm-generic thread hooks and
+ * architecture switching interface.
+ *
+ * The SPARC implementation stores saved stack pointer, program counter, PSR,
+ * and window invalid mask in `thread_info`. New task cores start at an
+ * architecture startup wrapper; the wrapper executes the task entry point,
+ * records termination state, and yields back to scheduling. Context switching
+ * saves and restores SPARC register-window state, processor state, stack, and
+ * continuation address. FPU lazy switching and complete SMP CPU-id handling
+ * are explicitly marked TODO in the source.
+ *
+ * ## High-level to architecture mapping
+ *
+ * | High-level concern | Generic kernel interface/core | SPARC implementation |
+ * | --- | --- | --- |
+ * | Scheduler contract and task selection | `include/kernel/sched.h`, `kernel/sched/core.c` | Uses architecture interrupt, CPU, and context-switch support |
+ * | Round-robin policy | `kernel/sched/rr.c` | Uses SPARC tick and interrupt-state interfaces |
+ * | EDF policy | `kernel/sched/edf.c` | Uses SPARC tick, CPU, and interrupt-state interfaces |
+ * | Kernel-thread lifecycle | `include/kernel/kthread.h`, `kernel/kthread.c` | `arch/sparc/kernel/thread.c` supplies task-core setup and startup |
+ * | Architecture-neutral thread hooks | `include/asm-generic/thread.h` | `arch/sparc/include/asm/thread.h`, `arch/sparc/kernel/thread.c` |
+ * | Context switching and stack layout | `include/kernel/sched.h` | `arch/sparc/include/asm/switch_to.h`, `arch/sparc/include/stack.h`, `arch/sparc/kernel/stack.c` |
+ *
+ * The overview intentionally does not enumerate callable APIs. Refer to the
+ * @ref schedsys and @ref threadsys group pages and the documented headers for
+ * detailed declarations and behavior.
+ *
+ * ## Diagrams
+ *
+ * @plantumlfile schedthread_architecture.puml
+ *
+ * @plantumlfile schedthread_creation_flow.puml
+ *
+ * @plantumlfile schedthread_schedule_activity.puml
+ */

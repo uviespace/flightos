@@ -1,5 +1,9 @@
 /**
  * @file arch/sparc/kernel/clockevent.c
+ * @ingroup timing
+ * @ingroup sparc
+ *
+ * @brief SPARC LEON general-purpose timer clockevent backend.
  */
 
 #include <kernel/kernel.h>
@@ -291,6 +295,13 @@ static void leon_setup_clockdevs(void)
 }
 #endif /* CONFIG_LEON3 */
 
+
+/**
+ * @brief initialise the SPARC clockevent framework
+ *
+ * @note on LEON3/4, all general purpose timers are registered as
+ *	 clock event devices
+ */
 
 void sparc_clockevent_init(void)
 {

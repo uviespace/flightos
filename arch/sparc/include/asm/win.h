@@ -1,3 +1,9 @@
+/**
+ * @file arch/sparc/include/asm/win.h
+ *
+ * @brief SPARC register window offsets
+ */
+
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _SPARC_WIN_H
 #define _SPARC_WIN_H

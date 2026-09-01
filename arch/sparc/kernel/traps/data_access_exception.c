@@ -10,6 +10,12 @@
 #endif /* CONFIG_MMU */
 
 
+/**
+ * @brief handle data access exceptions
+ *
+ * @note delegates to the MMU trap handler if CONFIG_MMU is enabled
+ */
+
 void data_access_exception(void)
 {
 #ifdef CONFIG_MMU

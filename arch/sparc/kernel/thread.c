@@ -2,6 +2,8 @@
  * @file arch/sparc/kernel/thread.c
  * 
  * @ingroup sparc
+ * @ingroup schedthread
+ * @ingroup threadsys
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,7 +15,7 @@
  * more details.
  *
  *
- * @brief implements the architecture specific thread component
+ * @brief SPARC task-core initialization, task promotion, and thread startup.
  *
  */
 
@@ -78,6 +80,11 @@ static void th_starter(void)
 
 /**
  * @brief initialise a task structure
+ *
+ * @param core the task core to initialise
+ * @param task the task the core is initialised for
+ * @param thread_fn the thread function to execute
+ * @param data a pointer to arbitrary data passed to the thread function
  */
 
 void arch_init_task(struct task_core *core,
@@ -104,6 +111,10 @@ EXPORT_SYMBOL(arch_init_task);
 
 /**
  * @brief promote the currently executed path to a task
+ *
+ * @param core the task core to initialise
+ * @param task the task to promote the current path to
+ *
  * @note we use this to move our main thread to the task list
  */
 

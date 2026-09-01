@@ -1,0 +1,21 @@
+@startuml
+title GRSPW2 packet descriptor activity
+!pragma layout ortho
+skinparam linetype ortho
+
+start
+if (TX packet?) then (yes)
+  :take descriptor from TX free list;
+  :copy header and payload to buffers;
+  :enable descriptor;
+  :move descriptor to TX used list;
+  :GRSPW2 transmits packet;
+  :move completed descriptor to free list;
+else (RX)
+  :GRSPW2 fills active RX descriptor;
+  :descriptor is visible on RX used list;
+  :user checks and fetches packet;
+  :re-add descriptor to RX free/active path;
+endif
+stop
+@enduml

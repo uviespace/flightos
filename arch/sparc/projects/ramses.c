@@ -1,3 +1,12 @@
+/**
+ * @file arch/sparc/projects/ramses.c
+ *
+ * @brief RAMSES project board configuration
+ *
+ * Board-specific early setup for the RAMSES project: configures the MRAM bank
+ * timing and the watchdog for this hardware platform.
+ */
+
 #include <kernel/init.h>
 #include <kernel/log2.h>
 #include <leon3_memcfg.h>
@@ -60,9 +69,13 @@ struct stack_trace_area {
 
 
 /**
- * @brief the dpu reset function
- * @param reset_type a reset type
- * @note this writes the rep area specified in RAMSES-IWF-PL-RS-015
+ * @brief the dpu reset function; records CPU state and stack traces in the
+ *        report area before halting the system
+ *
+ * @param irq a reset type; used as the reset type stored in the report area
+ * @param userdata a userdata pointer
+ *
+ * @note this writes the report area specified in RAMSES-IWF-PL-RS-015
  * DPU-SSSIF-IF-5420
  *
  * FIXME: we may need to check which CPU we are when we enter here, so

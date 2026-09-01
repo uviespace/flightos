@@ -1,3 +1,10 @@
+/**
+ * @file arch/sparc/include/asm/ttable.h
+ * @ingroup interrupts
+ *
+ * @brief SPARC trap numbers and trap table layout
+ */
+
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _SPARC_TTABLE_H
 #define _SPARC_TTABLE_H

@@ -1,5 +1,6 @@
 /**
  * @file arch/sparc/include/page.h
+ * @ingroup kmem
  *
  * @brief page memory definitions for MMU operation
  */

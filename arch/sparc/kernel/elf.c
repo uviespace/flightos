@@ -13,7 +13,11 @@
 
 
 /**
- * @brief check if the ELF file can be used by us 
+ * @brief check if the ELF file can be used by us
+ *
+ * @param ehdr the ELF header to check
+ *
+ * @return 0 if the header is valid and supported, -1 otherwise
  */
 
 int elf_header_check(Elf_Ehdr *ehdr)

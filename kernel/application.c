@@ -530,6 +530,11 @@ static int application_create_process(struct application_startup *app,
  * @param argv the argument vector
  *
  * @return 0 on success, -1 on error
+ *
+ * @note the ELF binary must begin at the address pointed to by p
+ * @note the loaded application is executed in its own thread with the
+ *	 specified cpu affinity; its entry point is resolved from the
+ *	 "_start" symbol
  */
 
 int application_load(void *p, const char *namefmt, int cpu, int argc, char **argv)
@@ -612,6 +617,9 @@ error:
 
 /**
  * @brief list all loaded applications
+ *
+ * @note prints the base address, section layout and symbol table of each
+ *	 loaded application to the console
  */
 
 void applications_list_loaded(void)

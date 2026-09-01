@@ -76,8 +76,11 @@ late_initcall(fpe_trap_init_sysctl);
 
 #define MAX_FQ 8
 
-/*
- * @brief high level floating point exception trap handler.
+/**
+ * @brief high level floating point exception trap handler
+ *
+ * @note empties the floating point queue and cures all denormalized
+ *       numbers in the 32 f-registers by setting them to 0.0
  */
 
 void fpe_trap(void)

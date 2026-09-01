@@ -1,5 +1,9 @@
 /**
  * @file arch/sparc/kernel/stack.c
+ * @ingroup schedthread
+ * @ingroup threadsys
+ *
+ * @brief SPARC stack migration support used by architecture stack handling.
  */
 
 
@@ -16,6 +20,8 @@
  *
  * @param sp the (bottom) stack pointer of the old stack
  * @param stack_top the top of the new stack area
+ *
+ * @return 0 on success, -EINVAL if the new stack top is NULL
  *
  * @note the new stack area is assumed to at least hold the old stack
  * @note remember that SPARC stacks grow from top to bottom

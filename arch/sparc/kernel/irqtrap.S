@@ -1,5 +1,61 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+/**
+ * @file arch/sparc/kernel/irqtrap.S
+ * @ingroup interrupts
+ *
+ * @brief SPARC interrupt (IRQ) trap entry
+ *
+ * This is the low-level trap entry for interrupts, reached from the trap
+ * table (ttable.S) through the TRAP_INTERRUPT(level) macro. It is the
+ * architecture-side counterpart of the high-level interrupt handling in
+ * arch/sparc/kernel/irq.c and the dispatcher of the generic IRQ interface in
+ * kernel/irq.c.
+ *
+ * ## Entry context
+ *
+ * The trap table sets, before branching here, the per-trap registers used
+ * throughout this file (see asm/ttable.h):
+ *
+ *   - %l0 (t_psr)    : PSR at the time of the trap
+ *   - %l3 (t_wim)    : WIM at the time of the trap
+ *   - %l7 (t_irqlvl) : the interrupt level that was trapped (set by
+ *                      TRAP_INTERRUPT(level); also passed on in %o0)
+ *
+ * Interrupt levels 1-14 are routed here; level 15 (NMI) is handled
+ * separately by nmi_entry (TRAP_ENTRY(15, nmi_entry)).
+ *
+ * ## Routing in the IRQ subsystem
+ *
+ *   - ttable.S -> TRAP_INTERRUPT(level) -> __interrupt_entry
+ *   - SAVE_ALL -> trap_setup (etrap.S) builds the register window and
+ *     pt_regs frame; on return the PSR PIL is re-programmed:
+ *       + with CONFIG_SPARC_NESTED_IRQ the PIL is set to the trapped IRL, so
+ *         higher-level interrupts may preempt the handler;
+ *       + otherwise PIL is set to maximum, disabling all nesting.
+ *     ET is re-enabled in the same wr (traps were off on entry, so the bit is
+ *     xored into the new PSR).
+ *   - leon_irq_dispatch(irq) (arch/sparc/kernel/irq.c) runs the registered
+ *     handlers for the level. With CONFIG_ARCH_CUSTOM_BOOT_CODE this call is
+ *     made here directly; otherwise BCC's libgloss catch_interrupt() is used
+ *     instead of this trap entry.
+ *   - With CONFIG_SPARC_NESTED_IRQ and task preemption enabled, the entry
+ *     sets PIL to maximum (write is delayed until after schedule()) and calls
+ *     schedule() before returning.
+ *   - RESTORE_ALL -> ret_trap_entry (rtrap.S) unwinds the frame and returns
+ *     to the interrupted code.
+ *
+ * ## Cycle budget
+ *
+ * The comment block below documents the measured/estimated cycle cost of the
+ * trap + jump + SAVE_ALL + leon_irq_dispatch + schedule + RESTORE_ALL path
+ * (worst case with window overflow ~195 cycles before the ISR body).
+ *
+ * Note: the Doxygen build configuration in Documentation/doxygen/Doxyfile
+ * does not currently map/source *.S files, so this file is not picked up by
+ * the documentation build (needs review).
+ */
+
 #include <asm/ttable.h>
 #include <stack.h>
 
@@ -83,4 +139,3 @@ __interrupt_entry:
 #endif /* CONFIG_SPARC_NESTED_IRQ */
 
 	RESTORE_ALL
-

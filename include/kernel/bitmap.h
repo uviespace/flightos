@@ -13,6 +13,11 @@
 #include <string.h>
 
 
+/**
+ * @brief print the contents of a bitmap for debugging
+ * @param bitarr: pointer to the bitmap array
+ * @param nr: number of bits in the bitmap
+ */
 void bitmap_print(const unsigned long *bitarr, unsigned long nr);
 
 

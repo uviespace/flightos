@@ -1,9 +1,19 @@
 /**
  * @file kernel/grspi.c
  *
- * @brief a driver for the Gaisler SPI controller
+ * @ingroup spi_driver
+ * @defgroup grspi_driver GRSPI controller driver
  *
- * @note this was only tested with the GR712RC
+ * @brief Architecture-facing GRSPI controller implementation for the SPI core.
+ *
+ * The driver registers one bus-zero controller, uses the hard-coded GR712RC
+ * register base and IRQ, translates generic SPI settings into GRSPI mode
+ * fields, and performs synchronous register-polled transfers. Chip select is
+ * supplied by the SPI device callback because the tested GR712RC configuration
+ * exposes no controller chip-selects.
+ *
+ * @note this was only tested with the GR712RC. The interrupt path is disabled,
+ * and complete multi-word transfer behavior needs review.
  *
   */
 

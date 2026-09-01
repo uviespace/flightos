@@ -6,6 +6,7 @@
 #define _KERNEL_USER_H_
 
 #ifdef CONFIG_ARCH_CUSTOM_BOOT_CODE
+/** @brief a typed pointer to a userspace-callable function */
 typedef int  (*usercall_t)(void);
 
 
@@ -15,14 +16,19 @@ typedef int  (*usercall_t)(void);
   * note: this only works with our custom linker scripts
   */
 
+/** @brief place a userspace function at a given level in the .usercall section */
 #define __define_usercall(fn, id)					\
         static usercall_t __usercall_##fn __attribute((used))		\
         __attribute__((__section__(".usercall" #id ".user"))) = fn;
 
 
+/** @brief register a userspace function at level 1 */
 #define lvl1_usercall(fn)               __define_usercall(fn, 1)
+/** @brief register a userspace function at level 2 */
 #define lvl2_usercall(fn)               __define_usercall(fn, 2)
+/** @brief register a userspace function at level 3 */
 #define lvl3_usercall(fn)               __define_usercall(fn, 3)
+/** @brief register a userspace function at level 4 */
 #define lvl4_usercall(fn)               __define_usercall(fn, 4)
 
 #endif /* CONFIG_ARCH_CUSTOM_BOOT_CODE */

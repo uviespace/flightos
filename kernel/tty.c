@@ -157,6 +157,19 @@ static int tty_write_internal_old(void *buf, size_t nbyte)
 
 
 
+/**
+ * @brief write data to the TTY output
+ *
+ * Writes nbyte bytes from buf to the TTY. Depending on the ASYNC_OUTPUT
+ * configuration, output is either buffered through a kernel thread or
+ * written directly to the UART.
+ *
+ * @param buf pointer to the data to write
+ * @param nbyte number of bytes to write
+ *
+ * @return 0 on success
+ */
+
 int tty_write(void *buf, size_t nbyte)
 {
 #if ASYNC_OUTPUT
@@ -170,7 +183,12 @@ int tty_write(void *buf, size_t nbyte)
 
 
 /**
- * @brief initalises tty
+ * @brief initialise the TTY subsystem
+ *
+ * Creates the TTY transmit kernel thread and configures it with EDF
+ * scheduling if async output is enabled.
+ *
+ * @return 0 on success
  */
 
 int tty_init(void)

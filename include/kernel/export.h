@@ -6,9 +6,12 @@
 #define _KERNEL_EXPORT_H_
 
 
+/**
+ * @brief entry describing a single exported kernel symbol
+ */
 struct kernel_symbol {
-        unsigned long value;
-        const char *name;
+        unsigned long value;	/*!< address of the exported symbol */
+        const char *name;	/*!< name of the exported symbol */
 };
 
 
@@ -44,6 +47,7 @@ struct kernel_symbol {
 
 #define __EXPORT_SYMBOL ___EXPORT_SYMBOL
 
+/** @brief export a symbol for use by dynamically loaded modules */
 #define EXPORT_SYMBOL(sym)                                      \
         __EXPORT_SYMBOL(sym, "")
 

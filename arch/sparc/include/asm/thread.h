@@ -1,5 +1,7 @@
 /**
  * @file    sparc/include/asm/thread.h
+ * @ingroup schedthread
+ * @ingroup threadsys
  *
  * @copyright GPLv2
  *
@@ -12,7 +14,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @brief architecture specific threads
+ * @brief SPARC-specific thread_info and saved context layout.
  */
 
 

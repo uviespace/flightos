@@ -23,7 +23,7 @@
  *
  * @param ehdr an Elf_Ehdr
  *
- * return a Elf_Shdr or NULL if not found
+ * @return a pointer to the first Elf_Shdr, or NULL if not found
  */
 
 Elf_Shdr *elf_get_shdr(const Elf_Ehdr *ehdr)
@@ -283,6 +283,9 @@ char *elf_get_shstrtab_str(const Elf_Ehdr *ehdr, size_t idx)
 /**
  * @brief find an elf section by name
  *
+ * @param ehdr an Elf_Ehdr
+ * @param name the section name to search for
+ *
  * @return section index or 0 if not found
  */
 
@@ -472,7 +475,8 @@ char *elf_get_symbol_str(const Elf_Ehdr *ehdr, size_t idx)
  *
  * @param[out] value the value of the symbol
  *
- * @return 1 if symbol has been found, 0 otherwise
+ * @return 1 if symbol has been found, 0 if not found,
+ *	   (unsigned long)-1 on error
  */
 
 unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
@@ -515,14 +519,14 @@ unsigned long elf_get_symbol_value(const Elf_Ehdr *ehdr,
 
 
 /**
- * @brief get the value of a symbol
+ * @brief get the size of a symbol
  *
  * @param ehdr an Elf_Ehdr
  *
  * @param name the name of the symbol
  *
  * @return the size of the symbol (0 if not found or simply size 0)
- *	   -1 on error
+ *	   (size_t)-1 on error
  */
 
 size_t elf_get_symbol_size(const Elf_Ehdr *ehdr, const char *name)
@@ -717,7 +721,8 @@ size_t elf_get_num_alloc_sections(const Elf_Ehdr *ehdr)
 
 
 
-/* @brief get the total byte size of unallocated uninitialised common objects
+/**
+ * @brief get the total byte size of unallocated uninitialised common objects
  *
  * @param ehdr an Elf_Ehdr
  *
@@ -761,12 +766,13 @@ size_t elf_get_common_size(const Elf_Ehdr *ehdr)
 }
 
 
-/* @brief get the total count of unallocated uninitialised common objects
+/**
+ * @brief get the total count of unallocated uninitialised common objects
  *
  * @param ehdr an Elf_Ehdr
- * @param[out] an index array
+ * @param[out] objname an array to store object name strings (may be NULL)
  *
- * @note set idx to NULL to determine the number of elements needed for the
+ * @note set objname to NULL to determine the number of elements needed for the
  *	 array
  *
  * @return the number of common objects
@@ -842,7 +848,9 @@ size_t elf_get_num_dyn_entries(const Elf_Ehdr *ehdr)
 /**
  * @brief find a dynamic entry by tag
  *
- * @param offset a offset into the table (to locate multiple identical types)
+ * @param ehdr an Elf_Ehdr
+ * @param d_tag the dynamic entry tag to search for
+ * @param offset an offset into the table (to locate multiple identical types)
  *
  * @return NULL if entry not found, pointer to entry otherwise
  *
@@ -874,6 +882,8 @@ Elf_Dyn *elf_find_dyn(const Elf_Ehdr *ehdr,
 
 /**
  * @brief dump the contents of .strtab
+ *
+ * @param ehdr an Elf_Ehdr
  */
 
 void elf_dump_strtab(const Elf_Ehdr *ehdr)
@@ -896,6 +906,8 @@ void elf_dump_strtab(const Elf_Ehdr *ehdr)
 
 /**
  * @brief dump the contents of .symtab
+ *
+ * @param ehdr an Elf_Ehdr
  */
 
 void elf_dump_symtab(const Elf_Ehdr *ehdr)
@@ -968,6 +980,8 @@ void elf_dump_symtab(const Elf_Ehdr *ehdr)
 
 /**
  * @brief dump the name of all elf sections
+ *
+ * @param ehdr an Elf_Ehdr
  */
 
 void elf_dump_sections(const Elf_Ehdr *ehdr)

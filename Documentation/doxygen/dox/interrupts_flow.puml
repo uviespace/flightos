@@ -1,0 +1,28 @@
+@startuml
+title FlightOS interrupt handling flow
+skinparam linetype ortho
+
+start
+:Controller asserts an interrupt;
+:SPARC trap table selects the interrupt entry;
+:IRQ trap entry saves register state;
+if (nested IRQ support enabled?) then (yes)
+  :Set interrupt threshold for nesting;
+else (no)
+  :Raise threshold to block nesting;
+endif
+:SPARC backend identifies the interrupt domain;
+:Walk registered handlers;
+if (handler is immediate?) then (yes)
+  :Run handler on interrupt path;
+else (deferred)
+  :Queue handler for deferred execution;
+endif
+if (task preemption configuration permits?) then (yes)
+  :Allow scheduler handoff;
+else (no)
+endif
+:Restore register state;
+:Return to interrupted execution;
+stop
+@enduml

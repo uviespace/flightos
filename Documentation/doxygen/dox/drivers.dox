@@ -1,0 +1,73 @@
+/**
+ * @defgroup drivers FlightOS Driver Components
+ *
+ * @brief Device-driver interfaces in kernel/ and their SPARC hardware
+ *        realization in arch/.
+ *
+ * @page drivers_overview Driver Components Overview
+ *
+ * The driver code follows the same split used elsewhere in FlightOS. The
+ * high-level interfaces and policy live in `include/` and `kernel/`; the
+ * current hardware realization uses SPARC LEON register access, interrupt
+ * numbering, cache operations, and platform address definitions from
+ * `arch/sparc/`. The split is a source-level boundary. It is not evidence
+ * that every component is portable to another target without a new backend.
+ *
+ * ## Components
+ *
+ * - @ref spi_driver provides the SPI message, device, and controller objects.
+ *   @ref grspi_driver implements the current GRSPI controller; @ref ad7814_driver
+ *   and @ref adc128s102_driver are SPI device clients.
+ * - @ref grspw2 describes the GRSPW2 SpaceWire packet and routing driver.
+ * - @ref noc_dma describes queued one- and two-dimensional NoC DMA transfers.
+ * - @ref xentium_driver maps processing-network tasks to loaded Xentium ELF
+ *   programs and exchanges commands through mailboxes.
+ *
+ * ## Architecture-specific implementation
+ *
+ * Driver register accesses use the SPARC LEON non-cached raw accessors in
+ * `arch/sparc/include/asm/io.h`; the `ioread32be()` and `iowrite32be()` names
+ * used by the drivers map to those accesses. `virt_to_phys()` maps to the
+ * architecture physical-address conversion. IRQ registration and extended IRQ
+ * numbering are supplied by `arch/sparc/include/irq.h`,
+ * `arch/sparc/include/asm/irq.h`, and `arch/sparc/kernel/irq.c`. GRSPW2 and
+ * Xentium also rely on target-specific fixed addresses and 32-bit DMA-visible
+ * values. The exact portability requirements need review.
+ *
+ * ## High-level interfaces
+ *
+ * The generic driver-facing contracts are declared by `include/kernel/spictlr.h`,
+ * `include/grspw2.h`, `include/noc_dma.h`, and the Xentium headers under
+ * `include/kernel/`. Implementations are in `kernel/`; configuration gates are
+ * in `kernel/Kconfig` and object selection is in `kernel/Makefile`.
+ *
+ * ## Component mapping
+ *
+ * | Component | High-level interface | Implementation and hardware boundary |
+ * | --- | --- | --- |
+ * | SPI | `include/kernel/spictlr.h` | `kernel/spictlr.c`, `kernel/grspi.c`, `arch/sparc/include/asm/io.h` |
+ * | AD7814 | `kernel/ad7814_spi.c` | GRSPI plus caller-provided chip select; GR712 GPIO demo is conditional |
+ * | ADC128S102 | `kernel/adc128s102_spi.c` | GRSPI plus caller-provided chip select; optional sysctl/demo support |
+ * | GRSPW2 | `include/grspw2.h` | `kernel/grspw2.c`, LEON I/O/IRQ/cache helpers |
+ * | NoC DMA | `include/noc_dma.h`, `include/noc.h` | `kernel/noc_dma.c`, MPPB/SSDP platform mappings, LEON I/O/IRQ helpers |
+ * | Xentium | `include/kernel/xentium*.h` | `kernel/xentium.c`, NoC DMA, LEON I/O/IRQ helpers |
+ *
+ * `libc/src/grspw2.c` provides the user-facing syscall wrappers for GRSPW2;
+ * syscall dispatch is in `kernel/syscalls.c`. Xentium ELF discovery is wired
+ * through `init/modules-image.c`, while Xentium programs are built under
+ * `dsp/xentium/`. The exact ownership of application-side setup remains
+ * configuration-specific and needs review.
+ *
+ * ## Diagrams
+ *
+ * @plantumlfile drivers_architecture.puml
+ * @plantumlfile spi_transfer_flow.puml
+ * @plantumlfile grspw2_packet_activity.puml
+ * @plantumlfile noc_dma_transfer_activity.puml
+ * @plantumlfile xentium_task_activity.puml
+ *
+ * The diagrams show only relationships and control flow observed in the source.
+ * Unimplemented asynchronous paths, incomplete platform support, and other
+ * limitations are documented in the relevant component files and marked
+ * "needs review" where their intended behavior is unclear.
+ */

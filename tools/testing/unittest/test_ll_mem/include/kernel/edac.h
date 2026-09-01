@@ -2,7 +2,12 @@
  * @file    include/kernel/edac.h
  * @author  Armin Luntzer (armin.luntzer@univie.ac.at)
  *
- * @ingroup edac
+ * @ingroup edacsys
+ *
+ * Low-level EDAC test stub / mock of the kernel EDAC API used by the
+ * low-level memory unit tests. It reproduces a reduced struct edac_dev (the
+ * bypass_read operation is omitted) and the edac_*() prototype surface of
+ * include/kernel/edac.h, without the full documentation.
  *
  * @copyright GPLv2
  *

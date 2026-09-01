@@ -1,0 +1,31 @@
+@startuml
+title FlightOS memory subsystem architecture
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+package "High-level kernel and generic code" {
+  [Kernel heap] as heap
+  [Page-map manager] as page
+  [Buddy-system manager] as buddy
+  [Chunk manager] as chunk
+  [Memory scrubber] as scrub
+}
+
+package "SPARC implementation" {
+  [Boot memory setup] as boot
+  [Program-break and MMU glue] as glue
+  [SRMMU page tables] as srmmu
+  [LEON memory configuration] as memcfg
+}
+
+heap --> glue : virtual heap backing
+heap --> boot : non-MMU / physical path
+boot --> page : memory ranges
+page --> buddy : pool allocation
+boot --> chunk : subdivided boot buffers
+glue --> srmmu : virtual mappings
+srmmu --> page : physical pages
+scrub ..> heap : range storage
+memcfg ..> srmmu : hardware configuration
+@enduml

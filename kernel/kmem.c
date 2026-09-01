@@ -2,16 +2,15 @@
  * @file kernel/kmem.c
  *
  * @ingroup kmem
- * @defgroup kmem Kernel Memory Allocator
  *
- * @brief a malloc-like kernel memory allocator
+ * @brief High-level kernel heap allocator.
  *
  * A simple high-level allocator that uses kernel_sbrk() implemented by the
  * architecture-specific (MMU) code to allocate memory. If no MMU is available,
  * it falls back to using the architecture's boot memory allocator.
  *
  * This is similar to @ref chunk, but a lot simpler. This needs to respect
- * sbrk() so it can't just use @chunk because it may release any parent chunk,
+ * sbrk() so it can't just use @ref chunk because it may release any parent chunk,
  * while we need to do that from _kmem_last to _kmem_init as they become free.
  */
 
@@ -313,6 +312,15 @@ static int kmem_release_bg(void *data)
 	return 0;
 }
 
+
+/**
+ * @brief initialise the background kmem release thread
+ *
+ * @return 0 on success
+ *
+ * @note the thread is scheduled with fixed EDF parameters and
+ *       periodically releases unused memory back to the system break
+ */
 
 int kmem_bg_release_init(void)
 {

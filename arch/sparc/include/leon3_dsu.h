@@ -1,5 +1,6 @@
 /**
  * @file    leon3_dsu.h
+ * @brief   LEON3 Debug Support Unit interface definitions
  * @ingroup leon3_dsu
  * @author Armin Luntzer (armin.luntzer@univie.ac.at),
  * @date   February, 2016
@@ -96,7 +97,7 @@
 #define DSU_CTRL_BX		(1 <<  4)	/* break on any trap       */
 #define DSU_CTRL_BZ		(1 <<  5)	/* break on error trap     */
 #define DSU_CTRL_DM		(1 <<  6)	/* RO: debug mode status   */
-						/* bits 7, 8 are unused    */
+					/* bits 7, 8 are unused    */
 #define DSU_CTRL_PE		(1 <<  9)	/* processor error mode    */
 #define DSU_CTRL_HL		(1 << 10)	/* processor halt mode     */
 #define DSU_CTRL_PW		(1 << 11)	/* processor power mode    */
@@ -227,38 +228,264 @@ struct dsu_ahb_trace_buffer {
 
 
 
+/**
+ * @brief do not allow a processor to force other processors into debug mode
+ *
+ * @param cpu the cpu number
+ */
 
 void dsu_set_noforce_debug_mode(uint32_t cpu);
+
+/**
+ * @brief enable debug mode on error
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_set_cpu_debug_on_error(uint32_t cpu);
+
+/**
+ * @brief enable debug mode on IU watchpoint
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_set_cpu_break_on_iu_watchpoint(uint32_t cpu);
+
+/**
+ * @brief enable debug mode on breakpoint instruction (ta 1)
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_set_cpu_break_on_breakpoint(uint32_t cpu);
+
+/**
+ * @brief enable debug mode on trap
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_set_cpu_break_on_trap(uint32_t cpu);
+
+/**
+ * @brief enable debug mode on error trap
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_set_cpu_break_on_error_trap(uint32_t cpu);
+
+/**
+ * @brief force a processor into debug mode if Break on Watchpoint (BW) bit
+ *        in DSU control register is set
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_set_force_debug_on_watchpoint(uint32_t cpu);
+
+/**
+ * @brief get %psr register of cpu
+ *
+ * @param cpu the cpu number
+ *
+ * @return contents of the %psr register
+ */
+
 uint32_t dsu_get_reg_psr(uint32_t cpu);
+
+/**
+ * @brief get %tbr register of cpu
+ *
+ * @param cpu the cpu number
+ *
+ * @return contents of the %tbr register
+ */
+
 uint32_t dsu_get_reg_tbr(uint32_t cpu);
+
+/**
+ * @brief set %psr register of cpu
+ *
+ * @param cpu the cpu number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_psr(uint32_t cpu, uint32_t val);
 
+/**
+ * @brief get %wim register of cpu
+ *
+ * @param cpu the cpu number
+ *
+ * @return contents of the %wim register
+ */
+
 uint32_t dsu_get_reg_wim(uint32_t cpu);
+
+/**
+ * @brief get %pc register of cpu
+ *
+ * @param cpu the cpu number
+ *
+ * @return contents of the %pc register
+ */
+
 uint32_t dsu_get_reg_pc(uint32_t cpu);
+
+/**
+ * @brief get stack pointer register (%o6) in a window of a cpu
+ *
+ * @param cpu the cpu number
+ * @param cwp the window number
+ *
+ * @return the value of the stack pointer register or 0 if window/cpu is invalid
+ */
+
 uint32_t dsu_get_reg_sp(uint32_t cpu, uint32_t cwp);
+
+/**
+ * @brief get %fsr register of cpu
+ *
+ * @param cpu the cpu number
+ *
+ * @return contents of the %fsr register
+ */
+
 uint32_t dsu_get_reg_fsr(uint32_t cpu);
 
 
+/**
+ * @brief set %tbr register of cpu
+ *
+ * @param cpu the cpu number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_tbr(uint32_t cpu, uint32_t val);
+
+/**
+ * @brief set %pc register of cpu
+ *
+ * @param cpu the cpu number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_pc(uint32_t cpu, uint32_t val);
+
+/**
+ * @brief set %npc register of cpu
+ *
+ * @param cpu the cpu number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_npc(uint32_t cpu, uint32_t val);
+
+/**
+ * @brief get %npc register of cpu
+ *
+ * @param cpu the cpu number
+ *
+ * @return contents of the %npc register
+ */
+
 uint32_t dsu_get_reg_npc(uint32_t cpu);
+
+/**
+ * @brief clear the Integer Units register file
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_iu_reg_file(uint32_t cpu);
+
+/**
+ * @brief disable debug mode on error
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_cpu_debug_on_error(uint32_t cpu);
+
+/**
+ * @brief disable debug mode on IU watchpoint
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_cpu_break_on_iu_watchpoint(uint32_t cpu);
+
+/**
+ * @brief disable debug mode on breakpoint instruction
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_cpu_break_on_breakpoint(uint32_t cpu);
+
+/**
+ * @brief disable debug mode on trap
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_cpu_break_on_trap(uint32_t cpu);
+
+/**
+ * @brief disable debug mode on error trap
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_cpu_break_on_error_trap(uint32_t cpu);
+
+/**
+ * @brief clear forcing debug mode if Break on Watchpoint (BW) bit in the
+ *        DSU control register is set; resumes processor execution if in
+ *        debug mode
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_clear_force_debug_on_watchpoint(uint32_t cpu);
+
+/**
+ * @brief set %wim register of cpu
+ *
+ * @param cpu the cpu number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_wim(uint32_t cpu, uint32_t val);
+
+/**
+ * @brief set stack pointer register (%o6) in a window of a cpu
+ *
+ * @param cpu the cpu number
+ * @param cwp the window number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_sp(uint32_t cpu, uint32_t cwp, uint32_t val);
+
+/**
+ * @brief set frame pointer register (%i6) in a window of a cpu
+ *
+ * @param cpu the cpu number
+ * @param cwp the window number
+ * @param val the value to set
+ */
+
 void dsu_set_reg_fp(uint32_t cpu, uint32_t cwp, uint32_t val);
+
+/**
+ * @brief put cpu in halt mode
+ *
+ * @param cpu the cpu number
+ */
+
 void dsu_cpu_set_halt_mode(uint32_t cpu);
 
 

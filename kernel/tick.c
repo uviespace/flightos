@@ -4,8 +4,9 @@
  *
  *
  * @ingroup time
+ * @ingroup timing
  *
- * per-cpu tick device
+ * @brief Per-CPU tick-device selection, calibration, and programming.
  *
  * @note this roughly follows the concept found in linux ticks
  */
@@ -332,6 +333,8 @@ static void tick_setup_device(struct clock_event_device *dev, int cpu)
 
 /**
  * @brief offer a new clock event device to the ticker
+ *
+ * @param dev the clock event device to offer
  */
 
 void tick_check_device(struct clock_event_device *dev)
@@ -408,10 +411,13 @@ unsigned long tick_get_period_min_ns(void)
 
 
 /**
- * @brief configure next tick period in nanoseconds for a cpu tick deivce
+ * @brief configure next tick period in nanoseconds for a cpu tick device
  *
- * returns 0 on success, 1 if nanoseconds range was clamped to clock range,
- *	   -ENODEV if no device is available for the selected CPU
+ * @param nanoseconds the tick period in nanoseconds
+ * @param cpu the target CPU index
+ *
+ * @return 0 on success, 1 if nanoseconds range was clamped to clock range,
+ *         -ENODEV if no device is available for the selected CPU
  *
  * @note if the tick period is smaller than the calibrated minimum tick period
  *       of the timer, it will be clamped to the lower bound and a kernel alarm
@@ -439,8 +445,10 @@ int tick_set_next_ns_for_cpu(unsigned long nanoseconds, int cpu)
 /**
  * @brief configure next tick period in nanoseconds
  *
- * returns 0 on success, 1 if nanoseconds range was clamped to clock range,
- *	   -ENODEV if no device is available for the current CPU
+ * @param nanoseconds the tick period in nanoseconds
+ *
+ * @return 0 on success, 1 if nanoseconds range was clamped to clock range,
+ *         -ENODEV if no device is available for the current CPU
  */
 
 int tick_set_next_ns(unsigned long nanoseconds)
@@ -452,13 +460,15 @@ int tick_set_next_ns(unsigned long nanoseconds)
 /**
  * @brief configure next tick period in ktime
  *
- * returns 0 on success, -ETIME if expiration time is in the past
+ * @param expires the absolute expiration time for the next tick
  *
- * @warn if the timeout exceeds the bounds of the programmable range
- *	 for the device, it is forcibly clamped without warning
+ * @return 0 on success, -ETIME if expiration time is in the past
+ *
+ * @warning if the timeout exceeds the bounds of the programmable range
+ *          for the device, it is forcibly clamped without warning
  *
  * @note if the clock event device is in periodic mode, the delta between
- *	 expiration time and current time will be the new period
+ *       expiration time and current time will be the new period
  */
 
 int tick_set_next_ktime(struct timespec expires)

@@ -2,6 +2,8 @@
  * @file arch/sparc/include/init.h
  *
  * @ingroup sparc
+ *
+ * @brief SPARC paging initialisation
  */
 
 #ifndef _SPARC_INIT_H_
@@ -15,6 +17,12 @@
 
 
 
+/**
+ * @brief initialise paging
+ *
+ * Sets up the boot memory allocator and, if an MMU is configured,
+ * initialises the MMU (paging) subsystem.
+ */
 void paging_init(void);
 
 

@@ -1,6 +1,10 @@
 /**
  * @file kernel/sched/core.c
  *
+ * @ingroup schedthread
+ * @ingroup schedsys
+ * @defgroup schedsys Scheduler Core and Policies
+ *
  * @brief the core scheduling code
  */
 
@@ -23,6 +27,67 @@
 
 #include <kernel/string.h>
 
+/**
+ * @startuml FlightOS Scheduler Architecture
+ * title Scheduler Subsystem
+ *
+ * !pragma layout ortho
+ *
+ * skinparam component {
+ *   BackgroundColor #E8F5E9
+ *   BorderColor #333333
+ * }
+ *
+ * package "Scheduler Core\nkernel/sched/core.c" {
+ *   [sched_register] as REG
+ *   [schedule] as SCHED
+ *   [sched_wake] as WAKE
+ *   [sched_enqueue] as ENQ
+ *   [sched_find_next] as FIND
+ *   [switch_to] as SWITCH
+ * }
+ *
+ * package "EDF Scheduler\nkernel/sched/edf.c" {
+ *   [edf_pick_next] as EDF_PICK
+ *   [edf_enqueue] as EDF_ENQ
+ *   [edf_wake] as EDF_WAKE
+ *   [edf_task_ready_ns] as EDF_RDY
+ *   [edf_check_sched_attr] as EDF_CHK
+ * }
+ *
+ * package "RR Scheduler\nkernel/sched/rr.c" {
+ *   [rr_pick_next] as RR_PICK
+ *   [rr_enqueue] as RR_ENQ
+ *   [rr_wake] as RR_WAKE
+ *   [rr_task_ready_ns] as RR_RDY
+ *   [rr_check_sched_attr] as RR_CHK
+ * }
+ *
+ * REG -down-> EDF_CHK
+ * REG -down-> RR_CHK
+ * SCHED -down-> FIND
+ * FIND -down-> EDF_PICK : priority order
+ * FIND -down-> RR_PICK : fallback
+ * WAKE -down-> EDF_WAKE
+ * WAKE -down-> RR_WAKE
+ * ENQ -down-> EDF_ENQ
+ * ENQ -down-> RR_ENQ
+ * SCHED -right-> SWITCH
+ *
+ * note right of EDF_PICK
+ *   Deadline-ordered
+ *   Uses WCET, period,
+ *   deadline_rel fields
+ * end note
+ *
+ * note right of RR_PICK
+ *   Round-robin with
+ *   priority-weighted
+ *   timeslices
+ * end note
+ *
+ * @enduml
+ */
 
 #define MSG "SCHEDULER: "
 
@@ -303,9 +368,14 @@ static ktime sched_find_next_task(struct task_struct **task, int cpu, ktime now)
 /**
  * @brief set the load percentage of a cpu for an arbitrary time interval
  *
+ * @param cpu the cpu index to update
+ * @param load_percent the new load percentage value
+ *
  * @note this is a mechanism to centrally manage the cpu loads; how loads
  *	 are updated is left to the implementation of the particular platform;
  *	 this is done on a best-effort basis for informative purposes only
+ *
+ * @note the value is ignored if cpu exceeds CONFIG_SMP_CPUS_MAX
  */
 
 void sched_set_cpu_load(int cpu, uint8_t load_percent)
@@ -319,6 +389,11 @@ void sched_set_cpu_load(int cpu, uint8_t load_percent)
 
 /**
  * @brief get the last known load percentage of a cpu
+ *
+ * @param cpu the cpu index to query
+ *
+ * @return the last reported load percentage, 0 if cpu exceeds
+ *	       CONFIG_SMP_CPUS_MAX
  *
  * @note this is provided on a best-effort basis for informative purposes only
  */
@@ -334,6 +409,9 @@ uint8_t sched_get_cpu_load(int cpu)
 
 /**
  * @brief schedule and execute the next task
+ *
+ * @note called on the current cpu; selects and switches to the next task
+ *	 based on scheduler priority, adjusting the next tick accordingly
  */
 
 void schedule(void)
@@ -438,6 +516,8 @@ void schedule(void)
 
 /**
  * @brief yield remaining runtime and reschedule
+ *
+ * @note resets the current task's runtime to zero and invokes schedule()
  */
 
 void sched_yield(void)
@@ -454,6 +534,9 @@ void sched_yield(void)
 /**
  * @brief yield remaining runtime and reschedule if less than a given
  *	  fraction of the WCET remains
+ *
+ * @param frac_wcet the denominator of the WCET fraction; if the remaining
+ *		    runtime exceeds wcet / frac_wcet, the task yields
  */
 
 void sched_maybe_yield(unsigned int frac_wcet)
@@ -472,6 +555,12 @@ void sched_maybe_yield(unsigned int frac_wcet)
 
 /**
  * @brief wake up a task
+ *
+ * @param task the task to wake up
+ * @param now the current ktime
+ *
+ * @return 0 on success, -EINVAL if task is NULL or has no scheduler
+ *	       configured
  */
 
 int sched_wake(struct task_struct *task, ktime now)
@@ -490,6 +579,11 @@ int sched_wake(struct task_struct *task, ktime now)
 
 /**
  * @brief enqueue a task
+ *
+ * @param task the task to enqueue
+ *
+ * @return 0 on success, -EINVAL if task is NULL or has no scheduler
+ *	       configured, or the result of the scheduler's attribute check
  */
 
 int sched_enqueue(struct task_struct *task)
@@ -520,7 +614,13 @@ int sched_enqueue(struct task_struct *task)
 /**
  * @brief set a scheduling attribute for a task
  *
- * @returns 0 on success, < 0 on error
+ * @param task the task to configure
+ * @param attr the scheduling attributes to apply
+ *
+ * @return 0 on success, < 0 on error (e.g. -EINVAL if task or attr is NULL,
+ *	       or the specified policy is not available)
+ *
+ * @note the task's scheduler is selected according to the policy in attr
  *
  * XXX: should implement list of all threads, so we can use pid_t pid
  *
@@ -565,6 +665,12 @@ error:
 
 /**
  * @brief get a scheduling attribute for a task
+ *
+ * @param task the task to query
+ * @param attr the buffer to receive a copy of the task's scheduling attributes
+ *
+ * @return 0 on success, -EINVAL if task or attr is NULL
+ *
  * XXX: should implement list of all threads, so we can use pid_t pid
  */
 
@@ -586,6 +692,10 @@ int sched_get_attr(struct task_struct *task, struct sched_attr *attr)
 
 /**
  * @brief set a task to the default scheduling policy
+ *
+ * @param task the task to configure
+ *
+ * @return the result of sched_set_attr(), i.e. 0 on success or < 0 on error
  */
 
 int sched_set_policy_default(struct task_struct *task)
@@ -601,9 +711,13 @@ int sched_set_policy_default(struct task_struct *task)
 /**
  * @brief register a new scheduler
  *
- * @returns 0 on success,
+ * @param sched the scheduler instance to register
+ *
+ * @return 0 on success,
  *	   -EPERM if the scheduler instance is already registered,
  *	   -EINVAL otherwise
+ *
+ * @note schedulers are kept sorted by priority (highest first)
  *
  * XXX locking
  */

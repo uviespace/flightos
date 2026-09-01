@@ -1,5 +1,10 @@
 /**
  * @file kernel/kthread.c
+ * @ingroup schedthread
+ * @ingroup threadsys
+ * @defgroup threadsys Kernel Thread Lifecycle
+ *
+ * @brief Generic kernel-thread creation, startup preparation, wakeup, and cleanup.
  */
 
 
@@ -32,6 +37,8 @@ struct thread_info *current_set[CONFIG_SMP_CPUS_MAX]; /* XXX */
  * @brief get the total runtime of the current thread
  *
  * @note this is done on a best-effort basis without ensuring atomicity
+ *
+ * @return the total accumulated runtime of the current thread
  */
 
 ktime kthread_get_total_runtime(void)
@@ -72,6 +79,20 @@ static void kthread_unlock(void)
 }
 
 
+/**
+ * @brief set EDF scheduling parameters for a task
+ *
+ * Configures a task with Earliest Deadline First scheduling, setting the
+ * period, relative deadline, and worst-case execution time.
+ *
+ * @param task the task to configure
+ * @param period_us the scheduling period in microseconds
+ * @param deadline_rel_us the relative deadline in microseconds
+ * @param wcet_us the worst-case execution time in microseconds
+ *
+ * @return 0 on success, or a negative error code
+ */
+
 int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 			   unsigned long deadline_rel_us, unsigned long wcet_us)
 {
@@ -87,6 +108,17 @@ int kthread_set_sched_edf(struct task_struct *task, unsigned long period_us,
 }
 
 
+/**
+ * @brief set Round-Robin scheduling parameters for a task
+ *
+ * Configures a task with Round-Robin scheduling at the given priority level.
+ *
+ * @param task the task to configure
+ * @param priority the scheduling priority
+ *
+ * @return 0 on success, or a negative error code
+ */
+
 int kthread_set_sched_rr(struct task_struct *task, unsigned long priority)
 {
 	struct sched_attr attr;
@@ -101,6 +133,16 @@ int kthread_set_sched_rr(struct task_struct *task, unsigned long priority)
 
 /* we should have a thread with a semaphore which is unlocked by schedule()
  * if dead tasks were added to the "dead" list
+ */
+
+/**
+ * @brief free a kernel thread and its resources
+ *
+ * Releases signal handlers, stack, name, and task structure. Tasks with
+ * the TASK_NO_CLEAN flag are removed from the task list but their memory
+ * is not freed.
+ *
+ * @param task the task to free
  */
 
 void kthread_free(struct task_struct *task)
@@ -120,6 +162,13 @@ void kthread_free(struct task_struct *task)
 /**
  * @brief wake up a kthread
  *
+ * Enqueues the task in the scheduler and transitions it from TASK_NEW
+ * to a runnable state. Sends an IPI reschedule if the task has a
+ * specific CPU affinity.
+ *
+ * @param task the task to wake up (must be in TASK_NEW state)
+ *
+ * @return 0 on success, or a negative error code
  */
 
 int kthread_wake_up(struct task_struct *task)
@@ -163,8 +212,13 @@ int kthread_wake_up(struct task_struct *task)
 /**
  * @brief convert the boot path to a thread
  *
- * @note this function sets the initial task for any cpu; if a task has alreay
+ * Creates the initial kernel task for the current CPU and registers it
+ * with the scheduler.
+ *
+ * @note this function sets the initial task for any cpu; if a task has already
  *	 been set, the attempt will be rejected
+ *
+ * @return pointer to the created task, or a negative error pointer on failure
  */
 
 struct task_struct *kthread_init_main(void)
@@ -300,6 +354,14 @@ static struct task_struct *kthread_create_internal(int (*thread_fn)(void *data),
 
 /**
  * @brief create a signal subtask
+ *
+ * Allocates and sets up a signal handler subtask for the given task.
+ * Does nothing if the task already has a signal subtask.
+ *
+ * @param task the parent task to attach the signal subtask to
+ * @param thread_fn the function to run in the signal subtask
+ *
+ * @return 0 on success, or a negative error code
  */
 
 int kthread_sigstack_create(struct task_struct *task,
@@ -319,14 +381,20 @@ int kthread_sigstack_create(struct task_struct *task,
 /**
  * @brief create a new kernel thread
  *
+ * Allocates and initialises a new kernel thread with the specified entry
+ * function, CPU affinity, and name. The thread is not started until
+ * kthread_wake_up() is called.
+ *
  * @param thread_fn the function to run in the thread
  * @param data a user data pointer for thread_fn, may be NULL
  *
  * @param cpu set the cpu affinity
  *
- * @param name_fmt a printf format string name for the thread
+ * @param namefmt a printf format string name for the thread
  *
  * @param ... parameters to the format string
+ *
+ * @return pointer to the created task, or a negative error pointer on failure
  */
 
 struct task_struct *kthread_create(int (*thread_fn)(void *data),
@@ -344,6 +412,4 @@ struct task_struct *kthread_create(int (*thread_fn)(void *data),
 	return task;
 }
 EXPORT_SYMBOL(kthread_create);
-
-
 

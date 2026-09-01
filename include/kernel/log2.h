@@ -1,3 +1,9 @@
+/**
+ * @file include/kernel/log2.h
+ *
+ * @brief integer base-2 logarithm helpers
+ */
+
 /*
  * derived from linux/log2.h and asm-generic/bitops/builtin-fls.h
  * note: 64 bit support removed
@@ -31,6 +37,11 @@ static inline int kfls(int x)
 }
 
 
+/**
+ * @brief find the last (most-significant) bit set in a long
+ * @param l: the value to search
+ * @return the position of the highest set bit, or 0 if l is 0
+ */
 static inline unsigned fls_long(unsigned long l)
 {
         return kfls(l);
@@ -46,6 +57,11 @@ int ____ilog2_NaN(void);
  * non-constant log of base 2 calculators
  */
 
+/**
+ * @brief compute the base-2 logarithm of a 32-bit value
+ * @param n: the value
+ * @return floor(log2(n)); undefined if n is not a power of two
+ */
 static inline __attribute__((const))
 int __ilog2_u32(uint32_t n)
 {
@@ -57,6 +73,11 @@ int __ilog2_u32(uint32_t n)
  * *not* considered a power of two.
  */
 
+/**
+ * @brief determine whether a value is a power of two (zero is not)
+ * @param n: the value to test
+ * @return true if n is a power of two, false otherwise
+ */
 static inline __attribute__((const))
 bool is_power_of_2(unsigned long n)
 {
@@ -66,6 +87,12 @@ bool is_power_of_2(unsigned long n)
 /*
  * round up to nearest power of two
  */
+
+/**
+ * @brief round a value up to the nearest power of two
+ * @param n: the value to round
+ * @return the nearest power of two that is >= n; undefined if n == 0
+ */
 static inline __attribute__((const))
 unsigned long __roundup_pow_of_two(unsigned long n)
 {
@@ -74,6 +101,12 @@ unsigned long __roundup_pow_of_two(unsigned long n)
 
 /*
  * round down to nearest power of two
+ */
+
+/**
+ * @brief round a value down to the nearest power of two
+ * @param n: the value to round
+ * @return the nearest power of two that is <= n; undefined if n == 0
  */
 static inline __attribute__((const))
 unsigned long __rounddown_pow_of_two(unsigned long n)

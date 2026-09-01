@@ -8,6 +8,14 @@
 #include <asm/leon.h>
 #include <asm/ttable.h>
 
+/**
+ * @brief halt the machine
+ *
+ * @param reason an 8-bit reason code passed to the reset trap (ta 0x2)
+ *
+ * @note this function never returns
+ */
+
 void machine_halt(uint8_t reason)
 {
         long _r = (long)reason;
@@ -23,6 +31,12 @@ void machine_halt(uint8_t reason)
 	__asm__ __volatile__ ("ta 2\n\t":::);
 	while(1);
 }
+
+/**
+ * @brief disable traps and enter an infinite error loop trap (ta 80)
+ *
+ * @note this function never returns
+ */
 
 void die(void)
 {

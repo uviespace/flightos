@@ -1,3 +1,14 @@
+/**
+ * @file arch/sparc/include/stack.h
+ * @ingroup schedthread
+ * @ingroup threadsys
+ *
+ * @brief SPARC stack frame layout and stack migration
+ *
+ * Defines the offsets of the stack frame fields and the declaration of the
+ * stack migration routine.
+ */
+
 #ifndef _SPARC_STACK_H_
 #define _SPARC_STACK_H_
 
@@ -120,6 +131,17 @@ compile_time_assert(sizeof(struct sparc_stackf) == STACKFRAME_SZ,
 		    SPARC__STACK_FRAME_SIZE_INVALID);
 
 
+/**
+ * @brief migrate a stack
+ *
+ * @param sp the (bottom) stack pointer of the old stack
+ * @param stack_top_new the top of the new stack area
+ *
+ * @return 0 on success, -EINVAL if the new stack top is NULL
+ *
+ * @note the new stack area is assumed to at least hold the old stack
+ * @note remember that SPARC stacks grow from top to bottom
+ */
 int stack_migrate(void *sp, void *stack_top_new);
 
 #endif /* !(__ASSEMBLY__) */

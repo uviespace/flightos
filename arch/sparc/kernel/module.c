@@ -2,7 +2,7 @@
  * @file arch/sparc/kernel/module.c
  *
  * @ingroup sparc
- * @brief implements architecture-specific @ref kernel_module interfaces
+ * @brief implements architecture-specific kernel module interfaces
  */
 
 #include <kernel/module.h>
@@ -11,14 +11,15 @@
 
 
 /**
- * @brief apply relocation + addend
+ * @brief apply an ELF relocation + addend
  *
  * @param m an ELF module
  * @param rel an ELF relocation entry
  * @param sym the address of the target symbol
  * @param sec_name the name of the section to apply the relocation in
  *
- * return 0 on success
+ * @return 0 on success, -EINVAL on invalid arguments, -ENOEXEC on
+ *	 unsupported relocation types
  */
 
 int apply_relocate_add(struct elf_binary *m, Elf_Rela *rel, Elf_Addr sym, const char *sec_name)

@@ -1,0 +1,34 @@
+@startuml
+title FlightOS scheduling and thread creation architecture
+top to bottom direction
+skinparam linetype ortho
+skinparam componentStyle rectangle
+
+package "High-level kernel" {
+  [Thread lifecycle] as threads
+  [Scheduler core] as core
+  [Round-robin policy] as rr
+  [EDF policy] as edf
+  [Task and scheduler abstractions] as abstractions
+}
+
+package "SPARC architecture" {
+  [Task-core setup] as setup
+  [Thread startup wrapper] as starter
+  [Saved thread_info context] as context
+  [Context switch] as switch
+  [Stack layout and migration] as stack
+}
+
+threads --> abstractions : task state
+core --> abstractions : scheduler contract
+core --> rr : policy operations
+core --> edf : policy operations
+threads --> setup : architecture hook
+setup --> starter : initial continuation
+starter --> context : saved state
+core --> switch : selected task
+switch --> context : save/restore
+setup --> stack : stack bounds
+switch --> stack : SPARC frames
+@enduml

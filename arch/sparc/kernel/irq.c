@@ -2,31 +2,20 @@
  * @file arch/sparc/kernel/irq.c
  *
  * @ingroup sparc
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * @ingroup irqsys
+ * @ingroup interrupts
+ * @addtogroup irqsys
  *
  * @todo irq configuration should only be done through a syscall,
  *       so traps are disabled
  *
  * @todo this needs locking for all resouces shared between CPUs
  *
- * @brief an IRQ manager that dispatches interrupts to registered
- *	  handler functions
+ * @brief architecture-specific LEON IRQ backend for the generic IRQ interface
  *
- * Implements an interrupt handler that supports registration of a predefined
- * arbitrary number of handler function per interrupt with immediate or deferred
- * execution priorities. Callbacks are tracked in linked lists that  should
- * always be allocated in a contiguous block of memory for proper cache
- * hit rate.
- *
- * @image html sparc/sparc_irq_manager.png "IRQ manager"
+ * Implements registration of multiple handler functions per interrupt with
+ * immediate or deferred execution priorities. Registered handlers are tracked
+ * in vectors backed by fixed-size pools.
  *
  * @note this implements the processor specific IRQ logic
  *
@@ -37,6 +26,276 @@
  * @note We do NOT cache-bypass read from interrupt control registers when
  *	 handling interrupts. It should not be necessary and can
  *	 potentially save a few cycles.
+ *
+ *
+ * ## Role within the interrupt subsystem
+ *
+ * This file is the architecture-specific counterpart of the high-level
+ * abstracted IRQ interface in kernel/irq.c. It implements the operations of a
+ * struct irq_dev and registers them with the generic layer through
+ * leon_irq_init() -> irq_init(&leon_irq). leon_irq_init() is called from
+ * setup_arch() during boot (see the "Boot Flow" diagram in setup.c).
+ *
+ * The LEON backend populates the generic callback table with these operations:
+ *
+ *   - irq_enable        -> enable_irq()
+ *                          (irl_register_handler() / eirl_register_handler())
+ *   - irq_disable       -> disable_irq()
+ *                          (irl_deregister_handler() / eirl_deregister_handler())
+ *   - irq_mask          -> mask_irq()      -> leon_mask_irq()
+ *   - irq_unmask        -> unmask_irq()    -> leon_unmask_irq()
+ *   - irq_deferred      -> execute_deferred_irq() -> leon_irq_queue_execute()
+ *   - irq_set_affinity  -> set_affinity()
+ *   - irq_set_level     -> set_level()     -> leon_irq_set_level()
+ *
+ * ## Structure
+ *
+ *   - irl_vector[] / eirl_vector[]: one list head per primary (IRL) and
+ *     extended (EIRL) interrupt; holds the registered handlers
+ *     (struct irl_vector_elem).
+ *   - irl_pool / irl_pool_head: fixed pool of IRL_POOL_SIZE (64) handler
+ *     elements from which registrations are allocated.
+ *   - irl_queue_head / irq_queue_pool_head: deferred-execution queue and its
+ *     fixed pool of IRL_QUEUE_SIZE (64) elements.
+ *   - irq_cpu_affinity[]: per-IRQ CPU affinity (CPU_AFFINITY_NONE = unset);
+ *     drives the per-CPU interrupt mask registers.
+ *   - leon_irqctrl_regs / leon_eirqctrl_regs: memory-mapped registers of the
+ *     LEON2/LEON3/LEON4 interrupt controllers (see asm/leon_reg.h); the
+ *     build-time CONFIG_LEONx selects the register map, IRL_SIZE/EIRL_SIZE
+ *     and the controller base address.
+ *   - irqtrap.S provides the trap entry (__interrupt_entry) that the trap
+ *     table (ttable.S) jumps to; with CONFIG_ARCH_CUSTOM_BOOT_CODE it calls
+ *     leon_irq_dispatch() directly, otherwise BCC's libgloss catch_interrupt()
+ *     is used.
+ *
+ * ## Hardware interrupt path
+ *
+ * An interrupt asserted on the LEON interrupt controller raises a SPARC
+ * asynchronous trap. The trap table branches into irqtrap.S, which saves the
+ * register window (SAVE_ALL, etrap.S), re-arms the PSR (PIL/ET according to
+ * CONFIG_SPARC_NESTED_IRQ) and calls leon_irq_dispatch(). That routine walks
+ * the registered handlers of the IRQ, executing immediate handlers inline and
+ * queueing deferred ones; extended interrupts are delivered on the external
+ * IRQ line (LEON3/4: LEON3_EXTIRQ, currently also used by LEON3_IPIRQ) and
+ * decoded by leon_eirq_dispatch(). The whole path is documented by the
+ * interrupt flow diagram below.
+ *
+ * ## Needs review
+ *
+ *   - Deferred re-queue semantics: leon_irq_queue_execute() re-queues a
+ *     handler when it returns 0 (IRQ_NONE) and returns it to the pool on a
+ *     non-zero return (IRQ_HANDLED); the mapping of the irqreturn convention
+ *     to this decision needs review.
+ *   - IRQ rate protection (CONFIG_IRQ_RATE_PROTECT) is experimental and
+ *     disabled in the source (#if 0); its restore path runs as the
+ *     "IRQ_RESTORE" kernel thread.
+ *   - The return codes of the handlers called from leon_irq_dispatch() are
+ *     currently ignored.
+ *
+ * @startuml FlightOS LEON IRQ Backend
+ * title LEON IRQ Backend (arch/sparc/kernel/irq.c)
+ *
+ * !pragma layout ortho
+ *
+ * skinparam component {
+ *   BackgroundColor #E8F5E9
+ *   BorderColor #333333
+ * }
+ * skinparam arrowColor #333333
+ *
+ * package "Generic layer (kernel/irq.c)" {
+ *   [irq_ctrl] as CTRL
+ * }
+ *
+ * package "LEON backend (arch/sparc/kernel/irq.c)" {
+ *   [struct irq_dev leon_irq] as IRQDEV
+ *   [enable_irq\nirl/eirl_register] as EN
+ *   [disable_irq\nirl/eirl_deregister] as DIS
+ *   [leon_irq_dispatch] as DISP
+ *   [leon_irq_queue\nleon_irq_queue_execute] as QUEUE
+ *   [IRL vector / EIRL vector] as VECT
+ *   [irl_pool\nqueue pool] as POOL
+ * }
+ *
+ * package "Trap / entry" {
+ *   [ttable.S] as TT
+ *   [irqtrap.S] as TR
+ *   [etrap.S] as ETR
+ *   [rtrap.S] as RTR
+ * }
+ *
+ * package "Controller hardware" {
+ *   [leon irqctrl\n(e)irq registers] as HW
+ * }
+ *
+ * CTRL -down-> IRQDEV : irq_init(&leon_irq)
+ * IRQDEV ..> EN : irq_enable / irq_disable
+ * IRQDEV ..> QUEUE : irq_deferred
+ * IRQDEV ..> HW : irq_mask / irq_unmask\nirq_set_affinity / irq_set_level
+ *
+ * EN -down-> VECT : append to irl_vector[irq]\nor eirl_vector[irq]
+ * EN -down-> HW : leon_enable_irq()\nunmask + clear IRQ
+ * DIS -down-> VECT : remove from irl_vector[irq]\nor eirl_vector[irq]
+ * DIS -down-> HW : leon_disable_irq()\nmask + clear IRQ
+ * QUEUE -down-> POOL
+ * DISP -down-> VECT : walk registered handlers
+ * DISP -down-> QUEUE : deferred handlers
+ * DISP -down-> HW : leon_mask_irq()\nleon_unmask_irq()\nleon_enable_irq()
+ *
+ * TT -down-> TR : TRAP_INTERRUPT(level)
+ * TR -down-> ETR : SAVE_ALL -> trap_setup
+ * TR -down-> DISP : leon_irq_dispatch(irq)
+ * TR -down-> RTR : RESTORE_ALL -> ret_trap_entry
+ *
+ * note bottom of POOL
+ *   irl_pool: IRL_POOL_SIZE (64) handler elements
+ *   queue pool: IRL_QUEUE_SIZE (64) elements
+ * end note
+ *
+ * @enduml
+ *
+ * @startuml FlightOS Interrupt Flow
+ * title Interrupt Handling Flow
+ *
+ * skinparam sequence {
+ *   ArrowColor #333333
+ *   LifeLineBorderColor #333333
+ *   ParticipantBackgroundColor #FFF3E0
+ * }
+ *
+ * participant "ttable.S" as TTABLE
+ * participant "irqtrap.S" as IRQTRAP
+ * participant "etrap.S" as ETRAP
+ * participant "rtrap.S" as RTRAP
+ * participant "irq.c\n(arch)" as IRQARCH
+ * participant "irq.c\n(kernel)" as IRQCORE
+ * participant "handler" as HANDLER
+ * participant "sched" as SCHED
+ *
+ * == Interrupt Registration ==
+ *
+ * IRQCORE -> IRQARCH : irq_request(irq, prio, handler, data)
+ * activate IRQARCH
+ * IRQARCH -> IRQARCH : irl_register_handler()\n  allocate irl_vector_elem\n  append to irl_vector[irq]
+ * IRQARCH -> IRQARCH : leon_enable_irq()\n  unmask + clear IRQ
+ * note right of IRQARCH
+ *   catch_interrupt(leon_irq_dispatch, irq)
+ *   is only used without the custom boot
+ *   code (CONFIG_ARCH_CUSTOM_BOOT_CODE);
+ *   otherwise irqtrap.S calls
+ *   leon_irq_dispatch() directly.
+ * end note
+ * IRQARCH --> IRQCORE
+ *
+ * == Interrupt Dispatch ==
+ *
+ * TTABLE -> IRQTRAP : TRAP_INTERRUPT(level)
+ * activate IRQTRAP
+ * IRQTRAP -> ETRAP : SAVE_ALL -> trap_setup
+ * activate ETRAP
+ * ETRAP -> ETRAP : build pt_regs frame\nhandle window overflow\nre-enable traps (PIL)
+ * ETRAP --> IRQTRAP
+ *
+ * IRQTRAP -> IRQARCH : leon_irq_dispatch(irq)
+ * activate IRQARCH
+ *
+ * alt ISR_PRIORITY_NOW
+ *   IRQARCH -> HANDLER : handler(irq, data)\nimmediate execution
+ * else deferred
+ *   IRQARCH -> IRQARCH : leon_irq_queue(elem)\nadd to irl_queue_head
+ * end
+ *
+ * note right of IRQARCH
+ *   CONFIG_IRQ_RATE_PROTECT:
+ *   if IRQ fires too fast,
+ *   mask + mark blocked.
+ *   Restore via IRQ_RESTORE kthread.
+ * end note
+ *
+ * IRQARCH --> IRQTRAP
+ *
+ * opt CONFIG_SPARC_NESTED_IRQ && !DISABLE_TASK_PREEMPTION
+ *   IRQTRAP -> SCHED : schedule()
+ * end
+ *
+ * IRQTRAP -> RTRAP : RESTORE_ALL -> ret_trap_entry
+ * activate RTRAP
+ * RTRAP -> RTRAP : restore WIM/PSR\nLOAD_PT_ALL\njmp %t_pc, rett %t_npc
+ * RTRAP --> IRQTRAP : return to interrupted code
+ *
+ * deactivate RTRAP
+ * deactivate IRQTRAP
+ * deactivate ETRAP
+ * deactivate IRQARCH
+ *
+ * == Deferred Execution ==
+ *
+ * IRQCORE -> IRQCORE : irq_exec_deferred()\n-> leon_irq_queue_execute()
+ * IRQCORE -> HANDLER : handler(irq, data)
+ * note right of HANDLER
+ *   retval != 0: remove from pool
+ *   retval == 0: re-queue
+ * end note
+ *
+ * @enduml
+ *
+ * @startuml FlightOS IRQ Dispatch Activity
+ * title leon_irq_dispatch() - Handler Dispatch
+ *
+ * skinparam activityBackgroundColor #E8F5E9
+ * skinparam activityBorderColor #333333
+ *
+ * start
+ * :update IRQ statistics\n(CONFIG_IRQ_STATS_COLLECT);
+ * :for each registered handler in\nirl_vector[irq];
+ * if (priority == ISR_PRIORITY_NOW) then (immediate)
+ *   :handler(irq, data)\nimmediate execution;
+ * else (deferred)
+ *   if (leon_irq_queue(p_elem) < 0) then (queue full)
+ *     :handler(irq, data)\nfallback to immediate execution;
+ *   else (queued)
+ *     :add to irl_queue_head\nfor later execution;
+ *   endif
+ * endif
+ * :repeat for next handler;
+ * :update IRQ rate protection\n(CONFIG_IRQ_RATE_PROTECT);
+ * :return 0;
+ * stop
+ *
+ * @enduml
+ *
+ * @startuml FlightOS Deferred Handler Execution
+ * title leon_irq_queue_execute() - Deferred Handler Execution
+ *
+ * skinparam activityBackgroundColor #E8F5E9
+ * skinparam activityBorderColor #333333
+ *
+ * start
+ * if (irl_queue_head empty) then (yes)
+ *   stop
+ * else (not empty)
+ * endif
+ * :take next element from\nirl_queue_head;
+ * if (handler set) then (yes)
+ *   :ret = handler(irq, data);
+ *   if (ret == 0) then (IRQ_NONE)
+ *     :leon_irq_queue()\nre-queue for a later pass;
+ *   else (non-zero / IRQ_HANDLED)
+ *     :return element to\nirq_queue_pool_head;
+ *   endif
+ *   note right
+ *     ret == 0 -> re-queue,
+ *     ret != 0 -> pool.
+ *     Mapping to the irqreturn
+ *     convention needs review.
+ *   end note
+ * else (no handler)
+ *   :return element to\nirq_queue_pool_head;
+ * endif
+ * :repeat while queue not empty;
+ * stop
+ *
+ * @enduml
  */
 
 
@@ -409,6 +668,12 @@ static inline void leon_irq_restore(unsigned long old_psr)
 
 
 
+/**
+ * @brief enable local interrupts
+ *
+ * Clears the PSR PIL field so that all interrupt levels are enabled.
+ */
+
 void arch_local_irq_enable(void)
 {
 	leon_irq_enable();
@@ -416,12 +681,26 @@ void arch_local_irq_enable(void)
 EXPORT_SYMBOL(arch_local_irq_enable);
 
 
+/**
+ * @brief save the interrupt state and disable interrupts
+ *
+ * @return the previous interrupt state (PSR), usable with
+ *	 arch_local_irq_restore()
+ */
+
 unsigned long arch_local_irq_save(void)
 {
 	return leon_irq_save();
 }
 EXPORT_SYMBOL(arch_local_irq_save);
 
+
+/**
+ * @brief restore the previous local interrupt state
+ *
+ * @param flags the interrupt state to restore, previously obtained
+ *	 from arch_local_irq_save()
+ */
 
 void arch_local_irq_restore(unsigned long flags)
 {

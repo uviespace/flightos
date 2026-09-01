@@ -270,12 +270,15 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
 	     pos = list_entry(pos->member.prev, __typeof(*pos), member))
 
 
-/*
+/**
  * @brief delete a list entry by making the prev/next entries
  *        point to each other.
  *
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
+ *
+ * @param prev the predecessor of the entry to delete
+ * @param next the successor of the entry to delete
  */
 static inline void __list_del(struct list_head *prev, struct list_head *next)
 {
@@ -302,7 +305,7 @@ static inline void list_del(struct list_head *entry)
 /**
  * @brief deletes entry from list.
  * @param entry: the element to delete from the list.
- * @brief list_empty() on entry does not return true after this, the entry is
+ * @note list_empty() on entry does not return true after this, the entry is
  *        in an undefined state.
  */
 

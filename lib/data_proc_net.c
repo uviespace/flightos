@@ -296,7 +296,7 @@ struct proc_task *pn_get_next_pending_task(struct proc_tracker *pt)
  * @param pn a struct proc_net
  * @param pt a struct proc_tracker
  * @param t  a struct proc_task
- * @þaram ret a tasks op function's return code
+ * @param ret a task's op function's return code
  *
  * @returns 1 if processing of the current tracker may continue or 0 to abort
  *
@@ -420,6 +420,9 @@ int pn_process_next(struct proc_net *pn)
 
 /**
  * @brief add a task to the input of the network
+ *
+ * @param pn a struct proc_net
+ * @param t  a struct proc_task to add to the network input
  */
 
 void pn_input_task(struct proc_net *pn, struct proc_task *t)
@@ -436,6 +439,8 @@ void pn_input_task(struct proc_net *pn, struct proc_task *t)
 
 /**
  * @brief assign input tasks to their first processing node
+ *
+ * @param pn a struct proc_net
  *
  * @returns 0 or -1 on error (e.g. no processing nodes defined)
  */
@@ -586,9 +591,6 @@ int pn_add_node(struct proc_net *pn, struct proc_tracker *pt)
 
 /**
  * @brief create a processing network with an input and output node
- *
- * @param n_input_tasks_critical critical level of input task
- * @param n_output_tasks_critical critical level of output task
  *
  * @return processing network or NULL on error
  *

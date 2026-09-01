@@ -1,0 +1,20 @@
+@startuml
+title Xentium processing task activity
+!pragma layout ortho
+skinparam linetype ortho
+
+start
+:load Xentium ELF and exported configuration;
+:create processing-network tracker node;
+:xentium_input_task() inserts task;
+:scheduler selects pending node, kernel, and free Xentium;
+:reserve/use Xentium DMA channel;
+:write entry point to mailbox 0;
+:write xen_msg_data pointer to mailbox 1;
+:Xentium executes kernel;
+:Xentium interrupt handler reads mailbox 2;
+:handle task or memory command;
+:schedule next pending task;
+:xentium_output_tasks() dispatches output node;
+stop
+@enduml

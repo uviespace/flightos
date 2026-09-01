@@ -2,7 +2,7 @@
  * @file arch/sparc/kernel/smp.c
  *
  * @ingroup sparc
- * @brief implements architecture-specific @ref kernel_smp interface
+ * @brief implements the architecture-specific SMP interface
  */
 
 #include <kernel/smp.h>
@@ -19,6 +19,12 @@
 #endif
 
 
+/**
+ * @brief get the current CPU id
+ *
+ * @return the id of the executing CPU
+ */
+
 int smp_cpu_id(void)
 {
 
@@ -30,6 +36,14 @@ int smp_cpu_id(void)
 }
 
 
+/**
+ * @brief send a reschedule request to another CPU
+ *
+ * @param cpu the target CPU id
+ *
+ * @note implemented via a forced IRQMP extended interrupt on LEON3/4
+ */
+
 void smp_send_reschedule(int cpu)
 {
 #if defined(CONFIG_LEON4) || defined(CONFIG_LEON3)
@@ -39,6 +53,12 @@ void smp_send_reschedule(int cpu)
 #endif /* CONFIG_LEON3 */
 }
 
+
+/**
+ * @brief initialise the SMP subsystem
+ *
+ * @note enables the reschedule IRQ on all configured CPUs
+ */
 
 void smp_init(void)
 {

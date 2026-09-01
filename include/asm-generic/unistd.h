@@ -1,3 +1,11 @@
+/**
+ * @file include/asm-generic/unistd.h
+ *
+ * @brief generic syscall number table
+ *
+ * Hardcodes the syscall numbers used by the kernel.
+ */
+
 #ifndef _ASM_GENERIC_UNISTD_H
 #define _ASM_GENERIC_UNISTD_H
 

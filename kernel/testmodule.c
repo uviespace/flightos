@@ -1,3 +1,14 @@
+/**
+ * @file kernel/testmodule.c
+ *
+ * @brief test module implementing reference image-/signal-processing routines
+ *
+ * This module contains reference implementations of algorithms used for
+ * star detection and centroiding, including FWHM/PSF-based peak detection,
+ * Pearson correlation for image registration and signal-strip extraction.
+ * It is provided as a demo/test module for the embedded application.
+ */
+
 #include <kernel/module.h>
 #include <kernel/kthread.h>
 #include <kernel/sysctl.h>
@@ -49,6 +60,14 @@ typedef union {
   float f;
 } float_bits;
 
+/**
+ * @brief find the position of the most significant set bit
+ *
+ * @param x the integer to examine
+ *
+ * @return the position of the highest set bit (1-indexed), 0 if x is 0
+ */
+
 int fls(int x)
 {
 	int r = 32;
@@ -78,10 +97,26 @@ int fls(int x)
 	return r;
 }
 
+/**
+ * @brief count leading zeros of a long integer (compiler built-in replacement)
+ *
+ * @param val the value to count leading zeros for
+ *
+ * @return the number of leading zeros
+ */
+
 int __attribute__((weak)) __clzdi2(long val)
 {
 	return 32 - fls((int)val);
 }
+
+/**
+ * @brief convert an unsigned 64-bit integer to float (soft-float)
+ *
+ * @param a the unsigned 64-bit integer to convert
+ *
+ * @return the floating-point representation
+ */
 
 #define FLT_MANT_DIG 24
 float __floatundisf(uint64_t a)
@@ -141,6 +176,14 @@ float __floatundisf(uint64_t a)
 
 
 
+/**
+ * @brief convert an unsigned 64-bit integer to double (soft-float)
+ *
+ * @param a the unsigned 64-bit integer to convert
+ *
+ * @return the double-precision floating-point representation
+ */
+
 double __floatundidf(uint64_t a) {
   static const double twop52 = 4503599627370496.0;           // 0x1.0p52
   static const double twop84 = 19342813113834066795298816.0; // 0x1.0p84
@@ -186,6 +229,17 @@ struct coord ArielCoG (unsigned int *img, unsigned int rows, unsigned int cols, 
 
 
 
+
+/**
+ * @brief generate the Ariel point spread function into an image buffer
+ *
+ * @param img  pointer to the output image buffer (will be zeroed)
+ * @param cols number of columns in the image
+ * @param rows number of rows in the image
+ * @param x0   x coordinate of the PSF center
+ * @param y0   y coordinate of the PSF center
+ * @param Fgs  fine guide sensor index (1 or 2), selects PSF coefficients
+ */
 
 void GetArielPSF(float *img, unsigned int cols, unsigned int rows, float x0, float y0, unsigned int Fgs)
 {
@@ -284,13 +338,17 @@ void GetArielPSF(float *img, unsigned int cols, unsigned int rows, float x0, flo
 }
 
 /**
- * @biref   Region of interest refinement for the centroiding algorithm
+ * @brief   Region of interest refinement for the centroiding algorithm
  *
- * The function takes the original image and extracts a smaller RoI starting from the defined point
+ * The function takes the original image and extracts a smaller RoI starting
+ * from the defined point
  *
  * @param   image: array containing the original RoI
- * @param   width/height: dimensions of the image
- * @param   target_x/target_y: upper left corner of the RoI
+ * @param   roi: array that receives the refined RoI
+ * @param   width: width of the image
+ * @param   height: height of the image
+ * @param   target_x: upper left corner x of the RoI
+ * @param   target_y: upper left corner y of the RoI
  * @param   roi_size: size of the refined RoI
  *
  * @returns refined Region of Interest
@@ -480,6 +538,22 @@ void IntensityWeightedCenterOfGravity2D (unsigned int *img, unsigned int rows, u
 
 
 
+/**
+ * @brief iteratively calculate weighted center of gravity with PSF refinement
+ *
+ * @param img    pointer to the image buffer
+ * @param weights pointer to the weights buffer
+ * @param rows   number of rows in the image
+ * @param cols   number of columns in the image
+ * @param iter   number of iterations
+ * @param x      pointer to the x position (input/output)
+ * @param y      pointer to the y position (input/output)
+ * @param mode   PSF mode (0 = Gaussian)
+ * @param fwhm_x full width at half maximum in x
+ * @param fwhm_y full width at half maximum in y
+ * @param Fgs    fine guide sensor index (1 or 2)
+ */
+
 void IterativelyWeightedCenterOfGravity2D (unsigned int *img, float *weights, unsigned int rows, unsigned int cols, unsigned int iter, float *x, float *y, int mode, float fwhm_x, float fwhm_y, int Fgs)
 {
     unsigned int i;
@@ -509,6 +583,7 @@ void IterativelyWeightedCenterOfGravity2D (unsigned int *img, float *weights, un
  *
  * @param    measured_data      array containing the measured data distribution
  * @param    reference_data     array containing the reference data
+ * @param    signal             signal amplitude scaling factor applied to the reference data
  * @param    length_set         length of the given data sets
  *
  * @returns the pearson r of the two given samples
@@ -549,11 +624,13 @@ float pearson_r(unsigned int *measured_data, const float* reference_data, unsign
  * coefficient that is used as the quality metric of the Centroid Validation
  *
  * @param    data               array of input samples
- * @param    strip_x/strip_y    Pointers of the target strip arrays
- * @param    dim_x/dim_y        size of data in x and y
+ * @param    strip_x            pointer to the target strip array for x
+ * @param    strip_y            pointer to the target strip array for y
+ * @param    dim_x              size of data in x
+ * @param    dim_y              size of data in y
  * @param    length             length of the strips
- * @param    x_center           estimated center in x
- * @param    y_center           estimated center in y
+ * @param    x                  estimated center in x
+ * @param    y                  estimated center in y
  *
  */
 
@@ -608,8 +685,8 @@ void extract_strips(unsigned int *data, unsigned int *strip_x, unsigned int *str
  * @brief    calculates mean and standard deviation for a given dataset
  * @param[in]    data    pointer to the input data (integer)
  * @param[in]    len     number of values to process
- * @param[out]   pointer to the mean (float) to store the result
- * @param[out]   pointer to the stdev (float) to store the result
+ * @param[out]   m       pointer to the mean (float) to store the result
+ * @param[out]   sig     pointer to the stdev (float) to store the result
  * @note         considers Bessel correction
  */
 
@@ -833,6 +910,26 @@ static int isqrt(int num)
 
 
 
+/**
+ * @brief check an ROI for the presence of a star and compute validity metrics
+ *
+ * The image is binned to 5x5 pixels, then statistical checks are performed
+ * to determine if a valid star is present. A Pearson correlation against
+ * reference PSF profiles is used for validation.
+ *
+ * @param data            pointer to the image data
+ * @param x_dim           image width in pixels
+ * @param y_dim           image height in pixels
+ * @param CenSignalLimit  threshold for signal range check
+ * @param CenSigmaLimit   threshold for sigma check
+ * @param PearsonLimit    threshold for Pearson correlation product
+ * @param fgs             fine guide sensor index (1 or 2)
+ * @param x_center        estimated center position in x
+ * @param y_center        estimated center position in y
+ *
+ * @return a valpack containing the validity flag and star magnitude
+ */
+
 struct valpack CheckRoiForStar (unsigned int *data, unsigned int x_dim, unsigned int y_dim, unsigned int CenSignalLimit, unsigned int CenSigmaLimit, float PearsonLimit, unsigned int fgs, double x_center, double y_center)
 {
     unsigned int i;
@@ -1034,6 +1131,29 @@ struct valpack CheckRoiForStar (unsigned int *data, unsigned int x_dim, unsigned
 
 float weights[REF*REF];
 unsigned int roi[REF*REF];
+
+/**
+ * @brief compute the centroid of a star in an image by iterated RoI refinement
+ *
+ * Starts with an intensity-weighted center of gravity of the full image, then
+ * repeatedly refines a region of interest around the current estimate and
+ * recomputes the centroid, optionally using a PSF-weighted center of gravity.
+ *
+ * @param img              pointer to the image data
+ * @param rows             number of rows of the image
+ * @param cols             number of columns of the image
+ * @param iterations       number of refinement iterations
+ * @param mode             centroid mode selector (e.g. MODE_GAUSS)
+ * @param fwhm_x           PSF full width at half maximum in x
+ * @param fwhm_y           PSF full width at half maximum in y
+ * @param fgs              PSF generation selector
+ * @param refined_roi_size size of the refined region of interest
+ * @param CenSignalLimit   centroid signal amplitude limit
+ * @param CenSigmaLimit    centroid sigma limit
+ * @param PearsonLimit     minimum acceptable Pearson quality metric
+ *
+ * @return struct coord with the computed centroid (res.x, res.y)
+ */
 
 struct coord ArielCoG (unsigned int *img, unsigned int rows, unsigned int cols, unsigned int iterations, int mode, float fwhm_x, float fwhm_y, int fgs, unsigned int refined_roi_size, unsigned int CenSignalLimit, unsigned int CenSigmaLimit, float PearsonLimit)
 {
@@ -1239,6 +1359,18 @@ static int time_test(void *data)
  * will run in.
  */
 
+/**
+ * @brief module entry point, called when the module is loaded
+ *
+ * @return 0 on success
+ */
+
+/**
+ * @brief module entry point, called when the module is loaded
+ *
+ * @return 0 on success
+ */
+
 int init_test(void)
 {
 	struct task_struct *t;
@@ -1271,8 +1403,9 @@ int init_test(void)
 
 
 /**
- * this is our optional exit call, it will be called when the module/module
- * is removed by the kernel
+ * @brief module exit point, called when the module is removed
+ *
+ * @return 0 on success
  */
 
 int exit_test(void)

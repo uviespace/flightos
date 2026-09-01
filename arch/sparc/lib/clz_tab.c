@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
+
+/**
+ * @file arch/sparc/lib/clz_tab.c
+ *
+ * @brief count-leading-zeros lookup table
+ *
+ * Defines __clz_tab, a byte-indexed table giving the number of leading zero
+ * bits for each byte value, used by the compiler runtime.
+ */
 const unsigned char __clz_tab[] = {
 	0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
 	    5, 5, 5, 5, 5, 5, 5, 5,

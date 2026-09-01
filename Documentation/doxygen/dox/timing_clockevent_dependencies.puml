@@ -1,0 +1,46 @@
+@startuml
+title Clockevent Subsystem Dependencies
+top to bottom direction
+!pragma layout ortho
+skinparam linetype ortho
+skinparam component {
+  BackgroundColor #FFF3E0
+  BorderColor #333333
+}
+skinparam arrowColor #333333
+
+package "Consumers" {
+  [tick.c] as TICK
+  [watchdog.c] as WDOG
+  [sched/core.c] as SCHED
+}
+
+package "Clockevent Core (kernel/)" {
+  [clockevent.c] as CLKEVT
+}
+
+package "Architecture" {
+  [clockevent.c\n(sparc)] as CLKEVTARCH
+  [gptimer.c] as GPTIMER
+}
+
+package "Abstraction" {
+  [struct clock_event_device] as CED
+}
+
+TICK -down-> CLKEVT : event scheduling
+WDOG -down-> CLKEVT : watchdog timing
+SCHED -right-> CLKEVT : tick timing
+
+CLKEVT -down-> CED : generic interface
+CLKEVTARCH -up-> CED : implements
+CLKEVTARCH -right-> GPTIMER : hardware timer
+
+note bottom of CED
+  clock_event_device:
+  event programming
+  state transitions
+  event handler
+  suspend/resume
+end note
+@enduml

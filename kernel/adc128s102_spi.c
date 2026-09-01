@@ -1,3 +1,16 @@
+/**
+ * @file kernel/adc128s102_spi.c
+ *
+ * @ingroup spi_driver
+ * @defgroup adc128s102_driver ADC128S102 SPI analog-to-digital converter
+ *
+ * @brief SPI client for sampling the eight ADC128S102 input channels.
+ *
+ * Provides an API to sample one of the ADC input channels over SPI and to
+ * register a chip-select line for the device. The driver is only compiled
+ * when DEMO_ADC128S102 is defined.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -184,6 +197,13 @@ static void adc128s102_poll(uint8_t channel)
 
 /**
  * @brief returns the last recorded value of an ADC channel
+ *
+ * Triggers a new SPI poll of the specified channel and returns the
+ * 12-bit ADC sample value.
+ *
+ * @param channel the ADC channel number (0-7), only the lower 3 bits are used
+ *
+ * @return the 12-bit ADC value for the specified channel
  */
 
 uint16_t adc128s102_get_value(uint8_t channel)
@@ -199,6 +219,16 @@ uint16_t adc128s102_get_value(uint8_t channel)
 
 /**
  * @brief register an ADC128S102 for operation
+ *
+ * Initialises an SPI device for the ADC128S102 ADC, stores the chip select
+ * callback, optionally sets up sysctl entries, and primes all 8 channel
+ * values with an initial read.
+ *
+ * @param chip_select function pointer to control the SPI chip select line
+ *                    (active low); the function takes a bool argument
+ *
+ * @return 0 on success, -EADDRINUSE if already registered, or -ENODEV
+ *         if the SPI device cannot be created
  *
  * @note: for now, the user must supply a chip select function for this
  * to work
@@ -233,6 +263,10 @@ int adc128s102_register(void (*chip_select)(bool))
 
 /**
  * @brief de-register the ADC128S102
+ *
+ * Releases the SPI device and clears the internal device reference.
+ *
+ * @return 0 on success, -ENODEV if the device is not registered
  */
 
 int adc128s102_deregister(void)

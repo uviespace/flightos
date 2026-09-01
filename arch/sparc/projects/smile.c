@@ -1,3 +1,12 @@
+/**
+ * @file arch/sparc/projects/smile.c
+ *
+ * @brief SMILE project board configuration
+ *
+ * Board-specific early setup for the SMILE project: configures the MRAM bank
+ * timing and the watchdog for this hardware platform.
+ */
+
 #include <kernel/init.h>
 #include <kernel/log2.h>
 #include <leon3_memcfg.h>
@@ -61,10 +70,16 @@ struct exchange_area {
 
 
 /**
- * @brief the dpu reset function
- * @param reset_type a reset type
+ * @brief the dpu reset function; records CPU state, timing information and
+ *        stack traces in the exchange area before halting the system
+ *
+ * @param irq the interrupt number that triggered the reset handler
+ * @param userdata reset type passed to the handler
+ *
  * @note this writes the exchange area specified in SMILE-IWF-PL-RS-015
  * DPU-SSSIF-IF-5420
+ *
+ * @note this function never returns, as it calls die()
  */
 
 irqreturn_t smile_write_reset_info(unsigned int irq, void *userdata)
