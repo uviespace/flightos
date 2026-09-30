@@ -5,6 +5,8 @@
 #ifndef _KERNEL_REBOOT_H_
 #define _KERNEL_REBOOT_H_
 
+#include <stdint.h>
+
 /** @brief reset reason: unaligned memory access */
 #define REBOOT_MEM_UNALIGNED	0xA1
 /** @brief reset reason: memory bounds violation */
